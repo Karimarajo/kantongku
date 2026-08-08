@@ -1,11 +1,13 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import Landing from './components/Landing.tsx';
 import './index.css';
-import './firebase-init';
+
+const isLanding = window.location.pathname === '/';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {isLanding ? <Landing /> : <App />}
   </StrictMode>,
 );

@@ -19,17 +19,10 @@ View your app in AI Studio: https://ai.studio/apps/23be34da-a6e4-4f51-8181-6b09f
 3. Run the app:
    `npm run dev`
 
-## Deploy to Render
+## Deploy
 
-This app is ready to deploy on Render because it uses an Express server in `server.ts`.
-
-1. Push this repository to GitHub.
-2. In Render, create a new Web Service and connect the GitHub repo.
-3. Use these values:
-   - Build Command: `npm install && npm run build`
-   - Start Command: `npm start`
-4. Add the environment variable:
-   - `GEMINI_API_KEY=<your Gemini API key>`
-5. Deploy.
-
-A Render config file is included in `render.yaml` for one-click setup.
+This app runs as a plain Node/Express process (`server.ts`) with a PostgreSQL database, a Google
+OAuth login, and Midtrans Snap payments — so it needs a host that runs a persistent Node service
+(not a serverless platform like Vercel). See [DEPLOYMENT.md](DEPLOYMENT.md) for a concrete,
+step-by-step guide to deploying on Railway or Render, including every environment variable, the
+`db/schema.sql` migration, and an end-to-end test checklist.

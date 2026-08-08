@@ -5,6 +5,15 @@ declare module "*.png" {
   export default value;
 }
 
+interface ImportMetaEnv {
+  readonly VITE_MIDTRANS_CLIENT_KEY: string;
+  readonly VITE_GOOGLE_CLIENT_ID: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 interface Window {
   daftarAkunFirebase?: (email: string, password: string) => Promise<any>;
   masukAkunFirebase?: (email: string, password: string) => Promise<any>;
