@@ -51,6 +51,14 @@ Di service **web app** → tab **Variables**, tambahkan seluruh isi `.env.exampl
 Catatan: variabel `VITE_*` di-inline ke bundle frontend saat `npm run build` berjalan di
 Railway — pastikan sudah di-set **sebelum** trigger build/deploy.
 
+> **Gotcha (Docker build):** Repo ini punya `Dockerfile`, dan Railway akan pakai itu
+> (bukan Nixpacks/Railpack) kalau terdeteksi. Docker build berjalan terisolasi dari env
+> var runtime — variabel `VITE_*` **tidak otomatis kebawa** ke dalam `RUN npm run build`
+> kecuali di-declare sebagai `ARG` di Dockerfile (lihat `ARG VITE_GOOGLE_CLIENT_ID` dkk).
+> Railway otomatis meneruskan service variable yang namanya cocok sebagai build arg —
+> tapi hanya untuk `ARG` yang memang dideklarasikan. Kalau nambah variabel `VITE_*` baru,
+> tambahkan juga pasangan `ARG`/`ENV`-nya di Dockerfile sebelum baris `RUN npm run build`.
+
 ## 4. Jalankan schema.sql ke database
 
 Ambil connection string Postgres dari Railway (tab **Connect** di service Postgres, pakai yang
