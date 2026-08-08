@@ -481,6 +481,7 @@ app.get("/api/me", requireSession, (req, res) => {
     name: user.name,
     avatarUrl: user.avatar_url,
     status: user.status,
+    joinedAt: user.joined_at,
   });
 });
 
@@ -499,6 +500,43 @@ app.post("/api/auth/logout", async (req, res) => {
   } catch (error: any) {
     console.error("Gagal logout:", error);
     res.status(500).json({ error: error.message || "Gagal logout" });
+  }
+});
+
+// ==========================================
+// App Data (per-account state, replaces browser localStorage)
+// ==========================================
+
+// Load the current user's saved application data (pockets, transactions, etc.)
+app.get("/api/data", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const result = await pool.query(`SELECT data FROM user_app_data WHERE user_id = $1`, [user.id]);
+    res.json(result.rows[0]?.data || {});
+  } catch (error: any) {
+    console.error("Gagal memuat data pengguna:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat data" });
+  }
+});
+
+// Persist the current user's application data (full snapshot overwrite)
+app.put("/api/data", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const data = req.body;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return res.status(400).json({ error: "Payload data tidak valid" });
+    }
+    await pool.query(
+      `INSERT INTO user_app_data (user_id, data, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = now()`,
+      [user.id, JSON.stringify(data)]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal menyimpan data pengguna:", error);
+    res.status(500).json({ error: error.message || "Gagal menyimpan data" });
   }
 });
 

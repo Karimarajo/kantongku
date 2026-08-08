@@ -78,105 +78,141 @@ export default function App() {
   const DEFAULT_SETTINGS: AppSettings = { currency: 'IDR', theme: 'dark', alarmRem: true };
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
-  // Load state from localStorage on boot & bind Firebase Auth state callback
-  useEffect(() => {
-    const savedUser = localStorage.getItem('kantongku_user');
-    const parsedUser = savedUser ? JSON.parse(savedUser) : null;
-    const stored = readStoredState(parsedUser?.email);
+  // Clear in-memory state back to the mockup defaults (used on logout / forced
+  // session invalidation so no data from the previous account lingers on screen).
+  const resetToDefaults = () => {
+    setCurrentUser(null);
+    setPockets(INITIAL_POCKETS);
+    setTransactions(INITIAL_TRANSACTIONS);
+    setAccounts(INITIAL_ACCOUNTS);
+    setCategories(CATEGORIES);
+    setBudgets(INITIAL_BUDGETS);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setReminders([]);
+    setAppSettings(DEFAULT_SETTINGS);
+  };
 
-    const loadedPockets = stored.pockets ? JSON.parse(stored.pockets) : INITIAL_POCKETS;
-    const loadedTransactions = stored.transactions ? JSON.parse(stored.transactions) : INITIAL_TRANSACTIONS;
-    const loadedAccounts = stored.accounts ? JSON.parse(stored.accounts) : INITIAL_ACCOUNTS;
-    const loadedCategories = stored.categories ? JSON.parse(stored.categories) : CATEGORIES;
-
-    if (savedUser) setCurrentUser(parsedUser);
-    
-    const defaultPocketId = loadedPockets[0]?.id || 'pribadi';
-    const initializedAccounts = loadedAccounts.map((a: Account) => ({
-      ...a,
-      allocations: a.allocations || { [defaultPocketId]: a.balance }
-    }));
-
-    setPockets(loadedPockets);
-    setTransactions(loadedTransactions);
-    setAccounts(initializedAccounts);
-    setCategories(loadedCategories);
-
-    if (stored.budgets) setBudgets(JSON.parse(stored.budgets));
-    if (stored.notifications) setNotifications(JSON.parse(stored.notifications));
-    if (stored.reminders) setReminders(JSON.parse(stored.reminders));
-
-    // Load app settings
-    const savedSettings = localStorage.getItem('kantongku_settings');
-    if (savedSettings) setAppSettings(JSON.parse(savedSettings));
-
-    // Register callback for Firebase Auth state changes
-    (window as any).onAuthStateChangedCallback = (firebaseUser: any) => {
-      console.log("[Firebase Auth State] Changed:", firebaseUser);
-      if (firebaseUser) {
-        // User is logged in
-        const storagePrefix = getStoragePrefix(firebaseUser.email);
-        const storedProfileStr = localStorage.getItem(`${storagePrefix}profile`);
-        let profile;
-        if (storedProfileStr) {
-          try {
-            profile = JSON.parse(storedProfileStr);
-            profile.email = firebaseUser.email;
-          } catch (e) {
-            profile = getDefaultProfile(firebaseUser.email, firebaseUser.displayName, firebaseUser.photoURL);
-          }
-        } else {
-          profile = getDefaultProfile(firebaseUser.email, firebaseUser.displayName, firebaseUser.photoURL);
-        }
-        setCurrentUser(profile);
-        localStorage.setItem('kantongku_user', JSON.stringify(profile));
-
-        const userStored = readStoredState(firebaseUser.email);
-        if (userStored.pockets) {
-          const loadedPockets = JSON.parse(userStored.pockets);
-          const loadedTransactions = userStored.transactions ? JSON.parse(userStored.transactions) : INITIAL_TRANSACTIONS;
-          const loadedAccounts = userStored.accounts ? JSON.parse(userStored.accounts) : INITIAL_ACCOUNTS;
-          const loadedCategories = userStored.categories ? JSON.parse(userStored.categories) : CATEGORIES;
-
-          const defaultPocketId = loadedPockets[0]?.id || 'pribadi';
-          const initializedAccounts = loadedAccounts.map((a: Account) => ({
-            ...a,
-            allocations: a.allocations || { [defaultPocketId]: a.balance }
-          }));
-
-          setPockets(loadedPockets);
-          setTransactions(loadedTransactions);
-          setAccounts(initializedAccounts);
-          setCategories(loadedCategories);
-          if (userStored.budgets) setBudgets(JSON.parse(userStored.budgets));
-          if (userStored.notifications) setNotifications(JSON.parse(userStored.notifications));
-          if (userStored.reminders) {
-            setReminders(JSON.parse(userStored.reminders));
-          } else {
-            setReminders([]);
-          }
-        } else {
-          setPockets(INITIAL_POCKETS);
-          setTransactions(INITIAL_TRANSACTIONS);
-          setAccounts(INITIAL_ACCOUNTS);
-          setCategories(CATEGORIES);
-          setBudgets(INITIAL_BUDGETS);
-          setNotifications(INITIAL_NOTIFICATIONS);
-          setReminders([]);
-        }
-
-        setActiveTab('home');
-      } else {
-        // User is logged out
+  // Load the authenticated session (server-verified, httpOnly cookie) and hydrate
+  // all app state from the account's saved data in Postgres. Called on boot and
+  // right after a successful Google login — this is what makes data follow the
+  // account across devices instead of being pinned to one browser's localStorage.
+  const loadSessionAndData = async () => {
+    try {
+      const meRes = await fetch('/api/me', { credentials: 'include' });
+      if (!meRes.ok) {
         setCurrentUser(null);
-        localStorage.removeItem('kantongku_user');
+        return;
       }
+      const me = await meRes.json();
+      const fallback = getDefaultProfile(me.email);
+      let profile: UserProfile = {
+        email: me.email,
+        name: me.name || fallback.name,
+        avatarUrl: me.avatarUrl || fallback.avatarUrl,
+        joinedAt: me.joinedAt || fallback.joinedAt,
+      };
+
+      const dataRes = await fetch('/api/data', { credentials: 'include' });
+      if (dataRes.ok) {
+        const data = await dataRes.json();
+        if (data.profile) {
+          profile = { ...profile, ...data.profile, email: me.email };
+        }
+
+        const loadedPockets: Pocket[] = data.pockets ?? INITIAL_POCKETS;
+        const loadedAccounts: Account[] = data.accounts ?? INITIAL_ACCOUNTS;
+        const defaultPocketId = loadedPockets[0]?.id || 'pribadi';
+
+        setPockets(loadedPockets);
+        setTransactions(data.transactions ?? INITIAL_TRANSACTIONS);
+        setAccounts(loadedAccounts.map((a: Account) => ({
+          ...a,
+          allocations: a.allocations || { [defaultPocketId]: a.balance }
+        })));
+        setCategories(data.categories ?? CATEGORIES);
+        setBudgets(data.budgets ?? INITIAL_BUDGETS);
+        setNotifications(data.notifications ?? INITIAL_NOTIFICATIONS);
+        setReminders(data.reminders ?? []);
+        setAppSettings(data.settings ?? DEFAULT_SETTINGS);
+      }
+
+      setCurrentUser(profile);
+      setActiveTab('home');
+    } catch (err) {
+      console.error('Gagal memuat sesi/data akun:', err);
+      setCurrentUser(null);
+    }
+  };
+
+  // Persist a snapshot of app state to the account's row in Postgres. Any caller
+  // can pass just the slices it changed — the rest falls back to current state.
+  const persistUserData = async (overrides: Partial<{
+    pockets: Pocket[];
+    transactions: Transaction[];
+    budgets: Budget[];
+    notifications: Notification[];
+    accounts: Account[];
+    categories: Category[];
+    reminders: Reminder[];
+    profile: UserProfile | null;
+    settings: AppSettings;
+  }>) => {
+    const payload = {
+      pockets: overrides.pockets ?? pockets,
+      transactions: overrides.transactions ?? transactions,
+      budgets: overrides.budgets ?? budgets,
+      notifications: overrides.notifications ?? notifications,
+      accounts: overrides.accounts ?? accounts,
+      categories: overrides.categories ?? categories,
+      reminders: overrides.reminders ?? reminders,
+      profile: overrides.profile ?? currentUser,
+      settings: overrides.settings ?? appSettings,
     };
 
-    return () => {
-      delete (window as any).onAuthStateChangedCallback;
-    };
+    try {
+      const res = await fetch('/api/data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 401) {
+        // Session was invalidated server-side (e.g. logged in from another device).
+        resetToDefaults();
+        return;
+      }
+      if (!res.ok) {
+        console.error('Gagal menyimpan data ke server:', await res.text().catch(() => res.statusText));
+      }
+    } catch (err) {
+      console.error('Gagal menyimpan data ke server:', err);
+    }
+  };
+
+  // Load session + data once on boot.
+  useEffect(() => {
+    loadSessionAndData();
   }, []);
+
+  // Periodically re-check session validity so a device gets logged out reasonably
+  // promptly after another device logs into the same account (server enforces
+  // 1 active session per account via current_session_id).
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch('/api/me', { credentials: 'include' });
+        if (res.status === 401) {
+          resetToDefaults();
+        }
+      } catch {
+        // Ignore transient network errors; next tick will retry.
+      }
+    }, 45000);
+
+    return () => clearInterval(intervalId);
+  }, [currentUser]);
 
   // Expose global firebase simpanTransaksiKeFirebase function as requested by guidelines
   useEffect(() => {
@@ -323,7 +359,7 @@ export default function App() {
     saveStateToStorage(newPockets, newTransactions, newBudgets, newNotifications, newAccounts, newCategories);
   };
 
-  // Sync state mutations to localStorage
+  // Sync state mutations to the account's row in Postgres (via persistUserData).
   const saveStateToStorage = (
     updatedPockets: Pocket[],
     updatedTransactions: Transaction[],
@@ -332,75 +368,29 @@ export default function App() {
     updatedAccounts: Account[],
     updatedCategories: Category[] = categories
   ) => {
-    const storagePrefix = getStoragePrefix(currentUser?.email || 'shared');
-
-    localStorage.setItem(`${storagePrefix}pockets`, JSON.stringify(updatedPockets));
-    localStorage.setItem(`${storagePrefix}transactions`, JSON.stringify(updatedTransactions));
-    localStorage.setItem(`${storagePrefix}budgets`, JSON.stringify(updatedBudgets));
-    localStorage.setItem(`${storagePrefix}notifications`, JSON.stringify(updatedNotifications));
-    localStorage.setItem(`${storagePrefix}accounts`, JSON.stringify(updatedAccounts));
-    localStorage.setItem(`${storagePrefix}categories`, JSON.stringify(updatedCategories));
+    persistUserData({
+      pockets: updatedPockets,
+      transactions: updatedTransactions,
+      budgets: updatedBudgets,
+      notifications: updatedNotifications,
+      accounts: updatedAccounts,
+      categories: updatedCategories,
+    });
   };
 
-  const handleLogin = (email: string) => {
-    const storagePrefix = getStoragePrefix(email);
-    const storedProfileStr = localStorage.getItem(`${storagePrefix}profile`);
-    let profile;
-    if (storedProfileStr) {
-      try {
-        profile = JSON.parse(storedProfileStr);
-        profile.email = email;
-      } catch (e) {
-        profile = getDefaultProfile(email);
-      }
-    } else {
-      profile = getDefaultProfile(email);
-    }
-    const stored = readStoredState(email);
-
-    if (stored.pockets) {
-      const loadedPockets = JSON.parse(stored.pockets);
-      const loadedTransactions = stored.transactions ? JSON.parse(stored.transactions) : INITIAL_TRANSACTIONS;
-      const loadedAccounts = stored.accounts ? JSON.parse(stored.accounts) : INITIAL_ACCOUNTS;
-      const loadedCategories = stored.categories ? JSON.parse(stored.categories) : CATEGORIES;
-
-      const defaultPocketId = loadedPockets[0]?.id || 'pribadi';
-      const initializedAccounts = loadedAccounts.map((a: Account) => ({
-        ...a,
-        allocations: a.allocations || { [defaultPocketId]: a.balance }
-      }));
-
-      setPockets(loadedPockets);
-      setTransactions(loadedTransactions);
-      setAccounts(initializedAccounts);
-      setCategories(loadedCategories);
-      if (stored.budgets) setBudgets(JSON.parse(stored.budgets));
-      if (stored.notifications) setNotifications(JSON.parse(stored.notifications));
-      if (stored.reminders) {
-        setReminders(JSON.parse(stored.reminders));
-      } else {
-        setReminders([]);
-      }
-    } else {
-      setReminders([]);
-    }
-
-    setCurrentUser(profile);
-    localStorage.setItem('kantongku_user', JSON.stringify(profile));
-    setActiveTab('home');
+  // Called by Login.tsx after the server has already verified Google login and set
+  // the session cookie — just (re)hydrate everything from the account's saved data.
+  const handleLogin = (_email: string) => {
+    loadSessionAndData();
   };
 
   const handleLogout = async () => {
-    if ((window as any).keluarAkunFirebase) {
-      try {
-        await (window as any).keluarAkunFirebase();
-      } catch (err) {
-        console.error("Firebase logout failed:", err);
-      }
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (err) {
+      console.error("Logout request failed:", err);
     }
-    setCurrentUser(null);
-    localStorage.removeItem('kantongku_user');
-    setActiveTab('home');
+    resetToDefaults();
   };
 
   const handleResetData = () => {
@@ -417,9 +407,15 @@ export default function App() {
     setAccounts(initializedAccounts);
     setCategories(CATEGORIES);
     setReminders([]);
-    saveStateToStorage(INITIAL_POCKETS, INITIAL_TRANSACTIONS, INITIAL_BUDGETS, INITIAL_NOTIFICATIONS, initializedAccounts, CATEGORIES);
-    const storagePrefix = getStoragePrefix(currentUser?.email || 'shared');
-    localStorage.removeItem(`${storagePrefix}reminders`);
+    persistUserData({
+      pockets: INITIAL_POCKETS,
+      transactions: INITIAL_TRANSACTIONS,
+      budgets: INITIAL_BUDGETS,
+      notifications: INITIAL_NOTIFICATIONS,
+      accounts: initializedAccounts,
+      categories: CATEGORIES,
+      reminders: [],
+    });
     alert('Asisten KantongKu berhasil dikembalikan ke data mockup awal.');
   };
 
@@ -1166,26 +1162,18 @@ export default function App() {
 
   const handleSaveProfile = async (name: string, avatarUrl: string) => {
     if (!currentUser) return;
-    if ((window as any).ubahProfilFirebase) {
-      await (window as any).ubahProfilFirebase(name, avatarUrl);
-    }
     const updated = { ...currentUser, name, avatarUrl };
     setCurrentUser(updated);
-    localStorage.setItem('kantongku_user', JSON.stringify(updated));
-
-    const storagePrefix = getStoragePrefix(currentUser.email);
-    localStorage.setItem(`${storagePrefix}profile`, JSON.stringify(updated));
+    persistUserData({ profile: updated });
   };
 
-  const handleChangePassword = async (oldPass: string, newPass: string) => {
-    if ((window as any).ubahKataSandiFirebase) {
-      await (window as any).ubahKataSandiFirebase(oldPass, newPass);
-    }
+  const handleChangePassword = async (_oldPass: string, _newPass: string) => {
+    // No-op: accounts are Google OAuth-only, there is no app-managed password to change.
   };
 
   const handleSaveSettings = (settings: AppSettings) => {
     setAppSettings(settings);
-    localStorage.setItem('kantongku_settings', JSON.stringify(settings));
+    persistUserData({ settings });
     // Apply theme
     if (settings.theme === 'light') {
       document.documentElement.classList.add('light-mode');
@@ -1198,22 +1186,19 @@ export default function App() {
   const handleAddReminder = (newReminder: Reminder) => {
     const nextReminders = [...reminders, newReminder];
     setReminders(nextReminders);
-    const storagePrefix = getStoragePrefix(currentUser?.email || 'shared');
-    localStorage.setItem(`${storagePrefix}reminders`, JSON.stringify(nextReminders));
+    persistUserData({ reminders: nextReminders });
   };
 
   const handleToggleReminder = (id: string) => {
     const nextReminders = reminders.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r);
     setReminders(nextReminders);
-    const storagePrefix = getStoragePrefix(currentUser?.email || 'shared');
-    localStorage.setItem(`${storagePrefix}reminders`, JSON.stringify(nextReminders));
+    persistUserData({ reminders: nextReminders });
   };
 
   const handleDeleteReminder = (id: string) => {
     const nextReminders = reminders.filter(r => r.id !== id);
     setReminders(nextReminders);
-    const storagePrefix = getStoragePrefix(currentUser?.email || 'shared');
-    localStorage.setItem(`${storagePrefix}reminders`, JSON.stringify(nextReminders));
+    persistUserData({ reminders: nextReminders });
   };
 
   // Background check effect for active alarm reminders
@@ -1282,10 +1267,7 @@ export default function App() {
         const nextNotifs = [...newNotifs, ...notifications];
         setReminders(updatedReminders);
         setNotifications(nextNotifs);
-
-        const storagePrefix = getStoragePrefix(currentUser.email);
-        localStorage.setItem(`${storagePrefix}reminders`, JSON.stringify(updatedReminders));
-        localStorage.setItem(`${storagePrefix}notifications`, JSON.stringify(nextNotifs));
+        persistUserData({ reminders: updatedReminders, notifications: nextNotifs });
       }
     };
 
@@ -1591,30 +1573,3 @@ export default function App() {
   );
 }
 
-const getStoragePrefix = (email?: string) => {
-  const safeEmail = (email || 'shared')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '_');
-
-  return `kantongku_${safeEmail}_`;
-};
-
-const readStoredState = (email?: string) => {
-  const storagePrefix = getStoragePrefix(email);
-
-  const readItem = (key: string) => {
-    return localStorage.getItem(`${storagePrefix}${key}`)
-      ?? localStorage.getItem(`kantongku_shared_${key}`)
-      ?? localStorage.getItem(`kantongku_${key}`);
-  };
-
-  return {
-    pockets: readItem('pockets'),
-    transactions: readItem('transactions'),
-    budgets: readItem('budgets'),
-    notifications: readItem('notifications'),
-    accounts: readItem('accounts'),
-    categories: readItem('categories'),
-    reminders: readItem('reminders'),
-  };
-};

@@ -15,12 +15,6 @@ interface ImportMeta {
 }
 
 interface Window {
-  daftarAkunFirebase?: (email: string, password: string) => Promise<any>;
-  masukAkunFirebase?: (email: string, password: string) => Promise<any>;
-  keluarAkunFirebase?: () => Promise<void>;
-  ubahKataSandiFirebase?: (oldPassword: string, newPassword: string) => Promise<void>;
-  ubahProfilFirebase?: (displayName: string, photoURL: string) => Promise<string>;
-  onAuthStateChangedCallback?: (user: any) => void;
   hapusDataPermanen?: (namaKoleksi: string, idDokumen: string, elemenIdHTML: string) => Promise<void>;
   handleDeleteTransaction?: (id: string) => void;
   handleDeleteBudget?: (id: string) => void;

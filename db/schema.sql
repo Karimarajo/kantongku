@@ -31,3 +31,13 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+
+-- Per-account application state (pockets, transactions, budgets, categories,
+-- notifications, reminders, profile, settings) stored as a single JSON blob so
+-- it follows the account across devices instead of living in browser
+-- localStorage. The whole object is overwritten on every save from the client.
+CREATE TABLE IF NOT EXISTS user_app_data (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
