@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kantongku-db
+    environment:
+      POSTGRES_USER: kantongku_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: kantongku
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - kantongku-net
+    restart: unless-stopped
+    mem_limit: 400m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kantongku_user -d kantongku"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+    container_name: kantongku-app
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://kantongku_user:${POSTGRES_PASSWORD}@postgres:5432/kantongku
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kantongku-net
+    restart: unless-stopped
+    mem_limit: 700m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kantongku-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - kantongku-net
+    depends_on:
+      - app
+    restart: unless-stopped
+    mem_limit: 128m
+
+volumes:
+  postgres_data:
+
+networks:
+  kantongku-net:
+    driver: bridge

@@ -563,12 +563,12 @@ app.post("/api/admin/users/:id/send-login-link", requireAdmin, async (req, res) 
     const loginUrl = `${process.env.APP_URL}/app`;
     await sendEmail(
       user.email,
-      "Link Masuk KantongKu",
+      "Akses Masuk ke Akun KantongKu Anda",
       `<p>Halo${user.name ? ` ${user.name}` : ""},</p>
-       <p>Ini link untuk masuk ke aplikasi KantongKu kamu:</p>
+       <p>Berikut tautan resmi untuk masuk ke akun KantongKu Anda:</p>
        <p><a href="${loginUrl}">${loginUrl}</a></p>
-       <p>Login pakai akun Google yang sama dengan yang kamu daftarkan.</p>`,
-      `Ini link untuk masuk ke aplikasi KantongKu kamu: ${loginUrl}\n\nLogin pakai akun Google yang sama dengan yang kamu daftarkan.`
+       <p>Gunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.</p>`,
+      `Berikut tautan resmi untuk masuk ke akun KantongKu Anda: ${loginUrl}\n\nGunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.`
     );
 
     res.json({ success: true });
