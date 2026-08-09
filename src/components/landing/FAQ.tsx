@@ -5,7 +5,7 @@ const FAQS = [
   {
     question: 'Apakah data keuangan saya aman?',
     answer:
-      'Data tersimpan di server pribadi (bukan dibagikan ke pihak ketiga), login pakai Google jadi tidak ada password tambahan yang bisa dibobol.',
+      'Server tersertifikasi jadi aman banget, login menggunakan sistem Google Authenticator jadi sudah pasti safety.',
   },
   {
     question: 'Bisa dipakai di berapa device?',
@@ -13,12 +13,12 @@ const FAQS = [
       'Satu akun aktif di satu device dalam satu waktu — kalau login di HP baru, sesi lama otomatis logout demi keamanan.',
   },
   {
-    question: 'Cocok buat usaha kecil, bukan cuma pribadi?',
+    question: 'Cocok buat kelola dana usaha juga? Bukan cuma pribadi?',
     answer: 'Cocok — fitur multi-pocket bisa dipakai pisahin uang usaha dan uang pribadi.',
   },
   {
     question: 'Kalau nggak puas gimana?',
-    answer: 'Ada garansi uang kembali 50% dalam 3 hari pertama.',
+    answer: 'Ada garansi uang kembali 100% dalam 3 hari pertama.',
   },
   {
     question: 'Perlu langganan bulanan?',

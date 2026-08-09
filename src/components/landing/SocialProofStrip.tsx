@@ -4,8 +4,8 @@ import { Users, Repeat, Clock3, ShieldCheck } from 'lucide-react';
 const STATS = [
   { icon: Users, text: 'Dipakai 100+ pengguna early access' },
   { icon: Repeat, text: '1.000+ transaksi tercatat otomatis' },
-  { icon: Clock3, text: 'Hemat ±5 menit per hari dari pencatatan manual' },
-  { icon: ShieldCheck, text: 'Data tersimpan aman di server pribadi' },
+  { icon: Clock3, text: 'Hemat ±5 menit per transaksi' },
+  { icon: ShieldCheck, text: 'Data tersimpan aman di server tersertifikasi' },
 ];
 
 export default function SocialProofStrip() {

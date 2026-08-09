@@ -4,7 +4,6 @@ import Hero from './landing/Hero';
 import SocialProofStrip from './landing/SocialProofStrip';
 import BeforeAfter from './landing/BeforeAfter';
 import HowItWorks from './landing/HowItWorks';
-import InteractiveDemo from './landing/InteractiveDemo';
 import TimeSavingsCalculator from './landing/TimeSavingsCalculator';
 import Testimonials from './landing/Testimonials';
 import Features from './landing/Features';
@@ -16,7 +15,7 @@ import Footer from './landing/Footer';
 // charged amount below (`price.amount`, fetched live from
 // /api/payment/config = PRICE_AMOUNT env) which drives the real order/payment
 // flow — keep these two in sync manually if the promo price changes.
-const PRICE_ORIGINAL = 199000;
+const PRICE_ORIGINAL = 399000;
 const PRICE_PROMO = 49000;
 
 interface PriceConfig {
@@ -169,7 +168,6 @@ export default function Landing() {
       <SocialProofStrip />
       <BeforeAfter />
       <HowItWorks />
-      <InteractiveDemo onCtaClick={scrollToPricing} />
       <TimeSavingsCalculator />
       <Testimonials />
       <Features />
@@ -182,9 +180,9 @@ export default function Landing() {
         <div className="max-w-md mx-auto flex flex-col items-center gap-8 z-10 relative">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
-              🔥 Promo Peluncuran — Hemat 75%
+              🔥 Promo Terbatas — Hemat 75%
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center">
               <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
               <span className="text-4xl font-bold text-white">{formatCurrency(PRICE_PROMO)}</span>
             </div>
@@ -404,7 +402,7 @@ export default function Landing() {
 
           <div className="w-full flex items-center justify-center gap-2 text-on-surface-variant/60">
             <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs">Garansi 3 Hari — Uang kembali 50% kalau nggak cocok</span>
+            <span className="text-xs">Garansi 3 Hari — Uang kembali 100% kalau nggak cocok</span>
           </div>
           <p className="text-[10px] text-on-surface-variant/40 text-center uppercase tracking-wider">
             Pembayaran dikonfirmasi manual oleh admin dalam waktu 24 jam.

@@ -546,6 +546,69 @@ app.post("/api/admin/users/:id/reactivate", requireAdmin, async (req, res) => {
   }
 });
 
+// Permanently delete a user (cascades to their user_app_data row via FK).
+app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`DELETE FROM users WHERE id = $1 RETURNING id`, [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal menghapus user:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus user" });
+  }
+});
+
+// Aggregate stats for the Admin Console dashboard. Every number is computed
+// with SQL aggregates (COUNT/SUM/FILTER/GROUP BY) — no fetching raw rows and
+// counting them in JS.
+app.get("/api/admin/dashboard-stats", requireAdmin, async (req, res) => {
+  try {
+    const orderStats = await pool.query(`
+      SELECT
+        COALESCE(SUM(total_amount) FILTER (WHERE status = 'settlement'), 0) AS total_revenue,
+        COUNT(*) FILTER (WHERE status = 'settlement') AS successful_orders,
+        COUNT(*) FILTER (WHERE status = 'pending' AND expires_at > now()) AS pending_orders,
+        COUNT(*) FILTER (WHERE status = 'expired') AS expired_orders,
+        COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_orders,
+        COUNT(*) AS total_orders
+      FROM orders
+    `);
+
+    const userStats = await pool.query(`SELECT COUNT(*) AS active_users FROM users WHERE status = 'active'`);
+
+    const dailySignups = await pool.query(`
+      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, COUNT(*) AS count
+      FROM orders
+      WHERE created_at >= now() - interval '7 days'
+      GROUP BY date_trunc('day', created_at)
+      ORDER BY day ASC
+    `);
+
+    const o = orderStats.rows[0];
+    const totalOrders = Number(o.total_orders);
+    const successfulOrders = Number(o.successful_orders);
+    const conversionRate = totalOrders > 0 ? Math.round((successfulOrders / totalOrders) * 1000) / 10 : 0;
+
+    res.json({
+      totalRevenue: Number(o.total_revenue),
+      successfulOrders,
+      activeUsers: Number(userStats.rows[0].active_users),
+      pendingOrders: Number(o.pending_orders),
+      expiredOrders: Number(o.expired_orders),
+      cancelledOrders: Number(o.cancelled_orders),
+      totalOrders,
+      conversionRate,
+      dailySignups: dailySignups.rows.map((r) => ({ day: r.day, count: Number(r.count) })),
+    });
+  } catch (error: any) {
+    console.error("Gagal memuat statistik dashboard:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat statistik dashboard" });
+  }
+});
+
 // ==========================================
 // Auth Routes (Google Identity Services + Session)
 // ==========================================

@@ -1,6 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import BrandLogo from './BrandLogo';
-import { Lock, ArrowRight, LogOut, CheckCircle2, XCircle, UserPlus, Ban, RotateCcw } from 'lucide-react';
+import {
+  Lock,
+  ArrowRight,
+  LogOut,
+  CheckCircle2,
+  XCircle,
+  UserPlus,
+  Ban,
+  RotateCcw,
+  Trash2,
+  Wallet,
+  ShoppingBag,
+  Users2,
+  Hourglass,
+  TimerOff,
+  Percent,
+  CalendarDays,
+} from 'lucide-react';
 
 interface Order {
   id: string;
@@ -26,7 +43,19 @@ interface AdminUser {
   activated_at: string | null;
 }
 
-type Tab = 'orders' | 'users';
+interface DashboardStats {
+  totalRevenue: number;
+  successfulOrders: number;
+  activeUsers: number;
+  pendingOrders: number;
+  expiredOrders: number;
+  cancelledOrders: number;
+  totalOrders: number;
+  conversionRate: number;
+  dailySignups: { day: string; count: number }[];
+}
+
+type Tab = 'dashboard' | 'orders' | 'users';
 
 const formatCurrency = (amount: string | number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(amount));
@@ -45,9 +74,10 @@ export default function AdminConsole() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const [tab, setTab] = useState<Tab>('orders');
+  const [tab, setTab] = useState<Tab>('dashboard');
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [manualEmail, setManualEmail] = useState('');
   const [actionError, setActionError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -70,6 +100,15 @@ export default function AdminConsole() {
     if (res.ok) setUsers(await res.json());
   };
 
+  const loadDashboard = async () => {
+    const res = await fetch('/api/admin/dashboard-stats', { credentials: 'include' });
+    if (res.status === 401) {
+      setAuthenticated(false);
+      return;
+    }
+    if (res.ok) setStats(await res.json());
+  };
+
   useEffect(() => {
     (async () => {
       const res = await fetch('/api/admin/orders?status=pending', { credentials: 'include' });
@@ -83,6 +122,7 @@ export default function AdminConsole() {
 
   useEffect(() => {
     if (!authenticated) return;
+    if (tab === 'dashboard') loadDashboard();
     if (tab === 'orders') loadOrders();
     if (tab === 'users') loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,6 +240,21 @@ export default function AdminConsole() {
     }
   };
 
+  const handleDeleteUser = async (id: string, email: string) => {
+    if (!window.confirm(`Hapus permanen akun "${email}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setActionError('');
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal menghapus user');
+      await loadUsers();
+    } catch (err: any) {
+      setActionError(err.message || 'Gagal menghapus user');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0B111E] text-on-surface-variant">
@@ -275,6 +330,12 @@ export default function AdminConsole() {
 
         <div className="flex gap-2 border-b border-white/10">
           <button
+            onClick={() => setTab('dashboard')}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
+          >
+            Dashboard
+          </button>
+          <button
             onClick={() => setTab('orders')}
             className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'orders' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
           >
@@ -292,6 +353,114 @@ export default function AdminConsole() {
           <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
             {actionError}
           </span>
+        )}
+
+        {tab === 'dashboard' && (
+          <div className="flex flex-col gap-6">
+            {!stats ? (
+              <p className="text-sm text-on-surface-variant/60">Memuat statistik...</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Wallet className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Total Pendapatan</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{formatCurrency(stats.totalRevenue)}</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-primary">
+                      <ShoppingBag className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Pembelian Sukses</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.successfulOrders}</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Users2 className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Akun Aktif</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.activeUsers}</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Percent className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Tingkat Konversi</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.conversionRate}%</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-amber-400">
+                      <Hourglass className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Order Menunggu</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.pendingOrders}</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-on-surface-variant">
+                      <TimerOff className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Order Kedaluwarsa</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.expiredOrders}</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-rose-400">
+                      <XCircle className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Order Dibatalkan</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.cancelledOrders}</p>
+                  </div>
+                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-on-surface-variant">
+                      <ShoppingBag className="w-4 h-4" />
+                      <span className="text-xs font-label-caps uppercase tracking-wider">Total Order Dibuat</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{stats.totalOrders}</p>
+                  </div>
+                </div>
+
+                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-5">
+                  <p className="text-sm text-on-surface-variant">
+                    Jumlah transaksi tercatat di aplikasi: <span className="font-semibold text-white">belum tersedia</span> — akan
+                    aktif setelah data transaksi dipindah dari localStorage ke database.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-on-surface-variant">
+                    <CalendarDays className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-white">Pendaftaran Baru (7 Hari Terakhir)</h3>
+                  </div>
+                  <div className="overflow-x-auto rounded-2xl border border-white/10">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-surface-variant/40 text-left text-on-surface-variant text-xs uppercase font-label-caps tracking-wider">
+                          <th className="px-4 py-3">Tanggal</th>
+                          <th className="px-4 py-3">Jumlah Order</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.dailySignups.length === 0 && (
+                          <tr>
+                            <td colSpan={2} className="px-4 py-6 text-center text-on-surface-variant/60">
+                              Belum ada order dalam 7 hari terakhir.
+                            </td>
+                          </tr>
+                        )}
+                        {stats.dailySignups.map((row) => (
+                          <tr key={row.day} className="border-t border-white/5">
+                            <td className="px-4 py-3 text-on-surface-variant">{row.day}</td>
+                            <td className="px-4 py-3 font-semibold text-white">{row.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
 
         {tab === 'orders' && (
@@ -404,23 +573,32 @@ export default function AdminConsole() {
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.joined_at)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.activated_at)}</td>
                       <td className="px-4 py-3">
-                        {u.status === 'suspended' ? (
+                        <div className="flex gap-2">
+                          {u.status === 'suspended' ? (
+                            <button
+                              onClick={() => handleReactivate(u.id)}
+                              disabled={busyId === u.id}
+                              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" /> Aktifkan
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleSuspend(u.id)}
+                              disabled={busyId === u.id}
+                              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                            >
+                              <Ban className="w-3.5 h-3.5" /> Suspend
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleReactivate(u.id)}
-                            disabled={busyId === u.id}
-                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" /> Aktifkan
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleSuspend(u.id)}
+                            onClick={() => handleDeleteUser(u.id, u.email)}
                             disabled={busyId === u.id}
                             className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                           >
-                            <Ban className="w-3.5 h-3.5" /> Suspend
+                            <Trash2 className="w-3.5 h-3.5" /> Hapus
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}

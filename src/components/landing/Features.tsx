@@ -5,7 +5,7 @@ const FEATURES = [
   {
     icon: Mic,
     title: 'Input Suara & Foto Struk (AI)',
-    description: 'cukup ngomong atau foto, Gemini AI yang proses jadi transaksi terstruktur.',
+    description: 'cukup ngomong atau foto, AI yang proses jadi transaksi terstruktur.',
   },
   {
     icon: Wallet,

@@ -3,7 +3,7 @@ import { X, Check } from 'lucide-react';
 
 const ROWS = [
   { before: 'Buka Excel/notes tiap habis belanja', after: 'Cukup ngomong atau foto struk' },
-  { before: 'Sering lupa catat, jadi keuangan buram', after: 'Tercatat otomatis, real-time' },
+  { before: 'Sering lupa catat, keuangan berantakan', after: 'Tercatat otomatis, real-time' },
   { before: 'Ribet pisah dompet pribadi & bisnis', after: 'Multi-pocket & rekening dalam 1 app' },
   { before: 'Ngitung budget manual di kepala', after: 'Reminder & alert otomatis kalau lewat budget' },
 ];

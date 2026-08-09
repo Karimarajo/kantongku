@@ -8,7 +8,6 @@ export default function Footer() {
         <p className="text-[11px] text-on-surface-variant/40 max-w-md">
           Disclaimer: Hasil pengelolaan keuangan tergantung konsistensi penggunaan masing-masing pengguna.
         </p>
-        <p className="text-[11px] text-on-surface-variant/40">Kontak support: [isi WhatsApp/email support]</p>
       </div>
     </footer>
   );

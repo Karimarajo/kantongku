@@ -3,7 +3,7 @@ import { Clock3 } from 'lucide-react';
 
 export default function TimeSavingsCalculator() {
   const [transaksiPerHari, setTransaksiPerHari] = useState(5);
-  const [menitPerTransaksi, setMenitPerTransaksi] = useState(4);
+  const [menitPerTransaksi, setMenitPerTransaksi] = useState(5);
 
   const totalMenitPerBulan = transaksiPerHari * menitPerTransaksi * 30;
   const totalJamPerBulan = Math.round((totalMenitPerBulan / 60) * 10) / 10;
@@ -47,8 +47,8 @@ export default function TimeSavingsCalculator() {
             </label>
             <input
               type="range"
-              min={1}
-              max={5}
+              min={5}
+              max={10}
               value={menitPerTransaksi}
               onChange={(e) => setMenitPerTransaksi(Number(e.target.value))}
               className="w-full accent-primary"

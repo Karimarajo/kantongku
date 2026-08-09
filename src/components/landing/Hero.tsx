@@ -3,7 +3,7 @@ import BrandLogo from '../BrandLogo';
 import { ArrowRight } from 'lucide-react';
 
 const PROMO_DEADLINE_KEY = 'kantongku_promo_deadline';
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
 
 interface HeroProps {
   priceOriginal: number;
@@ -12,9 +12,9 @@ interface HeroProps {
   onCtaClick: () => void;
 }
 
-// Reads the promo deadline from localStorage, or starts a fresh 24h window if
+// Reads the promo deadline from localStorage, or starts a fresh 5h window if
 // it's missing/expired — so the countdown survives a reload but still resets
-// daily rather than being hardcoded to a date that would eventually look stale.
+// periodically rather than being hardcoded to a date that would eventually look stale.
 function getOrInitDeadline(): number {
   const stored = localStorage.getItem(PROMO_DEADLINE_KEY);
   const now = Date.now();
@@ -24,7 +24,7 @@ function getOrInitDeadline(): number {
       return deadline;
     }
   }
-  const deadline = now + TWENTY_FOUR_HOURS_MS;
+  const deadline = now + FIVE_HOURS_MS;
   localStorage.setItem(PROMO_DEADLINE_KEY, String(deadline));
   return deadline;
 }
@@ -65,23 +65,21 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
         </div>
 
         <h1 className="font-display-lg text-3xl sm:text-5xl text-white font-bold tracking-tight leading-tight">
-          Catat Semua Transaksi Cuma Ngomong atau Foto Struk — Nggak Perlu Ngetik Manual Lagi
+          Catat Keuangan Kamu Tanpa Ribet
         </h1>
 
         <p className="text-on-surface-variant text-base sm:text-lg max-w-xl leading-relaxed">
           Cukup ucapkan atau foto struk belanjaanmu, AI KantongKu langsung ubah jadi catatan keuangan rapi. Kelola
-          dompet pribadi & bisnis kecil dalam satu aplikasi.
+          dompet pribadi & bisnis kamu dalam satu aplikasi.
         </p>
 
         <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
-          🔥 Promo Peluncuran — Hemat Rp150.000
+          🔥 Promo Terbatas — Hemat Rp150.000
         </span>
 
         <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-3">
-            <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(priceOriginal)}</span>
-            <span className="text-4xl font-bold text-white">{formatCurrency(pricePromo)}</span>
-          </div>
+          <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(priceOriginal)}</span>
+          <span className="text-4xl font-bold text-white">{formatCurrency(pricePromo)}</span>
           <span className="text-xs text-on-surface-variant/60">akses selamanya</span>
         </div>
 
@@ -96,7 +94,7 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
           onClick={onCtaClick}
           className="h-14 px-8 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
         >
-          Ambil Akses Sekarang — Rp49rb
+          Ambil Promo Sekarang — Rp49rb
           <ArrowRight className="w-5 h-5" />
         </button>
 
