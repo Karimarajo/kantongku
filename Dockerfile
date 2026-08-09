@@ -2,9 +2,13 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# Copy package files
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Copy source code
 COPY . .
 
 # VITE_-prefixed vars must be present as build args — Vite inlines them into the

@@ -1,26 +1,31 @@
-import nodemailer from "nodemailer";
-
-// Lazily-created singleton transporter, configured from SMTP_* env vars.
-let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
-
-function getTransporter() {
-  if (!transporter) {
-    const port = Number(process.env.SMTP_PORT) || 587;
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port,
-      secure: port === 465, // implicit TLS on 465; STARTTLS on 587/others
-      auth: process.env.SMTP_USER
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        : undefined,
-    });
-  }
-  return transporter;
-}
+// Sends transactional email via Resend's HTTPS API (https://resend.com)
+// instead of raw SMTP. Railway blocks outbound SMTP ports (587/465 both hang
+// until "Connection timeout") — HTTPS on 443 isn't affected, so an HTTP-based
+// provider is the only practical option from this host.
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 // Reusable low-level sender — any feature that needs to email a user goes
 // through this (currently just the Admin Console's "Kirim Link Login").
 export async function sendEmail(to: string, subject: string, html: string, text?: string): Promise<void> {
-  const from = process.env.EMAIL_FROM || "KantongKu <no-reply@kantongku.app>";
-  await getTransporter().sendMail({ from, to, subject, html, text });
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY belum diatur di environment");
+  }
+  // Until a custom domain is verified in Resend, this must stay on their
+  // shared sandbox domain (onboarding@resend.dev) — see .env.example.
+  const from = process.env.EMAIL_FROM || "KantongKu <onboarding@resend.dev>";
+
+  const res = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to: [to], subject, html, text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Resend API error (${res.status}): ${body || res.statusText}`);
+  }
 }
