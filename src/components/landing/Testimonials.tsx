@@ -1,26 +1,29 @@
 import React from 'react';
 import { Quote } from 'lucide-react';
+import dindaPhoto from '../../Dinda.png';
+import bambangPhoto from '../../Bambang.png';
+import ayuPhoto from '../../Ayu.png';
 
 {/* TESTIMONI PLACEHOLDER - FIKTIF, ganti dengan testimoni asli sebelum go-live publik */}
 const TESTIMONIALS = [
   {
     name: 'Dinda',
     role: 'Ibu rumah tangga, Bandung',
-    photo: '/testimoni/dinda.jpg',
+    photo: dindaPhoto,
     quote:
       'Dulu sering lupa catat jajan anak-anak, sekarang tinggal ngomong doang. Akhir bulan baru sadar bocor duit paling banyak di jajan online, langsung saya rem.',
   },
   {
-    name: 'Bagus',
+    name: 'Bambang',
     role: 'Pemilik warung kelontong, Yogyakarta',
-    photo: '/testimoni/bagus.jpg',
+    photo: bambangPhoto,
     quote:
       'Saya pisahin uang warung sama uang pribadi pakai pocket yang beda. Sekarang jelas mana untung warung, mana duit sendiri. Nggak nyampur lagi kayak dulu.',
   },
   {
     name: 'Ayu',
     role: 'Freelancer, Jakarta',
-    photo: '/testimoni/ayu.jpg',
+    photo: ayuPhoto,
     quote:
       'Suka banget fitur foto struk-nya, tinggal jepret abis belanja bulanan, semua item otomatis kecatat per kategori. Ngirit waktu banget.',
   },
@@ -37,7 +40,6 @@ export default function Testimonials() {
               <Quote className="w-6 h-6 text-primary/60" />
               <p className="text-sm text-on-surface-variant leading-relaxed flex-grow">"{t.quote}"</p>
               <div className="pt-3 border-t border-white/5 flex items-center gap-3">
-                {/* TODO: ganti src dengan file foto asli dari user */}
                 <img
                   src={t.photo}
                   alt={t.name}

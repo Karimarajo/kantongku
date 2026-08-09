@@ -20,16 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   settings JSONB NOT NULL DEFAULT '{}'::jsonb,
   current_session_id UUID,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  activated_at TIMESTAMPTZ,
-  magic_token TEXT,
-  magic_token_expires_at TIMESTAMPTZ
+  activated_at TIMESTAMPTZ
 );
-
--- Migrating an already-provisioned database: CREATE TABLE IF NOT EXISTS above
--- won't add columns to an existing table, so add them explicitly (no-op on a
--- fresh database where the table was just created with them already).
-ALTER TABLE users ADD COLUMN IF NOT EXISTS magic_token TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS magic_token_expires_at TIMESTAMPTZ;
 
 -- Manual payment orders (no payment gateway): QRIS statis ShopeePay or BCA bank
 -- transfer, matched by hand against a "kode unik" added to the base price.

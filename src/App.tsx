@@ -192,17 +192,8 @@ export default function App() {
     }
   };
 
-  // Load session + data once on boot. A magic login link lands here as
-  // /app?login_token=... — hand it straight to the server endpoint that
-  // validates it and sets the session cookie, instead of loading a session
-  // that doesn't exist yet. That endpoint redirects back to plain /app when
-  // done, so the normal loadSessionAndData() path picks up the new cookie.
+  // Load session + data once on boot.
   useEffect(() => {
-    const loginToken = new URLSearchParams(window.location.search).get('login_token');
-    if (loginToken) {
-      window.location.href = `/api/auth/magic-login?token=${encodeURIComponent(loginToken)}`;
-      return;
-    }
     loadSessionAndData();
   }, []);
 
