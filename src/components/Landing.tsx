@@ -1,66 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
 import BrandLogo from './BrandLogo';
-import { User, Mail, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { User, Mail, ArrowRight, CheckCircle2, Loader2, QrCode, Landmark, Copy, Check } from 'lucide-react';
 
 interface PriceConfig {
   amount: number;
   label: string;
-  isProduction: boolean;
 }
 
-type Step = 'form' | 'paying' | 'success' | 'error';
+type Channel = 'qris_shopee' | 'transfer_bca';
 
-declare global {
-  interface Window {
-    snap?: {
-      pay: (
-        token: string,
-        callbacks: {
-          onSuccess?: (result: unknown) => void;
-          onPending?: (result: unknown) => void;
-          onError?: (result: unknown) => void;
-          onClose?: () => void;
-        }
-      ) => void;
-    };
-  }
+interface OrderDetails {
+  order_code: string;
+  channel: Channel;
+  total_amount: number;
+  qrImage?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
 }
 
-const SNAP_SCRIPT_ID = 'midtrans-snap-script';
-
-function loadSnapScript(isProduction: boolean, clientKey: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.snap) {
-      resolve();
-      return;
-    }
-    const existing = document.getElementById(SNAP_SCRIPT_ID);
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Gagal memuat Snap.js')));
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = SNAP_SCRIPT_ID;
-    script.src = isProduction
-      ? 'https://app.midtrans.com/snap/snap.js'
-      : 'https://app.sandbox.midtrans.com/snap/snap.js';
-    script.setAttribute('data-client-key', clientKey);
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Gagal memuat Snap.js'));
-    document.body.appendChild(script);
-  });
-}
+type Step = 'form' | 'paying' | 'success' | 'expired' | 'error';
 
 export default function Landing() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [channel, setChannel] = useState<Channel>('qris_shopee');
   const [price, setPrice] = useState<PriceConfig | null>(null);
   const [step, setStep] = useState<Step>('form');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [orderId, setOrderId] = useState<string | null>(null);
-  const [orderStatus, setOrderStatus] = useState<string>('pending');
+  const [order, setOrder] = useState<OrderDetails | null>(null);
+  const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -76,26 +45,28 @@ export default function Landing() {
     };
   }, []);
 
-  const startPolling = (order_id: string) => {
+  const startPolling = (order_code: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/payment/status/${order_id}`);
+        const res = await fetch(`/api/payment/status/${order_code}`);
         if (!res.ok) return;
         const data = await res.json();
-        setOrderStatus(data.status);
         if (data.status === 'settlement') {
           setStep('success');
           if (pollRef.current) clearInterval(pollRef.current);
-        } else if (['expire', 'cancel', 'deny'].includes(data.status)) {
+        } else if (data.status === 'expired') {
+          setStep('expired');
+          if (pollRef.current) clearInterval(pollRef.current);
+        } else if (data.status === 'cancelled') {
           setStep('error');
-          setError('Pembayaran tidak berhasil. Silakan coba lagi.');
+          setError('Order dibatalkan. Silakan daftar ulang.');
           if (pollRef.current) clearInterval(pollRef.current);
         }
       } catch {
         // Ignore transient polling errors
       }
-    }, 4000);
+    }, 5000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,58 +80,43 @@ export default function Landing() {
       setError('Format email tidak valid');
       return;
     }
-    if (!price) {
-      setError('Informasi harga belum siap, coba lagi sesaat lagi.');
-      return;
-    }
 
     setError('');
     setLoading(true);
 
     try {
-      const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
-      if (!clientKey) {
-        throw new Error('Konfigurasi pembayaran belum lengkap (client key hilang).');
-      }
-
       const createRes = await fetch('/api/payment/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, channel }),
       });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        throw new Error(createData.error || 'Gagal membuat transaksi pembayaran');
+        throw new Error(createData.error || 'Gagal membuat order pembayaran');
       }
 
-      setOrderId(createData.order_id);
+      setOrder(createData);
       setStep('paying');
-      startPolling(createData.order_id);
-
-      await loadSnapScript(price.isProduction, clientKey);
-
-      window.snap?.pay(createData.token, {
-        onSuccess: () => {
-          setStep('success');
-          if (pollRef.current) clearInterval(pollRef.current);
-        },
-        onPending: () => {
-          // Keep polling; user may still be completing payment (e.g. QRIS scan)
-        },
-        onError: () => {
-          setStep('error');
-          setError('Terjadi kesalahan saat memproses pembayaran.');
-        },
-        onClose: () => {
-          // User closed the Snap popup without finishing — polling keeps checking status
-        },
-      });
+      startPolling(createData.order_code);
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan. Silakan coba lagi.');
-      setStep('form');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReset = () => {
+    setStep('form');
+    setOrder(null);
+    setError('');
+  };
+
+  const handleCopyAmount = () => {
+    if (!order) return;
+    navigator.clipboard?.writeText(String(order.total_amount)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const formatCurrency = (amount: number) =>
@@ -189,7 +145,7 @@ export default function Landing() {
           </div>
         </div>
 
-        {price && (
+        {price && step === 'form' && (
           <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5 text-center">
             <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">Paket Akses</p>
             <p className="text-3xl font-bold text-white">{formatCurrency(price.amount)}</p>
@@ -238,12 +194,35 @@ export default function Landing() {
               <p className="text-xs text-on-surface-variant/50 px-1">
                 Gunakan email yang sama saat login nanti.
               </p>
-              {error && (
-                <span className="text-xs text-rose-400 mt-1 block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
-                  {error}
-                </span>
-              )}
             </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-label-caps text-primary/80 tracking-wider">Metode Pembayaran</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setChannel('qris_shopee')}
+                  className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all ${channel === 'qris_shopee' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-surface-variant/40 text-on-surface-variant hover:text-white'}`}
+                >
+                  <QrCode className="w-6 h-6" />
+                  <span className="text-xs font-semibold">QRIS ShopeePay</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChannel('transfer_bca')}
+                  className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all ${channel === 'transfer_bca' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-surface-variant/40 text-on-surface-variant hover:text-white'}`}
+                >
+                  <Landmark className="w-6 h-6" />
+                  <span className="text-xs font-semibold">Transfer BCA</span>
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <span className="text-xs text-rose-400 block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
+                {error}
+              </span>
+            )}
 
             <button
               type="submit"
@@ -256,20 +235,60 @@ export default function Landing() {
           </form>
         )}
 
-        {step === 'paying' && (
-          <div className="w-full flex flex-col items-center gap-4 text-center">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-            <p className="text-on-surface-variant">
-              Menunggu konfirmasi pembayaran{orderId ? ` untuk order ${orderId}` : ''}...
+        {step === 'paying' && order && (
+          <div className="w-full flex flex-col items-center gap-5 text-center">
+            <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5">
+              <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">
+                Total yang harus dibayar
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-4xl font-bold text-white">{formatCurrency(order.total_amount)}</p>
+                <button
+                  type="button"
+                  onClick={handleCopyAmount}
+                  className="text-on-surface-variant/60 hover:text-primary transition-colors"
+                  title="Salin nominal"
+                >
+                  {copied ? <Check className="w-5 h-5 text-primary" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-xs text-rose-400 mt-3 font-semibold">
+                ⚠️ Bayar PERSIS nominal ini, jangan dibulatkan — nominal ini yang dipakai untuk mencocokkan pembayaranmu.
+              </p>
+            </div>
+
+            {order.channel === 'qris_shopee' ? (
+              <div className="w-full flex flex-col items-center gap-3">
+                <p className="text-sm text-on-surface-variant">Scan QR ini dengan aplikasi ShopeePay</p>
+                <img
+                  src={order.qrImage}
+                  alt="QRIS ShopeePay"
+                  className="w-56 h-56 object-contain rounded-2xl border border-white/10 bg-white p-2"
+                />
+              </div>
+            ) : (
+              <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                <p className="text-sm text-on-surface-variant">Transfer ke rekening BCA</p>
+                <p className="text-2xl font-bold text-white tracking-wider">{order.bankAccountNumber}</p>
+                <p className="text-sm text-on-surface-variant">a.n. {order.bankAccountName}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <p className="text-sm">Menunggu konfirmasi admin (order {order.order_code})...</p>
+            </div>
+            <p className="text-xs text-on-surface-variant/50">
+              Order ini berlaku 24 jam. Setelah kamu bayar, admin akan konfirmasi manual — halaman ini otomatis
+              update begitu terkonfirmasi.
             </p>
-            <p className="text-xs text-on-surface-variant/50">Status saat ini: {orderStatus}</p>
           </div>
         )}
 
         {step === 'success' && (
           <div className="w-full flex flex-col items-center gap-4 text-center">
             <CheckCircle2 className="w-12 h-12 text-primary" />
-            <p className="text-white font-headline-sm">Pembayaran berhasil!</p>
+            <p className="text-white font-headline-sm">Pembayaran dikonfirmasi!</p>
             <p className="text-on-surface-variant">
               Akunmu sudah aktif. Silakan login menggunakan akun Google dengan email {email} yang sama.
             </p>
@@ -283,16 +302,27 @@ export default function Landing() {
           </div>
         )}
 
+        {step === 'expired' && (
+          <div className="w-full flex flex-col items-center gap-4 text-center">
+            <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+              Order sudah kedaluwarsa (lebih dari 24 jam belum dikonfirmasi). Silakan daftar ulang.
+            </span>
+            <button
+              onClick={handleReset}
+              className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+            >
+              Daftar Ulang
+            </button>
+          </div>
+        )}
+
         {step === 'error' && (
           <div className="w-full flex flex-col items-center gap-4 text-center">
             <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-              {error || 'Pembayaran tidak berhasil.'}
+              {error || 'Terjadi kesalahan.'}
             </span>
             <button
-              onClick={() => {
-                setStep('form');
-                setError('');
-              }}
+              onClick={handleReset}
               className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
             >
               Coba Lagi
@@ -303,7 +333,7 @@ export default function Landing() {
 
       <div className="w-full max-w-sm text-center z-10 mt-auto pt-8">
         <p className="text-[10px] sm:text-xs text-on-surface-variant/40 font-label-caps tracking-wider leading-relaxed uppercase border-t border-white/5 pt-4">
-          Pembayaran diproses aman melalui Midtrans.
+          Pembayaran dikonfirmasi manual oleh admin dalam waktu 24 jam.
         </p>
       </div>
     </div>

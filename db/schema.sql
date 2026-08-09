@@ -1,6 +1,12 @@
 -- KantongKu database schema
 -- Run this once against the target PostgreSQL database:
 --   psql "$DATABASE_URL" -f db/schema.sql
+--
+-- NOTE: `orders` changed shape between v3 (Midtrans) and v4 (manual QRIS/BCA
+-- payment) in a way `CREATE TABLE IF NOT EXISTS` can't migrate automatically.
+-- If you already ran the old v3 schema against this database and it has no
+-- real order rows yet, drop it first: `DROP TABLE IF EXISTS orders;` — then
+-- re-run this file.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -17,20 +23,27 @@ CREATE TABLE IF NOT EXISTS users (
   activated_at TIMESTAMPTZ
 );
 
+-- Manual payment orders (no payment gateway): QRIS statis ShopeePay or BCA bank
+-- transfer, matched by hand against a "kode unik" added to the base price.
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_code TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
   email TEXT NOT NULL,
-  user_id UUID REFERENCES users(id),
-  midtrans_order_id TEXT UNIQUE NOT NULL,
-  amount NUMERIC,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'settlement', 'expire', 'cancel', 'deny')),
-  raw_notification JSONB,
+  channel TEXT NOT NULL CHECK (channel IN ('qris_shopee', 'transfer_bca')),
+  base_amount NUMERIC NOT NULL,
+  unique_code SMALLINT NOT NULL,
+  total_amount NUMERIC NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'settlement', 'expired', 'cancelled')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  paid_at TIMESTAMPTZ
+  expires_at TIMESTAMPTZ NOT NULL,
+  confirmed_at TIMESTAMPTZ,
+  confirmed_by TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
-CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+-- Helps the "find a free unique_code" check in POST /api/payment/create.
+CREATE INDEX IF NOT EXISTS idx_orders_pending_unique_code ON orders (unique_code) WHERE status = 'pending';
 
 -- Per-account application state (pockets, transactions, budgets, categories,
 -- notifications, reminders, profile, settings) stored as a single JSON blob so

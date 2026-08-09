@@ -22,7 +22,8 @@ View your app in AI Studio: https://ai.studio/apps/23be34da-a6e4-4f51-8181-6b09f
 ## Deploy
 
 This app runs as a plain Node/Express process (`server.ts`) with a PostgreSQL database, a Google
-OAuth login, and Midtrans Snap payments — so it needs a host that runs a persistent Node service
-(not a serverless platform like Vercel). See [DEPLOYMENT.md](DEPLOYMENT.md) for a concrete,
-step-by-step guide to deploying on Railway or Render, including every environment variable, the
-`db/schema.sql` migration, and an end-to-end test checklist.
+OAuth login, and manual QRIS/bank-transfer payments confirmed via a built-in `/admin` console — so
+it needs a host that runs a persistent Node service (not a serverless platform like Vercel). See
+[DEPLOYMENT.md](DEPLOYMENT.md) for a concrete, step-by-step guide to deploying on Railway or
+Render, including every environment variable, the `db/schema.sql` migration, and an end-to-end
+test checklist.

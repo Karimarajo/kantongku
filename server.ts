@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 import { Pool } from "pg";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
-import midtransClient from "midtrans-client";
 import { OAuth2Client } from "google-auth-library";
 
 dotenv.config();
@@ -21,13 +20,6 @@ app.use(cookieParser(process.env.SESSION_COOKIE_SECRET));
 // PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-});
-
-// Midtrans Snap client
-const snap = new midtransClient.Snap({
-  isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
-  serverKey: process.env.MIDTRANS_SERVER_KEY || "",
-  clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
 });
 
 // Google OAuth verifier client
@@ -62,6 +54,18 @@ function requireActiveStatus(req: express.Request, res: express.Response, next: 
   const user = (req as any).user;
   if (!user || user.status !== "active") {
     return res.status(403).json({ error: "Akun belum aktif" });
+  }
+  next();
+}
+
+// Checks the separate admin_session cookie (not tied to the `users` table at
+// all). The cookie is signed with SESSION_COOKIE_SECRET via cookie-parser, so
+// its mere presence (with a valid signature) is proof of a prior successful
+// /api/admin/login — there is no server-side admin session store to look up.
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const adminSession = req.signedCookies?.admin_session;
+  if (!adminSession) {
+    return res.status(401).json({ error: "Sesi admin tidak valid" });
   }
   next();
 }
@@ -255,154 +259,290 @@ app.post("/api/parse-media", async (req, res) => {
 });
 
 // ==========================================
-// Payment Routes (Midtrans Snap)
+// Payment Routes (manual: QRIS ShopeePay statis / Transfer BCA)
 // ==========================================
 
-// Public, non-secret payment config for the frontend (price + sandbox/production flag)
+// Public, non-secret payment config for the frontend (price only — no secrets)
 app.get("/api/payment/config", (req, res) => {
   const amount = Number(process.env.PRICE_AMOUNT);
   res.json({
     amount: Number.isFinite(amount) ? amount : 0,
     label: process.env.PRICE_LABEL || "",
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
   });
 });
 
-// Create a pending order and a Snap payment token
+// Short, human-readable order reference, e.g. "KK-20260809-4F2A".
+function generateOrderCode(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = crypto.randomBytes(2).toString("hex").toUpperCase();
+  return `KK-${y}${m}${d}-${rand}`;
+}
+
+// Create a pending manual-payment order. A random 0-999 "kode unik" is added to
+// the base price so the exact total_amount can be matched by hand against a
+// ShopeePay/BCA mutation later — no payment gateway involved.
 app.post("/api/payment/create", async (req, res) => {
   try {
-    const { name, email } = req.body;
-    if (!name || !email) {
-      return res.status(400).json({ error: "Nama dan email wajib diisi" });
+    const { name, email, channel } = req.body;
+    if (!name || !email || !channel) {
+      return res.status(400).json({ error: "Nama, email, dan metode pembayaran wajib diisi" });
+    }
+    if (!["qris_shopee", "transfer_bca"].includes(channel)) {
+      return res.status(400).json({ error: "Metode pembayaran tidak dikenali" });
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: "Format email tidak valid" });
     }
 
-    const amount = Number(process.env.PRICE_AMOUNT);
-    if (!amount || amount <= 0) {
+    const baseAmount = Number(process.env.PRICE_AMOUNT);
+    if (!baseAmount || baseAmount <= 0) {
       return res.status(500).json({ error: "Konfigurasi harga (PRICE_AMOUNT) belum diatur di server" });
     }
 
-    const orderId = `KANTONGKU-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    // Find a unique_code not currently used by another still-pending,
+    // not-yet-expired order. Retry on collision (low odds, cheap to retry).
+    let uniqueCode: number | null = null;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = crypto.randomInt(0, 1000);
+      const clash = await pool.query(
+        `SELECT 1 FROM orders WHERE unique_code = $1 AND status = 'pending' AND expires_at > now()`,
+        [candidate]
+      );
+      if (clash.rowCount === 0) {
+        uniqueCode = candidate;
+        break;
+      }
+    }
+    if (uniqueCode === null) {
+      return res.status(503).json({ error: "Sistem sedang sibuk, coba lagi sebentar lagi" });
+    }
 
-    await pool.query(
-      `INSERT INTO orders (email, midtrans_order_id, amount, status)
-       VALUES ($1, $2, $3, 'pending')`,
-      [email, orderId, amount]
-    );
+    const totalAmount = baseAmount + uniqueCode;
 
-    const transaction = await snap.createTransaction({
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: amount,
-      },
-      customer_details: {
-        first_name: name,
-        email,
-      },
+    let orderCode = "";
+    let inserted = false;
+    for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
+      orderCode = generateOrderCode();
+      try {
+        await pool.query(
+          `INSERT INTO orders (order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '24 hours')`,
+          [orderCode, name, email, channel, baseAmount, uniqueCode, totalAmount]
+        );
+        inserted = true;
+      } catch (err: any) {
+        if (err.code !== "23505") throw err; // not a unique_violation on order_code, rethrow
+      }
+    }
+    if (!inserted) {
+      return res.status(503).json({ error: "Gagal membuat kode order, coba lagi" });
+    }
+
+    const instructions =
+      channel === "qris_shopee"
+        ? { qrImage: "/qris-shopee.png" }
+        : {
+            bankAccountNumber: process.env.BANK_BCA_ACCOUNT_NUMBER || "",
+            bankAccountName: process.env.BANK_BCA_ACCOUNT_NAME || "",
+          };
+
+    res.json({
+      order_code: orderCode,
+      channel,
+      total_amount: totalAmount,
+      ...instructions,
     });
-
-    res.json({ token: transaction.token, order_id: orderId });
   } catch (error: any) {
-    console.error("Gagal membuat transaksi pembayaran:", error);
-    res.status(500).json({ error: error.message || "Gagal membuat transaksi pembayaran" });
+    console.error("Gagal membuat order pembayaran:", error);
+    res.status(500).json({ error: error.message || "Gagal membuat order pembayaran" });
   }
 });
 
-// Midtrans notification webhook
-app.post("/api/payment/webhook", async (req, res) => {
+// Poll order status from the landing page. Lazily flips a stale pending order to
+// 'expired' the moment it's checked past its expires_at — no cron job needed.
+app.get("/api/payment/status/:order_code", async (req, res) => {
   try {
-    const notification = req.body || {};
-    const {
-      order_id,
-      status_code,
-      gross_amount,
-      signature_key,
-      transaction_status,
-      fraud_status,
-    } = notification;
-
-    if (!order_id || !status_code || !gross_amount || !signature_key) {
-      return res.status(400).json({ error: "Payload notifikasi tidak lengkap" });
+    const { order_code } = req.params;
+    const result = await pool.query(`SELECT * FROM orders WHERE order_code = $1`, [order_code]);
+    let order = result.rows[0];
+    if (!order) {
+      return res.status(404).json({ error: "Order tidak ditemukan" });
     }
 
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || "";
-    const expectedSignature = crypto
-      .createHash("sha512")
-      .update(`${order_id}${status_code}${gross_amount}${serverKey}`)
-      .digest("hex");
-
-    if (expectedSignature !== signature_key) {
-      console.warn("[Midtrans Webhook] Signature tidak cocok untuk order:", order_id);
-      return res.status(401).json({ error: "Signature tidak valid" });
+    if (order.status === "pending" && new Date(order.expires_at).getTime() < Date.now()) {
+      const updateResult = await pool.query(
+        `UPDATE orders SET status = 'expired' WHERE order_code = $1 AND status = 'pending' RETURNING *`,
+        [order_code]
+      );
+      order = updateResult.rows[0] || order;
     }
 
-    const orderResult = await pool.query(
-      `SELECT * FROM orders WHERE midtrans_order_id = $1`,
-      [order_id]
-    );
+    res.json({
+      order_code: order.order_code,
+      status: order.status,
+      channel: order.channel,
+      total_amount: Number(order.total_amount),
+    });
+  } catch (error: any) {
+    console.error("Gagal mengambil status order:", error);
+    res.status(500).json({ error: error.message || "Gagal mengambil status order" });
+  }
+});
+
+// ==========================================
+// Admin Console (manual payment confirmation + user management)
+// ==========================================
+
+// Single shared password, unrelated to the `users` table / Google OAuth.
+app.post("/api/admin/login", (req, res) => {
+  const { password } = req.body;
+  if (!password || !process.env.ADMIN_PASSWORD || password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Password salah" });
+  }
+  res.cookie("admin_session", crypto.randomUUID(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    signed: true,
+    maxAge: 12 * 60 * 60 * 1000, // 12 hours
+  });
+  res.json({ success: true });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  res.clearCookie("admin_session");
+  res.json({ success: true });
+});
+
+// List orders, optionally filtered by status (e.g. ?status=pending).
+app.get("/api/admin/orders", requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const result =
+      typeof status === "string" && status
+        ? await pool.query(`SELECT * FROM orders WHERE status = $1 ORDER BY created_at DESC`, [status])
+        : await pool.query(`SELECT * FROM orders ORDER BY created_at DESC`);
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error("Gagal memuat daftar order:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat daftar order" });
+  }
+});
+
+// Manually confirm a pending order after checking the ShopeePay/BCA mutation by hand.
+app.post("/api/admin/orders/:order_code/confirm", requireAdmin, async (req, res) => {
+  try {
+    const { order_code } = req.params;
+    const orderResult = await pool.query(`SELECT * FROM orders WHERE order_code = $1`, [order_code]);
     const order = orderResult.rows[0];
     if (!order) {
       return res.status(404).json({ error: "Order tidak ditemukan" });
     }
 
-    const isPaid =
-      transaction_status === "settlement" ||
-      (transaction_status === "capture" && fraud_status === "accept");
+    await pool.query(
+      `UPDATE orders SET status = 'settlement', confirmed_at = now(), confirmed_by = 'admin' WHERE order_code = $1`,
+      [order_code]
+    );
 
-    if (isPaid) {
-      // Upsert user: create if not exists, activate regardless
-      await pool.query(
-        `INSERT INTO users (email, status, activated_at)
-         VALUES ($1, 'active', now())
-         ON CONFLICT (email) DO UPDATE SET status = 'active', activated_at = now()`,
-        [order.email]
-      );
+    await pool.query(
+      `INSERT INTO users (email, status, activated_at)
+       VALUES ($1, 'active', now())
+       ON CONFLICT (email) DO UPDATE SET status = 'active', activated_at = now()`,
+      [order.email]
+    );
 
-      await pool.query(
-        `UPDATE orders SET status = 'settlement', paid_at = now(), raw_notification = $2
-         WHERE midtrans_order_id = $1`,
-        [order_id, notification]
-      );
-    } else if (["expire", "cancel", "deny"].includes(transaction_status)) {
-      await pool.query(
-        `UPDATE orders SET status = $2, raw_notification = $3
-         WHERE midtrans_order_id = $1`,
-        [order_id, transaction_status, notification]
-      );
-    } else {
-      // Pending or other in-progress statuses: just record the raw notification
-      await pool.query(
-        `UPDATE orders SET raw_notification = $2 WHERE midtrans_order_id = $1`,
-        [order_id, notification]
-      );
-    }
-
-    res.status(200).json({ received: true });
+    res.json({ success: true });
   } catch (error: any) {
-    console.error("Gagal memproses webhook Midtrans:", error);
-    res.status(500).json({ error: error.message || "Gagal memproses notifikasi" });
+    console.error("Gagal konfirmasi order:", error);
+    res.status(500).json({ error: error.message || "Gagal konfirmasi order" });
   }
 });
 
-// Poll order status from frontend
-app.get("/api/payment/status/:order_id", async (req, res) => {
+app.post("/api/admin/orders/:order_code/cancel", requireAdmin, async (req, res) => {
   try {
-    const { order_id } = req.params;
+    const { order_code } = req.params;
     const result = await pool.query(
-      `SELECT status FROM orders WHERE midtrans_order_id = $1`,
-      [order_id]
+      `UPDATE orders SET status = 'cancelled' WHERE order_code = $1 RETURNING id`,
+      [order_code]
     );
-    const order = result.rows[0];
-    if (!order) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Order tidak ditemukan" });
     }
-    res.json({ status: order.status });
+    res.json({ success: true });
   } catch (error: any) {
-    console.error("Gagal mengambil status order:", error);
-    res.status(500).json({ error: error.message || "Gagal mengambil status order" });
+    console.error("Gagal membatalkan order:", error);
+    res.status(500).json({ error: error.message || "Gagal membatalkan order" });
+  }
+});
+
+app.get("/api/admin/users", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, email, status, joined_at, activated_at FROM users ORDER BY joined_at DESC`
+    );
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error("Gagal memuat daftar users:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat daftar users" });
+  }
+});
+
+// Grant access directly (no order involved) — e.g. free/manual access grants.
+app.post("/api/admin/users/manual-activate", requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email wajib diisi" });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Format email tidak valid" });
+    }
+    await pool.query(
+      `INSERT INTO users (email, status, activated_at)
+       VALUES ($1, 'active', now())
+       ON CONFLICT (email) DO UPDATE SET status = 'active', activated_at = now()`,
+      [email]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal aktivasi akun manual:", error);
+    res.status(500).json({ error: error.message || "Gagal aktivasi akun manual" });
+  }
+});
+
+app.post("/api/admin/users/:id/suspend", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`UPDATE users SET status = 'suspended' WHERE id = $1 RETURNING id`, [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal suspend user:", error);
+    res.status(500).json({ error: error.message || "Gagal suspend user" });
+  }
+});
+
+app.post("/api/admin/users/:id/reactivate", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `UPDATE users SET status = 'active', activated_at = now() WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal mengaktifkan kembali user:", error);
+    res.status(500).json({ error: error.message || "Gagal mengaktifkan kembali user" });
   }
 });
 

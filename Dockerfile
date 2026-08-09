@@ -13,9 +13,7 @@ COPY . .
 # before `vite build` runs. Railway auto-forwards matching service variables as
 # build args for Dockerfile builds.
 ARG VITE_GOOGLE_CLIENT_ID
-ARG VITE_MIDTRANS_CLIENT_KEY
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-ENV VITE_MIDTRANS_CLIENT_KEY=$VITE_MIDTRANS_CLIENT_KEY
 
 RUN npm run build
 

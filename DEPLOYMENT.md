@@ -10,7 +10,8 @@ perbedaan kalau pakai Render.
 - Repo ini sudah di-push ke GitHub (buat repo baru kalau belum: `git init && git add -A && git commit -m "init"` lalu push).
 - Akun Railway (https://railway.app) — login pakai GitHub.
 - Akun Google Cloud Console untuk bikin OAuth Client ID.
-- Akun Midtrans Sandbox (https://dashboard.sandbox.midtrans.com).
+- Gambar QR statis ShopeePay (`public/qris-shopee.png`) dan nomor rekening BCA — pembayaran di
+  sini manual (bukan payment gateway), lihat bagian 3.
 
 ## 1. Buat project di Railway
 
@@ -37,16 +38,19 @@ Di service **web app** → tab **Variables**, tambahkan seluruh isi `.env.exampl
 | `GEMINI_API_KEY` | API key Gemini kamu |
 | `APP_URL` | domain HTTPS Railway, mis. `https://kantongku-production.up.railway.app` (isi setelah deploy pertama sukses dan domain ter-generate) |
 | `DATABASE_URL` | dari langkah 2 |
-| `MIDTRANS_SERVER_KEY` | Server Key **Sandbox** dari dashboard Midtrans |
-| `MIDTRANS_CLIENT_KEY` | Client Key **Sandbox** dari dashboard Midtrans |
-| `MIDTRANS_IS_PRODUCTION` | `false` |
-| `VITE_MIDTRANS_CLIENT_KEY` | sama dengan `MIDTRANS_CLIENT_KEY` |
-| `PRICE_AMOUNT` | mis. `49000` |
+| `PRICE_AMOUNT` | harga dasar sebelum kode unik, mis. `49000` |
 | `PRICE_LABEL` | mis. `Akses KantongKu Selamanya` |
-| `GOOGLE_CLIENT_ID` | dari langkah 4 |
+| `BANK_BCA_ACCOUNT_NUMBER` | nomor rekening BCA kamu |
+| `BANK_BCA_ACCOUNT_NAME` | nama pemilik rekening |
+| `ADMIN_PASSWORD` | password untuk masuk ke `/admin` — string acak yang cuma kamu tahu |
+| `GOOGLE_CLIENT_ID` | dari langkah 6 |
 | `VITE_GOOGLE_CLIENT_ID` | sama dengan `GOOGLE_CLIENT_ID` |
-| `SESSION_COOKIE_SECRET` | random string panjang, mis. hasil `openssl rand -hex 32` |
+| `SESSION_COOKIE_SECRET` | random string panjang, mis. hasil `openssl rand -hex 32` — dipakai untuk sign cookie sesi customer maupun admin |
 | `NODE_ENV` | `production` |
+
+Selain env var, upload juga gambar QR statis ShopeePay kamu sebagai `public/qris-shopee.png` di
+repo (commit filenya) sebelum build — halaman landing me-referensikan path itu langsung, jadi
+kalau filenya belum ada, gambar QR akan broken di halaman instruksi bayar.
 
 Catatan: variabel `VITE_*` di-inline ke bundle frontend saat `npm run build` berjalan di
 Railway — pastikan sudah di-set **sebelum** trigger build/deploy.
@@ -88,31 +92,33 @@ lalu redeploy (Railway auto-redeploy saat variable berubah).
    `{APP_URL}/app` juga untuk jaga-jaga kalau nanti pindah ke redirect-based flow.
 4. Simpan, lalu pastikan `GOOGLE_CLIENT_ID` di Railway sama persis dengan Client ID ini.
 
-## 7. Daftarkan webhook URL ke Midtrans Sandbox
+## 7. Test end-to-end di URL live
 
-1. https://dashboard.sandbox.midtrans.com → **Settings** → **Configuration**.
-2. **Payment Notification URL**: isi `{APP_URL}/api/payment/webhook`.
-3. Simpan.
-
-## 8. Test end-to-end di URL live
-
-1. Buka `{APP_URL}/` → harus tampil `Landing.tsx` (form nama + email + tombol Bayar), bukan
-   `Login.tsx`.
-2. Isi nama + email baru → klik **Bayar** → popup Snap QRIS Sandbox muncul.
-3. Selesaikan simulasi pembayaran di Midtrans Sandbox (Snap sandbox punya tombol simulasi bayar
-   untuk QRIS/VA).
-4. Cek di Railway Postgres (tab Query): `SELECT * FROM orders ORDER BY created_at DESC LIMIT 1;`
-   → `status` harus `settlement`. Lalu `SELECT * FROM users WHERE email = '<email tadi>';` →
-   `status` harus `active`.
-5. Landing page otomatis pindah ke tampilan sukses dengan link ke `/app`. Buka `{APP_URL}/app`.
-6. Klik **Sign in with Google**, login pakai akun Google dengan email **persis sama** dengan yang
-   dipakai bayar → harus berhasil masuk ke `App.tsx`.
-7. Cek `SELECT current_session_id FROM users WHERE email = '<email tadi>';` → harus terisi UUID.
-8. Login lagi dari browser/incognito lain dengan akun yang sama → `current_session_id` di baris
+1. Buka `{APP_URL}/` → harus tampil `Landing.tsx` (form nama + email + pilihan channel bayar),
+   bukan `Login.tsx`.
+2. Isi nama + email baru, pilih **QRIS ShopeePay** → klik **Bayar** → muncul halaman instruksi
+   dengan gambar QR dan nominal (harga dasar + kode unik). Ulangi juga dengan **Transfer BCA**.
+3. Cek di Railway Postgres (tab Query): `SELECT * FROM orders ORDER BY created_at DESC LIMIT 2;`
+   → dua order tadi ada, `status = 'pending'`, `unique_code` beda satu sama lain,
+   `total_amount = PRICE_AMOUNT + unique_code`.
+4. Buka `{APP_URL}/admin` → tanpa login harus muncul form password, bukan daftar order. Login
+   pakai `ADMIN_PASSWORD` → masuk ke tab **Order Pending**, dua order tadi muncul.
+5. Klik **Konfirmasi** pada salah satu order → cek `orders.status` jadi `settlement` dan
+   `users.status` untuk email itu jadi `active`.
+6. Halaman landing (yang masih polling di tab lain) otomatis pindah ke tampilan sukses dengan
+   link ke `/app`. Buka `{APP_URL}/app`.
+7. Klik **Sign in with Google**, login pakai akun Google dengan email **persis sama** dengan yang
+   dikonfirmasi → harus berhasil masuk ke `App.tsx`.
+8. Cek `SELECT current_session_id FROM users WHERE email = '<email tadi>';` → harus terisi UUID.
+9. Login lagi dari browser/incognito lain dengan akun yang sama → `current_session_id` di baris
    yang sama berubah ke UUID baru (verifikasi lewat query yang sama).
-9. Coba login Google dengan email yang **belum pernah** membayar → harus gagal dengan pesan 403:
-   *"Email ini belum terdaftar / pembayaran belum terkonfirmasi..."*.
-10. Kirim ulang webhook dengan signature yang salah (mis. `curl -X POST {APP_URL}/api/payment/webhook -d '{"order_id":"x","status_code":"200","gross_amount":"1000","signature_key":"salah"}' -H "Content-Type: application/json"`) → harus 401 dan tidak mengubah data apa pun.
+10. Coba login Google dengan email yang **belum pernah** dikonfirmasi → harus gagal dengan pesan
+    403: *"Email ini belum terdaftar / pembayaran belum terkonfirmasi..."*.
+11. Di tab **Daftar Akun** di `/admin`, coba **Tambah Akun Manual** dengan email baru → langsung
+    `status = 'active'` tanpa ada row `orders` terkait. Coba juga **Suspend** salah satu akun.
+12. Buat order baru, jangan dikonfirmasi, lalu cek lagi setelah `expires_at` lewat (atau update
+    manual `expires_at` ke masa lalu via Query) → `GET /api/payment/status/:order_code` harus
+    otomatis mengubah status jadi `expired`.
 
 Setelah semua poin di atas lolos di server live, baru pertimbangkan pindah `DATABASE_URL` ke
 Postgres self-hosted di CT 101 Proxmox (di luar scope dokumen ini).
@@ -128,7 +134,7 @@ Postgres self-hosted di CT 101 Proxmox (di luar scope dokumen ini).
   setelah deploy pertama sukses, sama seperti langkah 5.
 - Jalankan `db/schema.sql` lewat `psql` ke **External Database URL** yang Render sediakan (tab
   **Connect** di database), atau lewat Render Shell kalau tersedia di plan kamu.
-- Langkah 6–8 (Google Cloud Console, Midtrans webhook, test end-to-end) sama persis.
+- Langkah 6–7 (Google Cloud Console, test end-to-end) sama persis.
 
 File `render.yaml` yang lama sudah dihapus dari repo karena hanya meng-cover `GEMINI_API_KEY` dan
 tidak reflect kebutuhan env var yang sekarang jauh lebih banyak — pakai tabel di langkah 3 sebagai
