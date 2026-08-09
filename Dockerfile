@@ -1,23 +1,43 @@
-FROM node:20-slim
+# Build stage
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# Copy package files
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Copy source code
 COPY . .
 
-# VITE_-prefixed vars must be present as build args — Vite inlines them into the
-# frontend bundle at build time. Docker builds don't inherit Railway's runtime
-# env vars automatically, so they must be declared as ARG and re-exported as ENV
-# before `vite build` runs. Railway auto-forwards matching service variables as
-# build args for Dockerfile builds.
-ARG VITE_GOOGLE_CLIENT_ID
-ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-
+# Build the application
 RUN npm run build
 
-ENV NODE_ENV=production
+# Production stage
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install only production dependencies
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+RUN npm ci --only=production --prefer-offline --no-audit
+
+# Copy built files from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+USER nodejs
+
+# Expose port
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+# Start application
+CMD ["node", "dist/server.cjs"]

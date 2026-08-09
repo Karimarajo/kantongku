@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: kantongku-db
+    environment:
+      POSTGRES_USER: kantongku_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-to-secure-password}
+      POSTGRES_DB: kantongku
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - kantongku-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kantongku_user -d kantongku"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Express.js Backend
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kantongku-app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://kantongku_user:${POSTGRES_PASSWORD:-change-me-to-secure-password}@postgres:5432/kantongku
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      BANK_BCA_ACCOUNT_NUMBER: ${BANK_BCA_ACCOUNT_NUMBER}
+      BANK_BCA_ACCOUNT_NAME: ${BANK_BCA_ACCOUNT_NAME}
+      PRICE_AMOUNT: ${PRICE_AMOUNT:-49000}
+      PRICE_LABEL: ${PRICE_LABEL:-Akses KantongKu Selamanya}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM:-KantongKu <no-reply@kantongku.app>}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./dist:/app/dist
+    networks:
+      - kantongku-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Nginx Reverse Proxy (uncomment if needed)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: kantongku-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - kantongku-network
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  kantongku-network:
+    driver: bridge
