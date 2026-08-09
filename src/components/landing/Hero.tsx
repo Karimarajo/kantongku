@@ -101,12 +101,12 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
         {/* TODO: ganti dengan screenshot asli dashboard */}
         <div className="w-full max-w-md mt-6 rounded-2xl border border-white/10 bg-surface-variant/40 p-5 flex flex-col gap-3">
           <div className="self-start max-w-[80%] bg-primary/10 border border-primary/20 rounded-2xl rounded-bl-sm px-4 py-2 text-sm text-primary">
-            "Tadi jajan bakso 15rb"
+            "Tadi jajan kopi 15rb"
           </div>
           <div className="self-end w-full bg-[#0B111E] border border-white/10 rounded-xl p-3 flex items-center justify-between">
             <div className="flex flex-col text-left">
               <span className="text-xs text-on-surface-variant/60">Jajan / Kopi</span>
-              <span className="text-sm font-semibold text-white">Bakso</span>
+              <span className="text-sm font-semibold text-white">Kopi</span>
             </div>
             <span className="text-sm font-bold text-rose-400">-Rp15.000</span>
           </div>

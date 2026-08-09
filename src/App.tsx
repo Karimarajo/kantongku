@@ -58,6 +58,7 @@ const calculateBudgetSpent = (b: Budget, transactionsList: Transaction[]): numbe
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [checkingSession, setCheckingSession] = useState<boolean>(true);
   const [pockets, setPockets] = useState<Pocket[]>(INITIAL_POCKETS);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [budgets, setBudgets] = useState<Budget[]>(INITIAL_BUDGETS);
@@ -141,6 +142,8 @@ export default function App() {
     } catch (err) {
       console.error('Gagal memuat sesi/data akun:', err);
       setCurrentUser(null);
+    } finally {
+      setCheckingSession(false);
     }
   };
 
@@ -189,8 +192,17 @@ export default function App() {
     }
   };
 
-  // Load session + data once on boot.
+  // Load session + data once on boot. A magic login link lands here as
+  // /app?login_token=... — hand it straight to the server endpoint that
+  // validates it and sets the session cookie, instead of loading a session
+  // that doesn't exist yet. That endpoint redirects back to plain /app when
+  // done, so the normal loadSessionAndData() path picks up the new cookie.
   useEffect(() => {
+    const loginToken = new URLSearchParams(window.location.search).get('login_token');
+    if (loginToken) {
+      window.location.href = `/api/auth/magic-login?token=${encodeURIComponent(loginToken)}`;
+      return;
+    }
     loadSessionAndData();
   }, []);
 
@@ -1278,7 +1290,17 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [currentUser, reminders, notifications]);
 
-  // Guard routing view: Login Check
+  // Guard routing view: wait for the initial session check before deciding
+  // between the app and the login screen, so we don't flash Login for a split
+  // second while GET /api/me is still in flight.
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B111E] text-on-surface-variant text-sm">
+        Memuat...
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }

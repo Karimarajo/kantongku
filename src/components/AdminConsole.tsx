@@ -17,6 +17,7 @@ import {
   TimerOff,
   Percent,
   CalendarDays,
+  Send,
 } from 'lucide-react';
 
 interface Order {
@@ -81,6 +82,7 @@ export default function AdminConsole() {
   const [manualEmail, setManualEmail] = useState('');
   const [actionError, setActionError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loginLinkNotice, setLoginLinkNotice] = useState<{ id: string; message: string; ok: boolean } | null>(null);
 
   const loadOrders = async () => {
     const res = await fetch('/api/admin/orders?status=pending', { credentials: 'include' });
@@ -237,6 +239,22 @@ export default function AdminConsole() {
       setActionError(err.message || 'Gagal mengaktifkan user');
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleSendLoginLink = async (id: string) => {
+    setActionError('');
+    setLoginLinkNotice(null);
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/send-login-link`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal mengirim link login');
+      setLoginLinkNotice({ id, message: 'Email terkirim', ok: true });
+    } catch (err: any) {
+      setLoginLinkNotice({ id, message: err.message || 'Gagal mengirim link login', ok: false });
+    } finally {
+      setBusyId(null);
+      setTimeout(() => setLoginLinkNotice((cur) => (cur?.id === id ? null : cur)), 4000);
     }
   };
 
@@ -573,7 +591,14 @@ export default function AdminConsole() {
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.joined_at)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.activated_at)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handleSendLoginLink(u.id)}
+                            disabled={busyId === u.id}
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                          >
+                            <Send className="w-3.5 h-3.5" /> Kirim Link Login
+                          </button>
                           {u.status === 'suspended' ? (
                             <button
                               onClick={() => handleReactivate(u.id)}
@@ -598,6 +623,11 @@ export default function AdminConsole() {
                           >
                             <Trash2 className="w-3.5 h-3.5" /> Hapus
                           </button>
+                          {loginLinkNotice?.id === u.id && (
+                            <span className={`text-xs font-semibold ${loginLinkNotice.ok ? 'text-primary' : 'text-rose-400'}`}>
+                              {loginLinkNotice.message}
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

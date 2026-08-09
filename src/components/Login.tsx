@@ -54,6 +54,14 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
     }
   };
 
+  // Surface the error redirect from a failed/expired/already-used magic login link.
+  useEffect(() => {
+    const loginError = new URLSearchParams(window.location.search).get('login_error');
+    if (loginError === 'expired') {
+      setError('Link sudah kedaluwarsa/tidak valid, silakan login pakai Google.');
+    }
+  }, []);
+
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) {
@@ -129,7 +137,10 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
             </span>
           )}
           <p className="text-xs text-on-surface-variant/50 text-center max-w-sm">
-            Belum punya akses? Daftar dan selesaikan pembayaran terlebih dahulu di halaman utama.
+            Belum punya akses?{' '}
+            <a href="/" className="text-primary hover:underline">
+              Daftar di sini
+            </a>
           </p>
         </div>
       </div>

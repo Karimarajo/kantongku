@@ -7,6 +7,7 @@ import { Pool } from "pg";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
+import { sendEmail } from "./lib/email";
 
 dotenv.config();
 
@@ -546,6 +547,43 @@ app.post("/api/admin/users/:id/reactivate", requireAdmin, async (req, res) => {
   }
 });
 
+// Generate a single-use, 24h magic login token and email it to the user.
+// Sending is always a manual, explicit admin action — never triggered
+// automatically by order confirmation.
+app.post("/api/admin/users/:id/send-login-link", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userResult = await pool.query(`SELECT * FROM users WHERE id = $1`, [id]);
+    const user = userResult.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+
+    // Overwrites any previous unused token, so only the most recently sent link works.
+    const token = crypto.randomBytes(32).toString("hex");
+    await pool.query(
+      `UPDATE users SET magic_token = $2, magic_token_expires_at = now() + interval '24 hours' WHERE id = $1`,
+      [id, token]
+    );
+
+    const loginUrl = `${process.env.APP_URL}/app?login_token=${token}`;
+    await sendEmail(
+      user.email,
+      "Link Masuk KantongKu",
+      `<p>Halo${user.name ? ` ${user.name}` : ""},</p>
+       <p>Klik link berikut untuk masuk ke akun KantongKu kamu:</p>
+       <p><a href="${loginUrl}">${loginUrl}</a></p>
+       <p>Link ini berlaku 24 jam dan hanya bisa dipakai sekali.</p>`,
+      `Klik link berikut untuk masuk ke akun KantongKu kamu: ${loginUrl}\n\nLink ini berlaku 24 jam dan hanya bisa dipakai sekali.`
+    );
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal mengirim link login:", error);
+    res.status(500).json({ error: error.message || "Gagal mengirim link login" });
+  }
+});
+
 // Permanently delete a user (cascades to their user_app_data row via FK).
 app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
   try {
@@ -673,6 +711,49 @@ app.post("/api/auth/google", async (req, res) => {
   } catch (error: any) {
     console.error("Gagal verifikasi login Google:", error);
     res.status(401).json({ error: "Gagal memverifikasi token Google" });
+  }
+});
+
+// Consume a single-use magic login link (sent manually from the Admin Console).
+// Public — the token itself is the credential. Always redirects (never JSON)
+// since this is meant to be opened directly as a link, e.g. from an email.
+app.get("/api/auth/magic-login", async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token || typeof token !== "string") {
+      return res.redirect("/app?login_error=expired");
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM users
+       WHERE magic_token = $1 AND magic_token_expires_at > now() AND status = 'active'`,
+      [token]
+    );
+    const user = result.rows[0];
+    if (!user) {
+      return res.redirect("/app?login_error=expired");
+    }
+
+    const sessionId = crypto.randomUUID();
+    await pool.query(
+      `UPDATE users
+       SET current_session_id = $2, magic_token = NULL, magic_token_expires_at = NULL
+       WHERE id = $1`,
+      [user.id, sessionId]
+    );
+
+    res.cookie("session_id", sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      signed: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    res.redirect("/app");
+  } catch (error: any) {
+    console.error("Gagal memproses magic login:", error);
+    res.redirect("/app?login_error=expired");
   }
 });
 

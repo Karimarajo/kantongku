@@ -76,6 +76,16 @@ export default function Landing() {
     };
   }, []);
 
+  // Once settlement is confirmed, auto-redirect to the login page after a
+  // short delay so the "Pembayaran dikonfirmasi!" message is actually seen.
+  useEffect(() => {
+    if (step !== 'success') return;
+    const timer = setTimeout(() => {
+      window.location.href = '/app';
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [step]);
+
   const startPolling = (order_code: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
@@ -352,6 +362,16 @@ export default function Landing() {
                 Order ini berlaku 24 jam. Setelah kamu bayar, admin akan konfirmasi manual — halaman ini otomatis
                 update begitu terkonfirmasi.
               </p>
+
+              <a
+                href="/app"
+                className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all border border-white/10 bg-surface-variant/40 text-white"
+              >
+                Masuk ke Halaman Login
+              </a>
+              <p className="text-xs text-on-surface-variant/50">
+                Link untuk masuk ke aplikasi juga akan dikirimkan ke email kamu setelah pembayaran dikonfirmasi.
+              </p>
             </div>
           )}
 
@@ -359,16 +379,10 @@ export default function Landing() {
             <div className="w-full flex flex-col items-center gap-4 text-center">
               <CheckCircle2 className="w-12 h-12 text-primary" />
               <p className="text-white font-headline-sm">Pembayaran dikonfirmasi!</p>
-              <p className="text-on-surface-variant">
-                Akunmu sudah aktif. Silakan login menggunakan akun Google dengan email {email} yang sama.
-              </p>
-              <a
-                href="/app"
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md mt-2 bg-primary text-on-primary"
-              >
-                Masuk ke Aplikasi
-                <ArrowRight className="w-5 h-5" />
-              </a>
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <p className="text-sm">Mengalihkan ke halaman login...</p>
+              </div>
             </div>
           )}
 
