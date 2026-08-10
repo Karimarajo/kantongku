@@ -48,6 +48,8 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: kantongku-tunnel
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - kantongku-net
     depends_on:
