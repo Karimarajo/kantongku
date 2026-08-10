@@ -189,7 +189,7 @@ export default function AddTransactionModal({
         reader.onloadend = async () => {
           try {
             const base64Data = reader.result as string;
-            setProgressMsg('Mengirim audio asli ke Gemini API...');
+            setProgressMsg('Mengirim audio asli ke AI...');
             
             // Tembak jalur pipa pemrosesan utama
             const parsed = await (window as any).kirimKeGeminiAI(base64Data, 'audio/webm');
@@ -223,7 +223,14 @@ export default function AddTransactionModal({
     }
   };
 
-  // Central Helper untuk Memetakan Hasil JSON AI ke State Formulir
+  // Central Helper untuk Memetakan Hasil JSON AI ke State Formulir.
+  // Prioritaskan field presisi (category_id/pocket_id/account_id/waktu) yang
+  // dipetakan AI langsung ke ID kantong/rekening/kategori milik user — hanya
+  // fallback ke heuristik kata kunci lama (kategori/sumber_dana/kepemilikan)
+  // untuk data demo mock yang belum punya field presisi tsb. Tidak pernah
+  // default diam-diam kalau AI sudah menyebutkan sesuatu secara eksplisit;
+  // dan form ini tetap wajib ditinjau & disubmit manual oleh user (baris
+  // terakhir fungsi ini) sebelum benar-benar tersimpan.
   const applyAiMetadataToForm = (parsedData: any, sourceName: string) => {
     setTitle(parsedData.catatan || 'Transaksi Baru');
     const nom = Number(parsedData.nominal) || 0;
@@ -231,46 +238,62 @@ export default function AddTransactionModal({
     setAmountExpr(nom > 0 ? nom.toString() : '');
     setNotes(`Dianalisis otomatis oleh AI (${sourceName}).`);
 
-    // 1. Sinkronisasi Kantong (Pocket ID) dari Parameter Kepemilikan AI
-    const kepemilikanRaw = String(parsedData.kepemilikan || 'Uangku').toLowerCase();
+    // 1. Kantong — pakai pocket_id presisi dari AI kalau valid & memang ada di
+    // daftar kantong user; baru fallback ke heuristik 'kepemilikan' lama.
     let pocket: PocketType = pockets[0]?.id || 'pribadi';
-    if (kepemilikanRaw.includes('bisnis')) {
-      pocket = pockets.find(p => p.id === 'bisnis' || p.name.toLowerCase().includes('bisnis'))?.id || pocket;
-    } else if (kepemilikanRaw.includes('orang') || kepemilikanRaw.includes('grup') || kepemilikanRaw.includes('kas')) {
-      pocket = pockets.find(p => p.id === 'kas' || p.name.toLowerCase().includes('kas'))?.id || pocket;
+    const pocketIdFromAi = String(parsedData.pocket_id || '').trim();
+    if (pocketIdFromAi && pockets.some(p => p.id === pocketIdFromAi)) {
+      pocket = pocketIdFromAi;
+    } else if (!pocketIdFromAi && parsedData.kepemilikan) {
+      const kepemilikanRaw = String(parsedData.kepemilikan).toLowerCase();
+      if (kepemilikanRaw.includes('bisnis')) {
+        pocket = pockets.find(p => p.id === 'bisnis' || p.name.toLowerCase().includes('bisnis'))?.id || pocket;
+      } else if (kepemilikanRaw.includes('orang') || kepemilikanRaw.includes('grup') || kepemilikanRaw.includes('kas')) {
+        pocket = pockets.find(p => p.id === 'kas' || p.name.toLowerCase().includes('kas'))?.id || pocket;
+      }
     }
     setPocketId(pocket);
 
-    // 2. Sinkronisasi Rekening (Account ID) dari Parameter Sumber Dana AI
-    const sumberDanaRaw = String(parsedData.sumber_dana || 'Cash').toLowerCase();
-    let accId = accounts[0]?.id || 'acc-bca';
-    if (sumberDanaRaw.includes('cash') || sumberDanaRaw.includes('tunai')) {
-      const cashAcc = accounts.find(a => a.icon === 'cash' || a.id.toLowerCase().includes('cash'));
-      if (cashAcc) accId = cashAcc.id;
-    } else if (sumberDanaRaw.includes('dana')) {
-      const danaAcc = accounts.find(a => a.id.toLowerCase().includes('dana') || a.name.toLowerCase().includes('dana'));
-      if (danaAcc) accId = danaAcc.id;
-    } else if (sumberDanaRaw.includes('gopay')) {
-      const gopayAcc = accounts.find(a => a.id.toLowerCase().includes('gopay') || a.name.toLowerCase().includes('gopay'));
-      if (gopayAcc) accId = gopayAcc.id;
-    } else if (sumberDanaRaw.includes('bca')) {
-      const bcaAcc = accounts.find(a => a.id.toLowerCase().includes('bca') || a.name.toLowerCase().includes('bca'));
-      if (bcaAcc) accId = bcaAcc.id;
+    // 2. Rekening — pakai account_id presisi dari AI kalau valid; fallback ke
+    // heuristik 'sumber_dana' lama untuk data demo mock.
+    let accId = accounts[0]?.id || '';
+    const accountIdFromAi = String(parsedData.account_id || '').trim();
+    if (accountIdFromAi && accounts.some(a => a.id === accountIdFromAi)) {
+      accId = accountIdFromAi;
+    } else if (!accountIdFromAi && parsedData.sumber_dana) {
+      const sumberDanaRaw = String(parsedData.sumber_dana).toLowerCase();
+      if (sumberDanaRaw.includes('cash') || sumberDanaRaw.includes('tunai')) {
+        const cashAcc = accounts.find(a => a.icon === 'cash' || a.id.toLowerCase().includes('cash'));
+        if (cashAcc) accId = cashAcc.id;
+      } else if (sumberDanaRaw.includes('dana')) {
+        const danaAcc = accounts.find(a => a.id.toLowerCase().includes('dana') || a.name.toLowerCase().includes('dana'));
+        if (danaAcc) accId = danaAcc.id;
+      } else if (sumberDanaRaw.includes('gopay')) {
+        const gopayAcc = accounts.find(a => a.id.toLowerCase().includes('gopay') || a.name.toLowerCase().includes('gopay'));
+        if (gopayAcc) accId = gopayAcc.id;
+      } else if (sumberDanaRaw.includes('bca')) {
+        const bcaAcc = accounts.find(a => a.id.toLowerCase().includes('bca') || a.name.toLowerCase().includes('bca'));
+        if (bcaAcc) accId = bcaAcc.id;
+      }
     }
     setAccountId(accId);
 
-    // 3. Sinkronisasi Kategori
+    // 3. Kategori — pakai category_id presisi dari AI kalau valid; fallback ke
+    // heuristik 'kategori' bebas-teks lama untuk data demo mock.
     let cat = categories[categories.length - 1]?.id || 'lainnya';
-    const catRaw = String(parsedData.kategori || '').toLowerCase();
-    const matchedCategory = categories.find(c => 
-      catRaw.includes(c.name.toLowerCase()) || 
-      c.name.toLowerCase().includes(catRaw) ||
-      catRaw.includes(c.id.toLowerCase())
-    );
-    if (matchedCategory) {
-      cat = matchedCategory.id;
-    } else {
-      if (catRaw.includes('makan') || catRaw.includes('culinary')) {
+    const categoryIdFromAi = String(parsedData.category_id || '').trim();
+    if (categoryIdFromAi && categories.some(c => c.id === categoryIdFromAi)) {
+      cat = categoryIdFromAi;
+    } else if (!categoryIdFromAi && parsedData.kategori) {
+      const catRaw = String(parsedData.kategori).toLowerCase();
+      const matchedCategory = categories.find(c =>
+        catRaw.includes(c.name.toLowerCase()) ||
+        c.name.toLowerCase().includes(catRaw) ||
+        catRaw.includes(c.id.toLowerCase())
+      );
+      if (matchedCategory) {
+        cat = matchedCategory.id;
+      } else if (catRaw.includes('makan') || catRaw.includes('culinary')) {
         cat = categories.find(c => c.id === 'makan' || c.name.toLowerCase().includes('makan'))?.id || cat;
       } else if (catRaw.includes('belanja') || catRaw.includes('grosir')) {
         cat = categories.find(c => c.id === 'belanja' || c.name.toLowerCase().includes('belanja'))?.id || cat;
@@ -280,20 +303,47 @@ export default function AddTransactionModal({
     }
     setCategory(cat);
 
-    // 4. Sinkronisasi Tipe
+    // 4. Tipe
     let tType: 'incoming' | 'outgoing' = 'outgoing';
     if (String(parsedData.tipe).toLowerCase() === 'pemasukan') {
       tType = 'incoming';
     }
     setType(tType);
 
-    // Beralih ke form manual untuk verifikasi akhir user
+    // 5. Waktu — pakai tanggal hasil resolusi AI (mis. "kemarin", "hari ini",
+    // tanggal spesifik) kalau valid; kalau tidak ada/tidak valid, biarkan
+    // default ke hari ini seperti input manual biasa.
+    const waktuFromAi = parsedData.waktu ? new Date(parsedData.waktu) : null;
+    if (waktuFromAi && !isNaN(waktuFromAi.getTime())) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const resolvedDateStr = waktuFromAi.toISOString().slice(0, 10);
+      if (resolvedDateStr === todayStr) {
+        setDatePreset('today');
+      } else {
+        setDatePreset('custom');
+        setCustomDate(resolvedDateStr);
+      }
+    } else {
+      setDatePreset('today');
+    }
+
+    // Beralih ke form manual — user WAJIB meninjau & menekan "Simpan Transaksi"
+    // sendiri di sana sebelum data ini benar-benar tersimpan.
     setCurrentView('manual');
   };
 
+  // Konteks yang dikirim ke AI supaya bisa memetakan kategori/kantong/rekening
+  // ke ID PERSIS milik user ini, bukan menebak dari daftar kata kunci generik.
+  const buildAiContext = () => ({
+    categories: categories.map(c => ({ id: c.id, name: c.name })),
+    pockets: pockets.map(p => ({ id: p.id, name: p.name })),
+    accounts: accounts.map(a => ({ id: a.id, name: a.name })),
+    now: new Date().toISOString(),
+  });
+
   const handleApiParse = async (text: string) => {
     setIsProcessing(true);
-    setProgressMsg('Mengirim permintaan ke Gemini Flash...');
+    setProgressMsg('Mengirim permintaan ke AI...');
     setApiError('');
     setRawJsonAnswer(null);
 
@@ -303,11 +353,14 @@ export default function AddTransactionModal({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, context: buildAiContext() }),
       });
 
-      if (!res.ok) throw new Error('Gagal menghubungi asisten AI');
-      const data = await res.status === 200 ? await res.json() : {};
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Gagal menghubungi asisten AI');
+      }
+      const data = await res.json();
       setRawJsonAnswer(data);
       applyAiMetadataToForm(data, 'Input Teks Bebas');
     } catch (err: any) {
@@ -329,7 +382,7 @@ export default function AddTransactionModal({
     reader.onload = async () => {
       try {
         const base64Data = reader.result as string;
-        setProgressMsg('Mengunggah ke API Gemini dan menganalisis berkas asli...');
+        setProgressMsg('Mengunggah ke AI dan menganalisis berkas asli...');
         
         const parsed = await (window as any).kirimKeGeminiAI(base64Data, file.type);
         if (parsed) {
@@ -476,7 +529,7 @@ export default function AddTransactionModal({
                 </div>
                 <div className="flex-grow">
                   <p className="font-body-lg text-white font-bold">Catat Pakai Suara</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">Rekam suara asli / dikte via Gemini</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Rekam suara asli / dikte via AI</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-secondary transition-colors shrink-0" />
               </button>

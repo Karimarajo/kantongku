@@ -25,16 +25,14 @@ export const INITIAL_ACCOUNTS: Account[] = [
     name: 'Bank BCA',
     balance: 0,
     icon: 'bank',
-    color: 'indigo',
-    tag: 'Rekening Utama'
+    color: 'indigo'
   },
   {
     id: 'acc-cash',
     name: 'Cash',
     balance: 0,
     icon: 'cash',
-    color: 'emerald',
-    tag: 'Dompet Fisik'
+    color: 'emerald'
   }
 ];
 

@@ -308,19 +308,35 @@ export default function App() {
     };
   }, [pockets, transactions, budgets, notifications, accounts]);
 
-  // Expose kirimKeGeminiAI globally to meet requested specification with secure server-side proxy
+  // Expose kirimKeGeminiAI globally to meet requested specification with secure server-side proxy.
+  // NOTE: this only PARSES the media and returns the result — it deliberately does
+  // NOT auto-save the transaction. The caller (AddTransactionModal) pre-fills the
+  // manual form with the result so the user reviews/confirms every detail before
+  // it's actually saved; auto-saving here would both skip that confirmation and
+  // double-save once the user also submits the pre-filled form.
   useEffect(() => {
     (window as any).kirimKeGeminiAI = async function (mediaData: string, tipeMedia: string) {
-      console.log("[Gemini API Channel] kirimKeGeminiAI invoked for format:", tipeMedia);
+      console.log("[AI Channel] kirimKeGeminiAI invoked for format:", tipeMedia);
 
       try {
-        // Primary route: Secure full-stack server proxy so private API Keys aren't sent to the browser
+        // Primary route: Secure full-stack server proxy so private API Keys aren't sent to the browser.
+        // Context (the user's actual pockets/accounts/categories + current time) lets the AI map the
+        // transaction to precise IDs instead of guessing from a fixed keyword list.
         const response = await fetch('/api/parse-media', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ mediaData, tipeMedia }),
+          body: JSON.stringify({
+            mediaData,
+            tipeMedia,
+            context: {
+              categories: categories.map(c => ({ id: c.id, name: c.name })),
+              pockets: pockets.map(p => ({ id: p.id, name: p.name })),
+              accounts: accounts.map(a => ({ id: a.id, name: a.name })),
+              now: new Date().toISOString(),
+            },
+          }),
         });
 
         if (!response.ok) {
@@ -329,13 +345,10 @@ export default function App() {
         }
 
         const jsonParsed = await response.json();
-        console.log("[Gemini API Channel] JSON parsed safely:", jsonParsed);
-        
-        // Save the parsed transaction and update budgets
-        (window as any).simpanTransaksiKeFirebase(jsonParsed);
+        console.log("[AI Channel] JSON parsed safely:", jsonParsed);
         return jsonParsed;
       } catch (err: any) {
-        console.error("[Gemini API Channel] Error:", err.message);
+        console.error("[AI Channel] Error:", err.message);
         throw err;
       }
     };
@@ -343,7 +356,7 @@ export default function App() {
     return () => {
       delete (window as any).kirimKeGeminiAI;
     };
-  }, []);
+  }, [categories, pockets, accounts]);
 
   const updateStateAndStorage = (
     newTransactions: Transaction[],
@@ -1022,7 +1035,8 @@ export default function App() {
       balance: newAccData.initialBalance || 0,
       icon: newAccData.icon,
       color: newAccData.color,
-      tag: newAccData.tag,
+      accountNumber: newAccData.accountNumber,
+      ownerName: newAccData.ownerName,
       allocations: {
         [defaultPocketId]: newAccData.initialBalance || 0
       }
@@ -1093,6 +1107,21 @@ export default function App() {
     setPockets(nextPockets);
     setAccounts(nextAccounts);
     saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories);
+  };
+
+  // Reorder wallet cards (long-press drag & drop in AccountView) and persist the
+  // new order the same way every other account mutation is saved.
+  const handleReorderAccounts = (newOrderIds: string[]) => {
+    const accountMap = new Map(accounts.map(a => [a.id, a]));
+    const reordered = newOrderIds
+      .map(id => accountMap.get(id))
+      .filter((a): a is Account => !!a);
+    // Safety net: keep any account missing from newOrderIds instead of dropping it.
+    const missing = accounts.filter(a => !newOrderIds.includes(a.id));
+    const nextAccounts = [...reordered, ...missing];
+
+    setAccounts(nextAccounts);
+    saveStateToStorage(pockets, transactions, budgets, notifications, nextAccounts, categories);
   };
 
   const handleSaveAllocations = (accountId: string, allocations: Record<string, number>) => {
@@ -1168,10 +1197,6 @@ export default function App() {
     const updated = { ...currentUser, name, avatarUrl };
     setCurrentUser(updated);
     persistUserData({ profile: updated });
-  };
-
-  const handleChangePassword = async (_oldPass: string, _newPass: string) => {
-    // No-op: accounts are Google OAuth-only, there is no app-managed password to change.
   };
 
   const handleSaveSettings = (settings: AppSettings) => {
@@ -1422,6 +1447,7 @@ export default function App() {
               onEditAccount={handleEditAccount}
               onDeleteAccount={handleDeleteAccount}
               onSaveAllocations={handleSaveAllocations}
+              onReorderAccounts={handleReorderAccounts}
             />
           )}
 
@@ -1455,7 +1481,6 @@ export default function App() {
               onResetData={handleResetData}
               onSaveProfile={handleSaveProfile}
               onSaveSettings={handleSaveSettings}
-              onChangePassword={handleChangePassword}
             />
           )}
         </div>

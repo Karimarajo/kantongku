@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Account, Pocket, Transaction } from '../types';
 import { formatRupiah } from '../utils';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
-import { 
-  Plus, 
-  Trash2, 
-  Edit3, 
-  Landmark, 
-  Smartphone, 
-  Coins, 
+import {
+  Plus,
+  Trash2,
+  Edit3,
+  Landmark,
+  Smartphone,
+  Coins,
   Wallet,
   Save,
   X,
   Sliders,
   ChevronRight,
   Info,
-  Undo2
+  Undo2,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface AccountViewProps {
@@ -26,7 +28,13 @@ interface AccountViewProps {
   onEditAccount: (account: Account, balanceDifference?: number) => void;
   onDeleteAccount: (id: string) => void;
   onSaveAllocations: (accountId: string, allocations: Record<string, number>) => void;
+  onReorderAccounts: (newOrderIds: string[]) => void;
 }
+
+// Long-press threshold to enter drag mode, and the movement tolerance before
+// that (a bigger move before the timer fires reads as a scroll, not a hold).
+const LONG_PRESS_MS = 450;
+const MOVE_CANCEL_THRESHOLD = 8;
 
 const ICONS = [
   { value: 'bank', label: 'Bank', icon: Landmark },
@@ -51,7 +59,8 @@ export default function AccountView({
   onAddAccount,
   onEditAccount,
   onDeleteAccount,
-  onSaveAllocations
+  onSaveAllocations,
+  onReorderAccounts
 }: AccountViewProps) {
   const [formMode, setFormMode] = useState<'list' | 'add' | 'edit'>('list');
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -59,12 +68,23 @@ export default function AccountView({
 
   // Form States
   const [name, setName] = useState('');
-  const [tag, setTag] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ownerName, setOwnerName] = useState('');
   const [initialBalance, setInitialBalance] = useState<number>(0);
   const [initialBalanceExpr, setInitialBalanceExpr] = useState<string>('');
   const [showInitialCalc, setShowInitialCalc] = useState<boolean>(false);
   const [icon, setIcon] = useState('bank');
   const [color, setColor] = useState('indigo');
+
+  // Copy-to-clipboard feedback state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Long-press drag-to-reorder state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
 
   // Allocation States
   const [isEditingAllocation, setIsEditingAllocation] = useState(false);
@@ -236,7 +256,8 @@ export default function AccountView({
   // Open add account form
   const handleOpenAdd = () => {
     setName('');
-    setTag('');
+    setAccountNumber('');
+    setOwnerName('');
     setInitialBalance(0);
     setIcon('bank');
     setColor('indigo');
@@ -248,7 +269,8 @@ export default function AccountView({
   const handleOpenEdit = (acc: Account) => {
     setEditingAccountId(acc.id);
     setName(acc.name);
-    setTag(acc.tag || '');
+    setAccountNumber(acc.accountNumber || '');
+    setOwnerName(acc.ownerName || '');
     setInitialBalance(acc.balance);
     setIcon(acc.icon);
     setColor(acc.color);
@@ -264,7 +286,8 @@ export default function AccountView({
       onAddAccount({
         id: `acc-${Date.now()}`,
         name: name.trim(),
-        tag: tag.trim() || 'Rekening kustom',
+        accountNumber: accountNumber.trim(),
+        ownerName: ownerName.trim(),
         icon,
         color,
         initialBalance: initialBalance || 0
@@ -276,12 +299,118 @@ export default function AccountView({
       onEditAccount({
         ...accToEdit,
         name: name.trim(),
-        tag: tag.trim() || 'Rekening kustom',
+        accountNumber: accountNumber.trim(),
+        ownerName: ownerName.trim(),
         icon,
         color
       }, balanceDifference);
     }
     setFormMode('list');
+  };
+
+  const handleCopyAccountInfo = async (e: React.MouseEvent, acc: Account) => {
+    e.stopPropagation();
+    const text = `Bank: ${acc.name}\nAtas Nama: ${acc.ownerName || '-'}\nNo. Rekening: ${acc.accountNumber || '-'}`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedId(acc.id);
+      setTimeout(() => setCopiedId(prev => (prev === acc.id ? null : prev)), 1500);
+    } catch (err) {
+      console.warn('Gagal menyalin info rekening:', err);
+    }
+  };
+
+  // ==========================================
+  // Long-press (Pointer Events) drag & drop reorder for wallet cards
+  // ==========================================
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleCardPointerDown = (e: React.PointerEvent<HTMLDivElement>, accId: string) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+    clearLongPressTimer();
+    const pointerId = e.pointerId;
+    const target = e.currentTarget;
+    longPressTimerRef.current = window.setTimeout(() => {
+      setDraggingId(accId);
+      setDragOverId(accId);
+      didDragRef.current = true;
+      try { target.setPointerCapture(pointerId); } catch { /* ignore unsupported */ }
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(15);
+    }, LONG_PRESS_MS);
+  };
+
+  const handleCardPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (draggingId) {
+      e.preventDefault();
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const cardEl = el?.closest('[data-account-id]') as HTMLElement | null;
+      const overId = cardEl?.getAttribute('data-account-id');
+      if (overId && overId !== dragOverId) setDragOverId(overId);
+      return;
+    }
+    if (pointerStartRef.current) {
+      const dx = e.clientX - pointerStartRef.current.x;
+      const dy = e.clientY - pointerStartRef.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > MOVE_CANCEL_THRESHOLD) {
+        clearLongPressTimer();
+      }
+    }
+  };
+
+  const finishDrag = (fallbackAccId: string) => {
+    clearLongPressTimer();
+    if (draggingId) {
+      const fromId = draggingId;
+      const toId = dragOverId || fallbackAccId;
+      if (fromId !== toId) {
+        const fromIdx = accounts.findIndex(a => a.id === fromId);
+        const toIdx = accounts.findIndex(a => a.id === toId);
+        if (fromIdx !== -1 && toIdx !== -1) {
+          const reordered = [...accounts];
+          const [moved] = reordered.splice(fromIdx, 1);
+          reordered.splice(toIdx, 0, moved);
+          onReorderAccounts(reordered.map(a => a.id));
+        }
+      }
+      setDraggingId(null);
+      setDragOverId(null);
+    }
+    pointerStartRef.current = null;
+  };
+
+  const handleCardPointerUp = (e: React.PointerEvent<HTMLDivElement>, accId: string) => {
+    finishDrag(accId);
+  };
+
+  const handleCardPointerCancel = (accId: string) => {
+    finishDrag(accId);
+  };
+
+  const handleCardClick = (accId: string) => {
+    if (didDragRef.current) {
+      didDragRef.current = false;
+      return;
+    }
+    setSelectedAccountId(prev => (prev === accId ? null : accId));
   };
 
   const handleDeleteCheck = (accId: string, accName: string) => {
@@ -418,32 +547,51 @@ export default function AccountView({
                 {accounts.map(acc => {
                   const borderHex = getBorderColorHex(acc.color);
                   const isFocused = selectedAccountId === acc.id;
-                  const borderStyle = isFocused 
-                    ? `2px solid ${borderHex}` 
+                  const isDragging = draggingId === acc.id;
+                  const isDropTarget = draggingId !== null && dragOverId === acc.id && dragOverId !== draggingId;
+                  const borderStyle = isFocused
+                    ? `2px solid ${borderHex}`
                     : '1px solid rgba(255, 255, 255, 0.08)';
 
                   return (
                     <div
                       key={acc.id}
-                      onClick={() => setSelectedAccountId(isFocused ? null : acc.id)}
-                      className={`glass-card rounded-xl p-5 relative overflow-hidden flex flex-col gap-3 hover:bg-white/5 transition-all duration-200 cursor-pointer ${isFocused ? 'ring-2 ring-offset-2 ring-offset-[#0B111E]' : ''}`}
-                      style={{ 
-                        borderLeftColor: borderHex, 
+                      data-account-id={acc.id}
+                      onClick={() => handleCardClick(acc.id)}
+                      onPointerDown={(e) => handleCardPointerDown(e, acc.id)}
+                      onPointerMove={handleCardPointerMove}
+                      onPointerUp={(e) => handleCardPointerUp(e, acc.id)}
+                      onPointerCancel={() => handleCardPointerCancel(acc.id)}
+                      className={`glass-card rounded-xl p-5 relative overflow-hidden flex flex-col gap-3 hover:bg-white/5 transition-all duration-200 cursor-pointer select-none ${isFocused ? 'ring-2 ring-offset-2 ring-offset-[#0B111E]' : ''} ${isDragging ? 'opacity-60 scale-95 shadow-2xl z-10' : ''} ${isDropTarget ? 'ring-2 ring-primary ring-dashed' : ''}`}
+                      style={{
+                        borderLeftColor: borderHex,
                         borderLeftWidth: '4px',
                         borderTop: borderStyle,
                         borderRight: borderStyle,
                         borderBottom: borderStyle,
-                        borderColor: isFocused ? borderHex : ''
+                        borderColor: isFocused ? borderHex : '',
+                        touchAction: draggingId ? 'none' : 'auto'
                       }}
                     >
                       <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           {getAccountIcon(acc.icon, borderHex)}
-                          <h3 className="font-headline-sm text-md text-white font-medium">{acc.name}</h3>
+                          <h3 className="font-headline-sm text-md text-white font-medium truncate">{acc.name}</h3>
                         </div>
-                        
+
                         {/* CRUD Tools in header */}
-                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          className="flex gap-1 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) => handleCopyAccountInfo(e, acc)}
+                            className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white transition-colors"
+                            title="Salin info rekening"
+                          >
+                            {copiedId === acc.id ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
                           <button
                             onClick={() => handleOpenEdit(acc)}
                             className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white transition-colors"
@@ -468,9 +616,14 @@ export default function AccountView({
                         <p className="font-mono-data text-xl font-bold text-white mt-0.5">{formatRupiah(acc.balance)}</p>
                       </div>
 
-                      <div className="flex justify-between items-center mt-1 pt-2.5 border-t border-white/5">
-                        <span className="text-[10px] text-on-surface-variant/60 italic truncate max-w-[120px]">{acc.tag || 'Rekening Aktif'}</span>
-                        <span className="text-[9px] font-label-caps font-bold text-primary flex items-center gap-1">
+                      <div className="flex justify-between items-center mt-1 pt-2.5 border-t border-white/5 gap-2">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[10px] text-on-surface-variant/60 font-mono-data truncate max-w-[150px]">{acc.accountNumber || '-'}</span>
+                          {acc.ownerName && (
+                            <span className="text-[9px] text-on-surface-variant/40 italic truncate max-w-[150px]">a.n. {acc.ownerName}</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-label-caps font-bold text-primary flex items-center gap-1 shrink-0">
                           Pemberian Alokasi
                           <ChevronRight className="w-3 h-3" />
                         </span>
@@ -691,15 +844,28 @@ export default function AccountView({
               />
             </div>
 
-            {/* Account Tagline */}
+            {/* Account Number */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tagline / Deskripsi Singkat</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">No Rekening</label>
               <input
                 type="text"
                 maxLength={32}
-                placeholder="Contoh: Dompet utama, Akun belanja harian"
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
+                placeholder="Contoh: 1234567890"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+              />
+            </div>
+
+            {/* Account Owner Name */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama Pemilik Rekening</label>
+              <input
+                type="text"
+                maxLength={40}
+                placeholder="Contoh: Kurnia Ramadhan"
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
                 className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
               />
             </div>

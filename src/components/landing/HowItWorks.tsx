@@ -10,7 +10,7 @@ const STEPS = [
   {
     icon: Sparkles,
     title: 'AI proses otomatis',
-    description: 'Gemini AI baca konteksnya, isi nominal, kategori, dan catatan otomatis dalam hitungan detik.',
+    description: 'AI baca konteksnya, isi nominal, kategori, dan catatan otomatis dalam hitungan detik.',
   },
   {
     icon: CheckCircle2,

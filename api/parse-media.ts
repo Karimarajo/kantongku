@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({
 async function generateContentWithRetry(aiInstance: any, options: any, maxRetries = 2) {
   let attempt = 0;
   // Menyesuaikan model rilis stabil terkini untuk performa terbaik
-  const modelsToTry = [options.model, "gemini-2.5-flash", "gemini-1.5-flash"];
+  const modelsToTry = [options.model, "gemini-2.5-flash-lite", "gemini-2.5-flash"];
   
   while (true) {
     try {
@@ -40,20 +40,63 @@ async function generateContentWithRetry(aiInstance: any, options: any, maxRetrie
   }
 }
 
+// Shared by /api/parse and /api/parse-media: makes the AI map a transaction to
+// the requesting user's OWN pockets/accounts/categories (by exact id) instead of
+// guessing from a fixed keyword list, and resolves relative time ("hari ini",
+// "kemarin") against the client's current clock instead of leaving it unset.
+interface ParseContext {
+  categories?: { id: string; name: string }[];
+  pockets?: { id: string; name: string }[];
+  accounts?: { id: string; name: string }[];
+  now?: string;
+}
+
+function buildTransactionSystemInstruction(context: ParseContext): string {
+  const now = context.now || new Date().toISOString();
+  const categories = context.categories || [];
+  const pockets = context.pockets || [];
+  const accounts = context.accounts || [];
+
+  return `Kamu adalah mesin parser transaksi keuangan untuk aplikasi KantongKu. Ubah input pengguna (teks ucapan, transkrip suara, atau foto struk) menjadi data transaksi terstruktur dalam bentuk JSON mentah yang valid.
+
+ATURAN WAJIB:
+1. JANGAN mengarang data. Untuk field wajib (nominal, catatan, tipe) yang tidak bisa dipastikan dari input: nominal=0, catatan="Tidak terdeteksi", tipe="pengeluaran".
+2. Untuk category_id, pocket_id, account_id, dan waktu: HANYA isi jika informasinya SECARA EKSPLISIT disebutkan atau bisa disimpulkan kuat dari input. Kalau tidak disebutkan sama sekali di input, kembalikan string kosong "" — JANGAN menebak atau memilih default begitu saja.
+3. Kalau disebutkan, WAJIB pilih salah satu id PERSIS (bukan bikin id atau nama baru) dari daftar milik pengguna ini:
+   - Kategori tersedia: ${JSON.stringify(categories)}
+   - Kantong tersedia: ${JSON.stringify(pockets)}
+   - Rekening/dompet tersedia: ${JSON.stringify(accounts)}
+4. Field "waktu": isi tanggal-waktu transaksi dalam format ISO 8601 lengkap, hasil resolusi dari kata waktu di input (mis. "hari ini", "kemarin", "tadi pagi", tanggal spesifik) RELATIF terhadap waktu sekarang: ${now}. Kalau input sama sekali tidak menyebut waktu, isi dengan waktu sekarang (${now}).`;
+}
+
+const TRANSACTION_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    nominal: { type: "INTEGER", description: "Jumlah uang dalam bentuk angka integer. Jika tidak ada, isi 0." },
+    catatan: { type: "STRING", description: "Keterangan singkat tentang transaksi. Jika tidak jelas, tulis 'Tidak terdeteksi'." },
+    tipe: { type: "STRING", description: "Pilih wajib antara: 'pemasukan' atau 'pengeluaran'." },
+    waktu: { type: "STRING", description: "Tanggal-waktu transaksi format ISO 8601, hasil resolusi kata waktu relatif di input. Isi waktu sekarang jika input tidak menyebut waktu." },
+    category_id: { type: "STRING", description: "ID kategori PERSIS dari daftar kategori yang diberikan, hanya jika disebutkan/tersirat di input. String kosong jika tidak disebutkan." },
+    pocket_id: { type: "STRING", description: "ID kantong PERSIS dari daftar kantong yang diberikan, hanya jika disebutkan/tersirat di input. String kosong jika tidak disebutkan." },
+    account_id: { type: "STRING", description: "ID rekening/dompet PERSIS dari daftar rekening yang diberikan, hanya jika disebutkan/tersirat di input. String kosong jika tidak disebutkan." }
+  },
+  required: ["nominal", "catatan", "tipe"]
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { mediaData, tipeMedia } = req.body;
+    const { mediaData, tipeMedia, context } = req.body;
     if (!mediaData || !tipeMedia) {
       return res.status(400).json({ error: "Data media dan tipeMedia wajib disertakan" });
     }
 
-    const apiKey = req.headers['x-api-key'] || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(401).json({ error: "API Key Gemini tidak ditemukan. Harap atur di tab Profil." });
+      return res.status(500).json({ error: "Layanan AI belum dikonfigurasi di server. Hubungi admin." });
     }
     const aiInstance = new GoogleGenAI({
       apiKey: apiKey as string,
@@ -69,7 +112,7 @@ export default async function handler(req: any, res: any) {
       const promptLengkap = `${payloadObj.instruksi}\n\nData Transaksi Terfilter:\n${JSON.stringify(payloadObj.data_transaksi, null, 2)}`;
 
       const response = await generateContentWithRetry(aiInstance, {
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-lite",
         contents: promptLengkap
       });
 
@@ -83,7 +126,7 @@ export default async function handler(req: any, res: any) {
 
     // Menggunakan parameter generateContent yang sesuai standar SDK @google/genai terbaru
     const response = await generateContentWithRetry(aiInstance, {
-      model: "gemini-2.5-flash", 
+      model: "gemini-2.5-flash-lite",
       contents: [
         {
           role: "user",
@@ -99,27 +142,16 @@ export default async function handler(req: any, res: any) {
         }
       ],
       config: {
-        systemInstruction: "Kamu adalah mesin parser JSON untuk aplikasi KantongKu. Tugasmu adalah menerima input (teks ucapan, transkrip suara, atau foto struk) dari user, lalu mengubahnya menjadi format transaksi terstruktur yang siap dimasukkan ke database Firebase. Wajib keluarkan data dalam bentuk JSON mentah yang valid. PENTING: Jika audio tidak terdengar jelas, kosong, atau gambar tidak mengandung transaksi, JANGAN mengarang data. Kembalikan nominal 0, catatan 'Tidak terdeteksi', dan kategori 'Lainnya'.",
+        systemInstruction: buildTransactionSystemInstruction(context || {}),
         responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            nominal: { type: "INTEGER", description: "Jumlah uang dalam bentuk angka integer. Jika tidak ada, isi 0." },
-            kategori: { type: "STRING", description: "Kategori pengeluaran/pemasukan. Jika tidak tahu, isi 'Lainnya'." },
-            catatan: { type: "STRING", description: "Keterangan singkat tentang transaksi. Jika suara tidak jelas, tulis 'Tidak terdeteksi'." },
-            sumber_dana: { type: "STRING", description: "Sumber dana (Bank_BCA / Dana / GoPay / Cash). Default: 'Cash'." },
-            kepemilikan: { type: "STRING", description: "Pilih wajib antara: 'Uangku' (pribadi), 'Uang Orang' (grup/kas), atau 'Uang Bisnis'." },
-            tipe: { type: "STRING", description: "Pilih wajib antara: 'pemasukan' atau 'pengeluaran'." }
-          },
-          required: ["nominal", "kategori", "catatan", "sumber_dana", "kepemilikan", "tipe"]
-        }
+        responseSchema: TRANSACTION_RESPONSE_SCHEMA
       }
     });
 
     // Mengambil text hasil dari struktur respons SDK baru secara aman
     const textResult = response.text || "{}";
     const parsedData = JSON.parse(textResult);
-    
+
     return res.status(200).json(parsedData);
   } catch (error: any) {
     console.error("Gagal melakukan parse media:", error);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Transaction, Pocket, Category } from '../types';
 import { formatRupiah, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
+import DonutChart from './DonutChart';
 import { 
   TrendingDown,
   Receipt,
@@ -110,6 +111,40 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
 
   const topCategories = getTopExpenseCategories();
 
+  // REVISI 3: DONAT KATEGORI PENGELUARAN & PEMASUKAN BULAN BERJALAN
+  const getCategoryBreakdown = (type: 'incoming' | 'outgoing') => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const totals: Record<string, number> = {};
+    const filtered = transactions.filter(t => {
+      if (t.type !== type) return false;
+      const d = new Date(t.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    filtered.forEach(t => {
+      const isValidCat = categories.some(c => c.id === t.category);
+      const targetCategory = (t.category && isValidCat) ? t.category : 'lainnya';
+      totals[targetCategory] = (totals[targetCategory] || 0) + t.amount;
+    });
+
+    return Object.keys(totals)
+      .map(catId => {
+        const catInfo = categories.find(c => c.id === catId);
+        return {
+          category: catInfo?.name || 'Lain-lain',
+          amount: totals[catId],
+          color: getCategoryColorHex(catInfo?.color || 'slate'),
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  };
+
+  const expenseByCategory = getCategoryBreakdown('outgoing');
+  const incomeByCategory = getCategoryBreakdown('incoming');
+
   // SVG coordinate calculations untuk mengalirkan curva spline berdasarkan jumlah minggu kalender riil dinamis
   const maxWeeklyHeight = Math.max(...weeklyTrendData, 1);
   const minWeeklyHeight = Math.min(...weeklyTrendData);
@@ -147,11 +182,10 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
-        
-        {/* KOLOM KIRI: GRAFIK TREN MINGGU KALENDER RIIL */}
-        <div className="lg:col-span-7 flex flex-col gap-6 w-full min-w-0">
-          <section className="flex flex-col gap-2.5 w-full min-w-0">
+      <div className="flex flex-col gap-6 w-full min-w-0">
+
+        {/* GRAFIK TREN MINGGU KALENDER RIIL */}
+        <section className="flex flex-col gap-2.5 w-full min-w-0">
             <h2 className="font-headline-sm text-base text-white">Tren Pengeluaran Mingguan</h2>
             
             <div className="glass-card rounded-xl p-4 relative overflow-hidden flex flex-col gap-4">
@@ -214,12 +248,19 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                 )}
               </div>
             </div>
-          </section>
-        </div>
+        </section>
 
-        {/* KOLOM KANAN: AGREGASI PENGELUARAN TERBESAR */}
-        <div className="lg:col-span-5 flex flex-col gap-6 w-full min-w-0">
-          <section className="flex flex-col gap-2.5 w-full min-w-0">
+        {/* Pengeluaran & Pemasukan per Kategori: donat chart, di antara Tren Mingguan & Pengeluaran Terbesar */}
+        <section className="flex flex-col gap-2.5 w-full min-w-0">
+          <h2 className="font-headline-sm text-base text-white">Pengeluaran &amp; Pemasukan per Kategori</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <DonutChart title="Pengeluaran" data={expenseByCategory} emptyLabel="Belum ada pengeluaran bulan ini." />
+            <DonutChart title="Pemasukan" data={incomeByCategory} emptyLabel="Belum ada pemasukan bulan ini." />
+          </div>
+        </section>
+
+        {/* AGREGASI PENGELUARAN TERBESAR */}
+        <section className="flex flex-col gap-2.5 w-full min-w-0">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
               <h2 className="font-headline-sm text-base text-white">Pengeluaran Terbesar</h2>
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Urutan Termahal</span>
@@ -271,8 +312,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                 </button>
               )}
             </div>
-          </section>
-        </div>
+        </section>
 
       </div>
     </div>

@@ -15,7 +15,8 @@ export interface Account {
   balance: number;
   icon: string; // bank, wallet, smartphone, cash, etc.
   color: string; // theme color
-  tag?: string; // e.g. "Rekening Utama"
+  accountNumber?: string; // No Rekening
+  ownerName?: string; // Nama Pemilik Rekening
   allocations?: Record<string, number>; // pocketId -> amount
 }
 

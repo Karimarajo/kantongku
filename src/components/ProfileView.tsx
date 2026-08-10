@@ -3,14 +3,13 @@ import { UserProfile } from '../types';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
   CreditCard, Moon, Sun, Volume2, VolumeX,
-  Camera, Edit3, Save, X, Lock, Eye, EyeOff, Check
+  Camera, Edit3, Save, X, Check
 } from 'lucide-react';
 
 export interface AppSettings {
   currency: 'IDR' | 'USD';
   theme: 'dark' | 'light';
   alarmRem: boolean;
-  geminiApiKey?: string;
 }
 
 interface ProfileViewProps {
@@ -20,7 +19,6 @@ interface ProfileViewProps {
   onResetData: () => void;
   onSaveProfile: (name: string, avatarUrl: string) => Promise<void>;
   onSaveSettings: (settings: AppSettings) => void;
-  onChangePassword: (oldPass: string, newPass: string) => Promise<void>;
 }
 
 export default function ProfileView({
@@ -29,23 +27,13 @@ export default function ProfileView({
   onLogout,
   onResetData,
   onSaveProfile,
-  onSaveSettings,
-  onChangePassword
+  onSaveSettings
 }: ProfileViewProps) {
   // Profile edit state
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userProfile.name);
   const [avatarUrl, setAvatarUrl] = useState(userProfile.avatarUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Password change state
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [oldPass, setOldPass] = useState('');
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [showOld, setShowOld] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [passMsg, setPassMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Settings state (local copy for immediate feedback)
   const [settings, setSettings] = useState<AppSettings>({ ...appSettings });
@@ -102,23 +90,6 @@ export default function ProfileView({
       setEditingName(false);
     } catch (err: any) {
       alert("Gagal memperbarui nama profil: " + err.message);
-    }
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!oldPass) return setPassMsg({ type: 'error', text: 'Masukkan kata sandi lama.' });
-    if (newPass.length < 6) return setPassMsg({ type: 'error', text: 'Kata sandi baru minimal 6 karakter.' });
-    if (newPass !== confirmPass) return setPassMsg({ type: 'error', text: 'Konfirmasi kata sandi tidak cocok.' });
-    
-    try {
-      setPassMsg({ type: 'success', text: 'Sedang memperbarui kata sandi di Firebase...' });
-      await onChangePassword(oldPass, newPass);
-      setPassMsg({ type: 'success', text: 'Kata sandi berhasil diperbarui!' });
-      setOldPass(''); setNewPass(''); setConfirmPass('');
-      setTimeout(() => { setPassMsg(null); setShowPasswordForm(false); }, 2000);
-    } catch (err: any) {
-      setPassMsg({ type: 'error', text: 'Gagal: ' + (err.message || 'Kesalahan Autentikasi') });
     }
   };
 
@@ -207,93 +178,6 @@ export default function ProfileView({
         <div className="w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/70 border-t border-white/5 pt-3 mt-1">
           <Calendar className="w-4 h-4 text-primary" />
           <span>Terdaftar Sejak: {new Date(userProfile.joinedAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
-        </div>
-      </section>
-
-      {/* Password Change */}
-      <section className="flex flex-col gap-2.5">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Keamanan Akun</span>
-        
-        {!showPasswordForm ? (
-          <button
-            onClick={() => setShowPasswordForm(true)}
-            className="glass-card rounded-lg p-3.5 flex justify-between items-center text-sm hover:bg-white/5 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-                <Lock className="w-5 h-5" />
-              </div>
-              <span className="text-white font-medium">Atur Kata Sandi</span>
-            </div>
-            <span className="text-xs text-on-surface-variant group-hover:text-white transition-colors">Ubah →</span>
-          </button>
-        ) : (
-          <form onSubmit={handleChangePassword} className="glass-card rounded-xl p-4 flex flex-col gap-3">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-400" /> Ubah Kata Sandi
-              </span>
-              <button type="button" onClick={() => { setShowPasswordForm(false); setPassMsg(null); }} className="text-[10px] text-on-surface-variant hover:text-white">Batal</button>
-            </div>
-
-            {passMsg && (
-              <div className={`text-xs px-3 py-2 rounded-lg border ${passMsg.type === 'success' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
-                {passMsg.text}
-              </div>
-            )}
-
-            {[
-              { label: 'Kata Sandi Lama', val: oldPass, set: setOldPass, show: showOld, toggle: () => setShowOld(v => !v) },
-              { label: 'Kata Sandi Baru', val: newPass, set: setNewPass, show: showNew, toggle: () => setShowNew(v => !v) },
-              { label: 'Konfirmasi Sandi Baru', val: confirmPass, set: setConfirmPass, show: showNew, toggle: () => setShowNew(v => !v) },
-            ].map(({ label, val, set, show, toggle }) => (
-              <div key={label} className="flex flex-col gap-1">
-                <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">{label}</label>
-                <div className="relative">
-                  <input
-                    type={show ? 'text' : 'password'}
-                    value={val}
-                    onChange={(e) => set(e.target.value)}
-                    className="w-full h-9 bg-[#0B111E]/40 rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary/60 px-3 pr-9"
-                    placeholder="••••••••"
-                  />
-                  <button type="button" onClick={toggle} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-white">
-                    {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            <button type="submit" className="w-full h-9 bg-primary text-on-primary font-label-caps text-[10px] rounded-lg flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity">
-              <Save className="w-3.5 h-3.5" /> Simpan Kata Sandi
-            </button>
-          </form>
-        )}
-      </section>
-
-
-
-      {/* AI Settings */}
-      <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Konfigurasi AI</span>
-        
-        <div className="glass-card rounded-xl p-4 flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Gemini API Key</label>
-            <div className="relative">
-              <input
-                type={showNew ? 'text' : 'password'}
-                value={settings.geminiApiKey || ''}
-                onChange={(e) => updateSetting('geminiApiKey', e.target.value)}
-                className="w-full h-9 bg-[#0B111E]/40 rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary/60 px-3 pr-9"
-                placeholder="Masukkan API Key Gemini Anda"
-              />
-              <button type="button" onClick={() => setShowNew(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-white">
-                {showNew ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-            <p className="text-[10px] text-on-surface-variant/70 mt-1">Kosongkan untuk menggunakan kunci bawaan server. Masukkan kunci Anda sendiri jika AI tidak merespons.</p>
-          </div>
         </div>
       </section>
 
