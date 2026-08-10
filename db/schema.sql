@@ -23,6 +23,19 @@ CREATE TABLE IF NOT EXISTS users (
   activated_at TIMESTAMPTZ
 );
 
+-- v5: Meta Pixel/CAPI + UTM attribution columns below (utm_source .. fbc).
+-- `CREATE TABLE IF NOT EXISTS` will NOT add these to an `orders` table that
+-- already exists in a running database. For an existing deployment, run this
+-- manually against it once instead of relying on this file:
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_source TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_medium TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_content TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_term TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbclid TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbp TEXT;
+--   ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbc TEXT;
+--
 -- Manual payment orders (no payment gateway): QRIS statis ShopeePay or BCA bank
 -- transfer, matched by hand against a "kode unik" added to the base price.
 CREATE TABLE IF NOT EXISTS orders (
@@ -38,7 +51,18 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL,
   confirmed_at TIMESTAMPTZ,
-  confirmed_by TEXT
+  confirmed_by TEXT,
+  -- Marketing attribution, captured from the landing page URL/cookies at the
+  -- moment the order was created. All nullable — organic (non-ad) traffic
+  -- won't have any of these.
+  utm_source TEXT,
+  utm_medium TEXT,
+  utm_campaign TEXT,
+  utm_content TEXT,
+  utm_term TEXT,
+  fbclid TEXT,
+  fbp TEXT,
+  fbc TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);

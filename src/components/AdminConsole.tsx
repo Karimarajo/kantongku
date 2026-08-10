@@ -34,6 +34,15 @@ interface Order {
   expires_at: string;
   confirmed_at: string | null;
   confirmed_by: string | null;
+  // Marketing attribution captured at order time — null for organic traffic.
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  fbclid: string | null;
+  fbp: string | null;
+  fbc: string | null;
 }
 
 interface AdminUser {
@@ -490,6 +499,7 @@ export default function AdminConsole() {
                   <th className="px-4 py-3">Nama</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Channel</th>
+                  <th className="px-4 py-3">Sumber</th>
                   <th className="px-4 py-3">Nominal</th>
                   <th className="px-4 py-3">Aksi</th>
                 </tr>
@@ -497,7 +507,7 @@ export default function AdminConsole() {
               <tbody>
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-on-surface-variant/60">
+                    <td colSpan={7} className="px-4 py-6 text-center text-on-surface-variant/60">
                       Tidak ada order pending.
                     </td>
                   </tr>
@@ -508,6 +518,20 @@ export default function AdminConsole() {
                     <td className="px-4 py-3">{o.name}</td>
                     <td className="px-4 py-3">{o.email}</td>
                     <td className="px-4 py-3">{channelLabel(o.channel)}</td>
+                    <td className="px-4 py-3">
+                      {o.utm_source ? (
+                        <span
+                          className="text-xs font-semibold px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-300 whitespace-nowrap"
+                          title={[o.utm_medium, o.utm_content, o.utm_term].filter(Boolean).join(' · ') || undefined}
+                        >
+                          {o.utm_source}{o.utm_campaign ? ` / ${o.utm_campaign}` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold px-2 py-1 rounded-full bg-white/5 text-on-surface-variant">
+                          Organik
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-lg font-bold text-white whitespace-nowrap">{formatCurrency(o.total_amount)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">

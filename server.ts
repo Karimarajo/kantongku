@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import { sendEmail } from "./lib/email";
+import { sendMetaCapiEvent } from "./lib/metaCapi";
 
 dotenv.config();
 
@@ -310,7 +311,19 @@ function generateOrderCode(): string {
 // ShopeePay/BCA mutation later — no payment gateway involved.
 app.post("/api/payment/create", async (req, res) => {
   try {
-    const { name, email, channel } = req.body;
+    const {
+      name,
+      email,
+      channel,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_content,
+      utm_term,
+      fbclid,
+      fbp,
+      fbc,
+    } = req.body;
     if (!name || !email || !channel) {
       return res.status(400).json({ error: "Nama, email, dan metode pembayaran wajib diisi" });
     }
@@ -353,9 +366,16 @@ app.post("/api/payment/create", async (req, res) => {
       orderCode = generateOrderCode();
       try {
         await pool.query(
-          `INSERT INTO orders (order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '24 hours')`,
-          [orderCode, name, email, channel, baseAmount, uniqueCode, totalAmount]
+          `INSERT INTO orders (
+             order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at,
+             utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbclid, fbp, fbc
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '24 hours', $8, $9, $10, $11, $12, $13, $14, $15)`,
+          [
+            orderCode, name, email, channel, baseAmount, uniqueCode, totalAmount,
+            utm_source || null, utm_medium || null, utm_campaign || null, utm_content || null,
+            utm_term || null, fbclid || null, fbp || null, fbc || null,
+          ]
         );
         inserted = true;
       } catch (err: any) {
@@ -364,6 +384,53 @@ app.post("/api/payment/create", async (req, res) => {
     }
     if (!inserted) {
       return res.status(503).json({ error: "Gagal membuat kode order, coba lagi" });
+    }
+
+    // --- Best-effort side effects below: Meta CAPI event + admin notification
+    // email. Fired-and-forgotten on purpose — NOT awaited — so a slow/failed
+    // network call to Meta or a hanging SMTP connection can never add latency
+    // to (let alone fail) the order response the customer is waiting on. The
+    // order is already committed to the database at this point; each promise
+    // has its own .catch() so a rejection here can't become an unhandled
+    // rejection or bubble into the request's own try/catch.
+    const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    sendMetaCapiEvent("Lead", orderCode, {
+      value: totalAmount,
+      currency: "IDR",
+      eventSourceUrl: req.headers.referer as string | undefined,
+      userData: {
+        email,
+        clientIpAddress: forwardedFor || req.socket.remoteAddress || undefined,
+        clientUserAgent: req.headers["user-agent"] as string | undefined,
+        fbp: fbp || undefined,
+        fbc: fbc || undefined,
+      },
+    }).catch((err: any) => {
+      console.error("Gagal mengirim event Meta CAPI (Lead):", err.message);
+    });
+
+    const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || process.env.EMAIL_FROM;
+    if (adminEmail) {
+      const channelLabel = channel === "qris_shopee" ? "QRIS ShopeePay" : "Transfer BCA";
+      const sourceLine = utm_source
+        ? `<p><b>Sumber:</b> ${utm_source}${utm_campaign ? ` / ${utm_campaign}` : ""}</p>`
+        : "";
+      sendEmail(
+        adminEmail,
+        `[KantongKu] Order baru masuk — ${orderCode}`,
+        `<h2>Order Baru</h2>
+         <p><b>Nama:</b> ${name}</p>
+         <p><b>Email:</b> ${email}</p>
+         <p><b>Metode Pembayaran:</b> ${channelLabel}</p>
+         <p><b>Total Tagihan:</b> Rp${totalAmount.toLocaleString("id-ID")} (harga Rp${baseAmount.toLocaleString("id-ID")} + kode unik ${uniqueCode})</p>
+         ${sourceLine}
+         <p><a href="${process.env.APP_URL}/admin">Buka Admin Console</a></p>`,
+        `Order baru: ${orderCode}\nNama: ${name}\nEmail: ${email}\nMetode: ${channelLabel}\nTotal: Rp${totalAmount.toLocaleString("id-ID")}\nAdmin Console: ${process.env.APP_URL}/admin`
+      ).catch((err: any) => {
+        console.error("Gagal mengirim email notifikasi order baru:", err.message);
+      });
+    } else {
+      console.warn("ADMIN_NOTIFY_EMAIL (dan EMAIL_FROM) belum diset — notifikasi order baru dilewati.");
     }
 
     const instructions =
@@ -478,6 +545,27 @@ app.post("/api/admin/orders/:order_code/confirm", requireAdmin, async (req, res)
        ON CONFLICT (email) DO UPDATE SET status = 'active', activated_at = now()`,
       [order.email]
     );
+
+    // Best-effort, fired-and-forgotten (not awaited) — same reasoning as the
+    // "Lead" event in POST /api/payment/create: the admin shouldn't sit
+    // waiting on a Meta API round-trip for a click that already succeeded.
+    // This is server-to-server (admin clicking in the Admin Console, no
+    // browser/Pixel involved here), so user_data is just the hashed email +
+    // whatever fbp/fbc were captured on the original order — helps Meta match
+    // this to the earlier "Lead" event for a better match rate. A separate
+    // event_id (order_code + "-confirmed") keeps this a distinct event from
+    // "Lead" instead of deduping with it.
+    sendMetaCapiEvent("OrderConfirmed", `${order_code}-confirmed`, {
+      value: Number(order.total_amount),
+      currency: "IDR",
+      userData: {
+        email: order.email,
+        fbp: order.fbp || undefined,
+        fbc: order.fbc || undefined,
+      },
+    }).catch((err: any) => {
+      console.error("Gagal mengirim event Meta CAPI (OrderConfirmed):", err.message);
+    });
 
     res.json({ success: true });
   } catch (error: any) {

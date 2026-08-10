@@ -18,6 +18,12 @@ COPY . .
 ARG VITE_GOOGLE_CLIENT_ID
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
+# Meta Pixel ID is not a secret (it's meant to run in the browser), but it's
+# still VITE_-prefixed so it needs the same build-arg treatment as
+# VITE_GOOGLE_CLIENT_ID above to get inlined into the frontend bundle.
+ARG VITE_META_PIXEL_ID
+ENV VITE_META_PIXEL_ID=$VITE_META_PIXEL_ID
+
 RUN npm run build
 
 # Production stage

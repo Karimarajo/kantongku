@@ -36,6 +36,53 @@ interface OrderDetails {
 
 type Step = 'form' | 'paying' | 'success' | 'expired' | 'error';
 
+// Marketing attribution captured from the landing URL on first load, kept in
+// sessionStorage (survives reload/scroll, cleared when the tab closes) so
+// it's still around by the time the user actually submits the order form.
+const UTM_STORAGE_KEY = 'kantongku_utm';
+const UTM_PARAM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'] as const;
+
+function captureUtmParams() {
+  const params = new URLSearchParams(window.location.search);
+  const captured: Record<string, string> = {};
+  let hasAny = false;
+  UTM_PARAM_KEYS.forEach((key) => {
+    const val = params.get(key);
+    if (val) {
+      captured[key] = val;
+      hasAny = true;
+    }
+  });
+  // Only overwrite what's already stored if this load actually carried new UTM
+  // params — a plain reload/in-app navigation with a clean URL shouldn't erase
+  // attribution captured from the ad click that brought the user here earlier
+  // in the same session.
+  if (hasAny) {
+    try {
+      sessionStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(captured));
+    } catch {
+      // sessionStorage unavailable (private mode, etc.) — attribution is
+      // best-effort, never block the page over it.
+    }
+  }
+}
+
+function readStoredUtmParams(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(UTM_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Facebook's own Pixel-set cookies (_fbp always, _fbc only if the user arrived
+// via an fbclid link) — plain browser cookies, no library needed to read them.
+function readCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 const PRICING_CHECKLIST = [
   'Input transaksi via suara & foto struk (AI)',
   'Multi-pocket & rekening tanpa batas',
@@ -68,6 +115,13 @@ export default function Landing() {
       .then((r) => r.json())
       .then((data) => setPrice(data))
       .catch(() => setError('Gagal memuat informasi harga. Coba muat ulang halaman.'));
+  }, []);
+
+  // Capture utm_source/medium/campaign/content/term + fbclid from the URL as
+  // soon as the landing page loads — before the user scrolls down and fills
+  // the order form — so they're available to send along with the order later.
+  useEffect(() => {
+    captureUtmParams();
   }, []);
 
   useEffect(() => {
@@ -126,15 +180,34 @@ export default function Landing() {
     setLoading(true);
 
     try {
+      const utm = readStoredUtmParams();
       const createRes = await fetch('/api/payment/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, channel }),
+        body: JSON.stringify({
+          name,
+          email,
+          channel,
+          utm_source: utm.utm_source,
+          utm_medium: utm.utm_medium,
+          utm_campaign: utm.utm_campaign,
+          utm_content: utm.utm_content,
+          utm_term: utm.utm_term,
+          fbclid: utm.fbclid,
+          fbp: readCookie('_fbp'),
+          fbc: readCookie('_fbc'),
+        }),
       });
       const createData = await createRes.json();
       if (!createRes.ok) {
         throw new Error(createData.error || 'Gagal membuat order pembayaran');
       }
+
+      // eventID must match the server-side CAPI "Lead" event's event_id
+      // (= order_code) exactly, so Meta dedups the two into a single event
+      // instead of double-counting it. Fires only if the Pixel was actually
+      // initialized (VITE_META_PIXEL_ID set) — see src/main.tsx.
+      window.fbq?.('track', 'Lead', { value: createData.total_amount, currency: 'IDR' }, { eventID: createData.order_code });
 
       setOrder(createData);
       setStep('paying');
