@@ -27,3 +27,5 @@ it needs a host that runs a persistent Node service (not a serverless platform l
 [DEPLOYMENT.md](DEPLOYMENT.md) for a concrete, step-by-step guide to deploying on Railway or
 Render, including every environment variable, the `db/schema.sql` migration, and an end-to-end
 test checklist.
+
+<!-- test auto-deploy 11 Agustus 2026 -->
