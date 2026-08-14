@@ -1,4 +1,4 @@
-import { Pocket, Category, Transaction, Budget, Notification, Account } from './types';
+import { Pocket, Category, Transaction, Budget, Notification, Account, WalletTransferLog, ActivityLogEntry } from './types';
 
 export const INITIAL_POCKETS: Pocket[] = [
   {
@@ -48,6 +48,12 @@ export const CATEGORIES: Category[] = [
     name: 'Belanja',
     icon: 'shopping',
     color: 'rose'
+  },
+  {
+    id: 'topup',
+    name: 'Top Up Saldo',
+    icon: 'piggy',
+    color: 'teal'
   }
 ];
 
@@ -56,3 +62,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [];
 export const INITIAL_BUDGETS: Budget[] = [];
 
 export const INITIAL_NOTIFICATIONS: Notification[] = [];
+
+export const INITIAL_WALLET_TRANSFER_LOGS: WalletTransferLog[] = [];
+
+export const INITIAL_ACTIVITY_LOG: ActivityLogEntry[] = [];

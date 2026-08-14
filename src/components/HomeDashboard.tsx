@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { Pocket, Transaction, Notification, PocketType, UserProfile, Category } from '../types';
+import { Pocket, Transaction, Notification, UserProfile, Category, Account } from '../types';
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
-import { 
-  RefreshCw, 
-  Bell, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Landmark, 
-  Store, 
-  Plus, 
-  Send, 
-  Receipt, 
+import {
+  RefreshCw,
+  Bell,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Store,
+  Plus,
+  Send,
+  Receipt,
   AlertTriangle,
   AlarmClock,
   Wallet,
@@ -42,13 +41,15 @@ import {
 
 interface HomeDashboardProps {
   pockets: Pocket[];
+  accounts: Account[];
   transactions: Transaction[];
   notifications: Notification[];
   userProfile: UserProfile;
   categories: Category[];
   onOpenAddModal: () => void;
   onDeleteTransaction: (id: string) => void;
-  onPocketTransferSimulate: (from: PocketType, to: PocketType, amount: number) => void;
+  onTransferBetweenWallets: (fromAccountId: string, toAccountId: string, amount: number, note?: string) => void;
+  onTopUpWallet: (accountId: string, amount: number, note?: string) => void;
   onChangeTab: (tab: string) => void;
   onOpenPocketManager: () => void;
   onOpenBudgetModal: () => void;
@@ -60,13 +61,15 @@ interface HomeDashboardProps {
 
 export default function HomeDashboard({
   pockets,
+  accounts,
   transactions,
   notifications,
   userProfile,
   categories,
   onOpenAddModal,
   onDeleteTransaction,
-  onPocketTransferSimulate,
+  onTransferBetweenWallets,
+  onTopUpWallet,
   onChangeTab,
   onOpenPocketManager,
   onOpenBudgetModal,
@@ -77,23 +80,40 @@ export default function HomeDashboard({
 }: HomeDashboardProps) {
   const [selectedPocketId, setSelectedPocketId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+
   const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [transferFrom, setTransferFrom] = useState<PocketType>('');
-  const [transferTo, setTransferTo] = useState<PocketType>('');
+  const [transferFromAcc, setTransferFromAcc] = useState<string>('');
+  const [transferToAcc, setTransferToAcc] = useState<string>('');
   const [transferAmount, setTransferAmount] = useState<number>(0);
   const [transferAmountDisplay, setTransferAmountDisplay] = useState<string>('');
+  const [transferNote, setTransferNote] = useState<string>('');
 
-  // Sync transfer selected pockets when pockets change
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false);
+  const [topUpAccountId, setTopUpAccountId] = useState<string>('');
+  const [topUpAmount, setTopUpAmount] = useState<number>(0);
+  const [topUpAmountDisplay, setTopUpAmountDisplay] = useState<string>('');
+  const [topUpNote, setTopUpNote] = useState<string>('');
+
+  // Keep the transfer wallet selections valid as `accounts` changes — the
+  // destination always excludes whichever wallet is currently the source.
   React.useEffect(() => {
-    if (pockets.length > 0) {
-      if (!transferFrom || !pockets.some(p => p.id === transferFrom)) {
-        setTransferFrom(pockets[0].id);
-      }
-      if (!transferTo || !pockets.some(p => p.id === transferTo) || (transferTo === pockets[0].id && pockets.length > 1)) {
-        setTransferTo(pockets[1]?.id || pockets[0].id);
-      }
+    if (accounts.length === 0) return;
+    if (!transferFromAcc || !accounts.some(a => a.id === transferFromAcc)) {
+      setTransferFromAcc(accounts[0].id);
+      return;
     }
-  }, [pockets, transferFrom, transferTo]);
+    if (!transferToAcc || !accounts.some(a => a.id === transferToAcc) || transferToAcc === transferFromAcc) {
+      const alt = accounts.find(a => a.id !== transferFromAcc);
+      setTransferToAcc(alt ? alt.id : accounts[0].id);
+    }
+  }, [accounts, transferFromAcc, transferToAcc]);
+
+  // Keep the top up wallet selection valid as `accounts` changes.
+  React.useEffect(() => {
+    if (accounts.length > 0 && (!topUpAccountId || !accounts.some(a => a.id === topUpAccountId))) {
+      setTopUpAccountId(accounts[0].id);
+    }
+  }, [accounts, topUpAccountId]);
 
   // Calculate dynamic totals
   const totalBalance = pockets.reduce((sum, p) => sum + p.balance, 0);
@@ -172,17 +192,33 @@ export default function HomeDashboard({
 
   const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (transferFrom === transferTo) {
-      alert('Kantong asal dan tujuan harus berbeda');
+    if (transferFromAcc === transferToAcc) {
+      alert('Wallet asal dan tujuan harus berbeda');
       return;
     }
     if (transferAmount <= 0) {
       alert('Ketik nominal transfer yang valid');
       return;
     }
-    onPocketTransferSimulate(transferFrom, transferTo, transferAmount);
+    onTransferBetweenWallets(transferFromAcc, transferToAcc, transferAmount, transferNote.trim() || undefined);
     setTransferAmount(0);
+    setTransferAmountDisplay('');
+    setTransferNote('');
     setTransferModalOpen(false);
+  };
+
+  const handleTopUpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!topUpAccountId) return;
+    if (topUpAmount <= 0) {
+      alert('Ketik nominal top up yang valid');
+      return;
+    }
+    onTopUpWallet(topUpAccountId, topUpAmount, topUpNote.trim() || undefined);
+    setTopUpAmount(0);
+    setTopUpAmountDisplay('');
+    setTopUpNote('');
+    setTopUpModalOpen(false);
   };
 
   return (
@@ -349,8 +385,8 @@ export default function HomeDashboard({
           {/* Quick Action Matrix Grid - 4 KOLOM */}
           <section className="py-2">
             <div className="grid grid-cols-4 gap-2 w-full">
-              <button 
-                onClick={onOpenAddModal}
+              <button
+                onClick={() => setTopUpModalOpen(true)}
                 className="flex flex-col items-center gap-2 group w-full"
               >
                 <div className="w-14 h-14 rounded-full bg-surface-variant border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/20 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
@@ -495,42 +531,42 @@ export default function HomeDashboard({
 
       </div>
 
-      {/* SIMULATE INTERNAL POCKET TRANSFER MODAL DIALOG */}
+      {/* TRANSFER ANTAR WALLET MODAL DIALOG */}
       {transferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTransferModalOpen(false)} />
           <div className="relative glass-card rounded-xl p-card_padding w-full max-w-sm border border-white/10 z-10">
             <h3 className="font-headline-sm text-white mb-4 flex items-center gap-2">
-              <Landmark className="w-5 h-5 text-primary" />
-              Transfer Antar Kantong
+              <Send className="w-5 h-5 text-primary" />
+              Transfer Antar Wallet
             </h3>
-            
+
             <form onSubmit={handleTransferSubmit} className="flex flex-col gap-4">
               <div className="flex justify-between items-center gap-2">
                 <div className="flex flex-col gap-1 w-full">
                   <label className="text-[10px] font-label-caps text-on-surface-variant uppercase">Dari</label>
-                  <select 
-                    value={transferFrom}
-                    onChange={(e) => setTransferFrom(e.target.value)}
+                  <select
+                    value={transferFromAcc}
+                    onChange={(e) => setTransferFromAcc(e.target.value)}
                     className="h-10 bg-[#0B111E] rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-2"
                   >
-                    {pockets.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
                 </div>
-                
+
                 <span className="text-on-surface-variant/35 mt-4">➔</span>
 
                 <div className="flex flex-col gap-1 w-full">
                   <label className="text-[10px] font-label-caps text-on-surface-variant uppercase">Ke</label>
-                  <select 
-                    value={transferTo}
-                    onChange={(e) => setTransferTo(e.target.value)}
+                  <select
+                    value={transferToAcc}
+                    onChange={(e) => setTransferToAcc(e.target.value)}
                     className="h-10 bg-[#0B111E] rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-2"
                   >
-                    {pockets.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                    {accounts.filter(a => a.id !== transferFromAcc).map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
                 </div>
@@ -540,7 +576,7 @@ export default function HomeDashboard({
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nominal Transfer</label>
                 <div className="relative flex items-center">
                   <span className="absolute left-3.5 font-bold text-primary font-mono-data text-xs">Rp</span>
-                  <input 
+                  <input
                     type="text"
                     inputMode="numeric"
                     placeholder="0"
@@ -556,19 +592,105 @@ export default function HomeDashboard({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Catatan (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Isi ulang GoPay"
+                  value={transferNote}
+                  onChange={(e) => setTransferNote(e.target.value)}
+                  className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-3"
+                />
+              </div>
+
               <div className="flex gap-2.5 mt-2">
-                <button 
+                <button
                   type="button"
                   onClick={() => setTransferModalOpen(false)}
                   className="w-full h-10 rounded-lg text-xs font-label-caps bg-white/5 border border-white/10 text-on-surface-variant hover:text-white"
                 >
                   Batal
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="w-full h-10 rounded-lg text-xs font-label-caps bg-primary text-on-primary font-bold shadow-[0_2px_10px_rgba(78,222,163,0.2)]"
                 >
                   Transfer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TOP UP WALLET MODAL DIALOG */}
+      {topUpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTopUpModalOpen(false)} />
+          <div className="relative glass-card rounded-xl p-card_padding w-full max-w-sm border border-white/10 z-10">
+            <h3 className="font-headline-sm text-white mb-4 flex items-center gap-2">
+              <PiggyBank className="w-5 h-5 text-primary" />
+              Top Up Wallet
+            </h3>
+
+            <form onSubmit={handleTopUpSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-label-caps text-on-surface-variant uppercase">Wallet Tujuan</label>
+                <select
+                  value={topUpAccountId}
+                  onChange={(e) => setTopUpAccountId(e.target.value)}
+                  className="h-10 bg-[#0B111E] rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-2"
+                >
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nominal Top Up</label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 font-bold text-primary font-mono-data text-xs">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    required
+                    value={topUpAmountDisplay}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      setTopUpAmount(raw ? Number(raw) : 0);
+                      setTopUpAmountDisplay(raw ? new Intl.NumberFormat('id-ID').format(Number(raw)) : '');
+                    }}
+                    className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary pl-9 pr-2 font-mono-data"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Catatan (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Setor tunai dari ATM"
+                  value={topUpNote}
+                  onChange={(e) => setTopUpNote(e.target.value)}
+                  className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-3"
+                />
+              </div>
+
+              <div className="flex gap-2.5 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setTopUpModalOpen(false)}
+                  className="w-full h-10 rounded-lg text-xs font-label-caps bg-white/5 border border-white/10 text-on-surface-variant hover:text-white"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="w-full h-10 rounded-lg text-xs font-label-caps bg-primary text-on-primary font-bold shadow-[0_2px_10px_rgba(78,222,163,0.2)]"
+                >
+                  Top Up
                 </button>
               </div>
             </form>

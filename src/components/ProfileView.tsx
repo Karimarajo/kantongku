@@ -3,7 +3,8 @@ import { UserProfile } from '../types';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
   CreditCard, Moon, Sun, Volume2, VolumeX,
-  Camera, Edit3, Save, X, Check
+  Camera, Edit3, Save, X, Check,
+  Wallet, Tag, Receipt, History, ChevronRight
 } from 'lucide-react';
 
 export interface AppSettings {
@@ -19,6 +20,10 @@ interface ProfileViewProps {
   onResetData: () => void;
   onSaveProfile: (name: string, avatarUrl: string) => Promise<void>;
   onSaveSettings: (settings: AppSettings) => void;
+  onOpenPocketManager: () => void;
+  onOpenCategoryManager: () => void;
+  onNavigateHistory: () => void;
+  onNavigateActivityLog: () => void;
 }
 
 export default function ProfileView({
@@ -27,7 +32,11 @@ export default function ProfileView({
   onLogout,
   onResetData,
   onSaveProfile,
-  onSaveSettings
+  onSaveSettings,
+  onOpenPocketManager,
+  onOpenCategoryManager,
+  onNavigateHistory,
+  onNavigateActivityLog
 }: ProfileViewProps) {
   // Profile edit state
   const [editingName, setEditingName] = useState(false);
@@ -178,6 +187,57 @@ export default function ProfileView({
         <div className="w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/70 border-t border-white/5 pt-3 mt-1">
           <Calendar className="w-4 h-4 text-primary" />
           <span>Terdaftar Sejak: {new Date(userProfile.joinedAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
+        </div>
+      </section>
+
+      {/* Settings / Pengaturan Menu */}
+      <section className="flex flex-col gap-2.5 mt-2">
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Pengaturan</span>
+
+        <div className="flex flex-col gap-2.5">
+          <button
+            onClick={onOpenPocketManager}
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-primary" />
+              Kelola Kantong
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </button>
+
+          <button
+            onClick={onOpenCategoryManager}
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-primary" />
+              Kelola Kategori
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </button>
+
+          <button
+            onClick={onNavigateHistory}
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-primary" />
+              Riwayat Transaksi
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </button>
+
+          <button
+            onClick={onNavigateActivityLog}
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              Log Activity
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </button>
         </div>
       </section>
 

@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction, Pocket, Account, Category } from '../types';
+import { Transaction, Pocket, Account, Category, WalletTransferLog } from '../types';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
 import {
-  Search, SlidersHorizontal, ChevronDown, Calendar, Tag, Wallet, 
-  ArrowDownLeft, ArrowUpRight, Receipt, Edit3, Trash2, RotateCcw, 
-  ChevronLeft, Send
+  Search, SlidersHorizontal, ChevronDown, Calendar, Tag, Wallet,
+  ArrowDownLeft, ArrowUpRight, Receipt, Edit3, Trash2, RotateCcw,
+  ChevronLeft, Send, ArrowLeftRight
 } from 'lucide-react';
 
 interface TransactionHistoryPageProps {
@@ -13,6 +13,7 @@ interface TransactionHistoryPageProps {
   pockets: Pocket[];
   accounts: Account[];
   categories: Category[];
+  walletTransferLogs?: WalletTransferLog[];
   initialFilter?: { category?: string };
   onEditTransactionSelect: (transaction: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
@@ -24,6 +25,7 @@ export default function TransactionHistoryPage({
   pockets,
   accounts,
   categories,
+  walletTransferLogs = [],
   initialFilter,
   onEditTransactionSelect,
   onDeleteTransaction,
@@ -56,6 +58,15 @@ export default function TransactionHistoryPage({
       return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, search, dateFrom, dateTo, selectedCategories, selectedPockets, selectedAccounts, typeFilter]);
+
+  const getAccountName = (id: string) => accounts.find(a => a.id === id)?.name || 'Wallet';
+
+  // Deliberately NOT part of `filteredTransactions` / the Masuk-Keluar-Netto
+  // totals below — a wallet transfer is an internal movement, not income or
+  // expense, and must stay excluded from those reports.
+  const sortedTransferLogs = useMemo(() => {
+    return [...walletTransferLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [walletTransferLogs]);
 
   const totalIncoming = filteredTransactions.filter(t => t.type === 'incoming').reduce((s, t) => s + t.amount, 0);
   const totalOutgoing = filteredTransactions.filter(t => t.type === 'outgoing').reduce((s, t) => s + t.amount, 0);
@@ -198,6 +209,39 @@ export default function TransactionHistoryPage({
       <button onClick={handleExportWA} className="w-full h-12 bg-primary text-black font-bold text-xs font-label-caps uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all hover:opacity-90 active:scale-[0.99] shrink-0">
          <Send className="w-4 h-4"/> Kirim Analisis Laporan
       </button>
+
+      {/* Riwayat Transfer Antar Wallet — dipisah dari daftar transaksi agar
+          tidak tertukar dengan transaksi biasa (bukan income/expense). */}
+      {sortedTransferLogs.length > 0 && (
+        <div className="flex flex-col gap-2 mt-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-white">Transfer Antar Wallet</h2>
+            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[9px] font-label-caps uppercase tracking-wider">
+              Bukan Transaksi
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {sortedTransferLogs.map(log => (
+              <div key={log.id} className="flex items-center p-3 gap-3 rounded-xl border border-indigo-500/10 bg-indigo-500/5 glass-card">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-indigo-500/15 border border-indigo-500/30">
+                  <ArrowLeftRight className="w-4 h-4 text-indigo-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {getAccountName(log.fromAccountId)} → {getAccountName(log.toAccountId)}
+                  </p>
+                  <p className="text-[10px] text-white/40 font-mono-data mt-0.5 truncate">
+                    {formatDate(log.date)}{log.note ? ` • ${log.note}` : ''}
+                  </p>
+                </div>
+                <span className="text-sm font-bold font-mono-data text-indigo-300 shrink-0">
+                  {formatRupiah(log.amount, false)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* List Rendering Transaksi */}
       <div className="flex flex-col gap-2 mt-2">

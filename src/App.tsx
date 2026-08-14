@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Pocket, Transaction, Budget, Notification, UserProfile, PocketType, Account, Category, Reminder } from './types';
+import { Pocket, Transaction, Budget, Notification, UserProfile, Account, Category, Reminder, WalletTransferLog, ActivityLogEntry } from './types';
 import {
   INITIAL_POCKETS,
   INITIAL_TRANSACTIONS,
   INITIAL_BUDGETS,
   INITIAL_NOTIFICATIONS,
   INITIAL_ACCOUNTS,
-  CATEGORIES
+  CATEGORIES,
+  INITIAL_WALLET_TRANSFER_LOGS,
+  INITIAL_ACTIVITY_LOG
 } from './mockData';
-import { getDefaultProfile } from './utils';
+import { getDefaultProfile, formatRupiah } from './utils';
 
 // Import Views
 import Login from './components/Login';
@@ -25,6 +27,11 @@ import CategoryManagerModal from './components/CategoryManagerModal';
 import TransactionHistoryView from './components/TransactionHistoryView';
 import TransactionHistoryPage from './components/TransactionHistoryPage';
 import ReminderModal from './components/ReminderModal';
+import ActivityLogView from './components/ActivityLogView';
+
+// Default category added retroactively for any account that predates the Top
+// Up Wallet feature — kept in one place so App.tsx and mockData.ts stay in sync.
+const TOPUP_CATEGORY: Category = { id: 'topup', name: 'Top Up Saldo', icon: 'piggy', color: 'teal' };
 
 // Icons for navigation
 import { Home, Wallet, PlusCircle, LineChart, User, Receipt } from 'lucide-react';
@@ -66,7 +73,9 @@ export default function App() {
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [categories, setCategories] = useState<Category[]>(CATEGORIES);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  
+  const [walletTransferLogs, setWalletTransferLogs] = useState<WalletTransferLog[]>(INITIAL_WALLET_TRANSFER_LOGS);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(INITIAL_ACTIVITY_LOG);
+
   const [activeTab, setActiveTab] = useState<string>('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -90,6 +99,8 @@ export default function App() {
     setBudgets(INITIAL_BUDGETS);
     setNotifications(INITIAL_NOTIFICATIONS);
     setReminders([]);
+    setWalletTransferLogs(INITIAL_WALLET_TRANSFER_LOGS);
+    setActivityLog(INITIAL_ACTIVITY_LOG);
     setAppSettings(DEFAULT_SETTINGS);
   };
 
@@ -130,10 +141,20 @@ export default function App() {
           ...a,
           allocations: a.allocations || { [defaultPocketId]: a.balance }
         })));
-        setCategories(data.categories ?? CATEGORIES);
+
+        // Retrofit: accounts created before the Top Up Wallet feature won't
+        // have the 'topup' category saved yet — add it once, transparently.
+        const loadedCategories: Category[] = data.categories ?? CATEGORIES;
+        const categoriesWithTopup = loadedCategories.some((c: Category) => c.id === 'topup')
+          ? loadedCategories
+          : [...loadedCategories, TOPUP_CATEGORY];
+
+        setCategories(categoriesWithTopup);
         setBudgets(data.budgets ?? INITIAL_BUDGETS);
         setNotifications(data.notifications ?? INITIAL_NOTIFICATIONS);
         setReminders(data.reminders ?? []);
+        setWalletTransferLogs(data.walletTransferLogs ?? INITIAL_WALLET_TRANSFER_LOGS);
+        setActivityLog(data.activityLog ?? INITIAL_ACTIVITY_LOG);
         setAppSettings(data.settings ?? DEFAULT_SETTINGS);
       }
 
@@ -159,6 +180,8 @@ export default function App() {
     reminders: Reminder[];
     profile: UserProfile | null;
     settings: AppSettings;
+    walletTransferLogs: WalletTransferLog[];
+    activityLog: ActivityLogEntry[];
   }>) => {
     const payload = {
       pockets: overrides.pockets ?? pockets,
@@ -170,6 +193,8 @@ export default function App() {
       reminders: overrides.reminders ?? reminders,
       profile: overrides.profile ?? currentUser,
       settings: overrides.settings ?? appSettings,
+      walletTransferLogs: overrides.walletTransferLogs ?? walletTransferLogs,
+      activityLog: overrides.activityLog ?? activityLog,
     };
 
     try {
@@ -364,7 +389,9 @@ export default function App() {
     newAccounts: Account[],
     newBudgets: Budget[] = budgets,
     newNotifications: Notification[] = notifications,
-    newCategories: Category[] = categories
+    newCategories: Category[] = categories,
+    newWalletTransferLogs: WalletTransferLog[] = walletTransferLogs,
+    newActivityLog: ActivityLogEntry[] = activityLog
   ) => {
     setPockets(newPockets);
     setAccounts(newAccounts);
@@ -372,7 +399,9 @@ export default function App() {
     setBudgets(newBudgets);
     setNotifications(newNotifications);
     setCategories(newCategories);
-    saveStateToStorage(newPockets, newTransactions, newBudgets, newNotifications, newAccounts, newCategories);
+    setWalletTransferLogs(newWalletTransferLogs);
+    setActivityLog(newActivityLog);
+    saveStateToStorage(newPockets, newTransactions, newBudgets, newNotifications, newAccounts, newCategories, newWalletTransferLogs, newActivityLog);
   };
 
   // Sync state mutations to the account's row in Postgres (via persistUserData).
@@ -382,7 +411,9 @@ export default function App() {
     updatedBudgets: Budget[],
     updatedNotifications: Notification[],
     updatedAccounts: Account[],
-    updatedCategories: Category[] = categories
+    updatedCategories: Category[] = categories,
+    updatedWalletTransferLogs: WalletTransferLog[] = walletTransferLogs,
+    updatedActivityLog: ActivityLogEntry[] = activityLog
   ) => {
     persistUserData({
       pockets: updatedPockets,
@@ -391,7 +422,35 @@ export default function App() {
       notifications: updatedNotifications,
       accounts: updatedAccounts,
       categories: updatedCategories,
+      walletTransferLogs: updatedWalletTransferLogs,
+      activityLog: updatedActivityLog,
     });
+  };
+
+  // Centralized, purely-textual activity feed. Must NEVER affect balance/report
+  // calculations, and a logging failure must never block the caller's main
+  // action — hence the try/catch that silently falls back to the current log.
+  const logActivity = (message: string, category?: string, icon?: string): ActivityLogEntry[] => {
+    try {
+      const entry: ActivityLogEntry = {
+        id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        message,
+        timestamp: new Date().toISOString(),
+        category,
+        icon,
+      };
+      const nextLog = [entry, ...activityLog];
+      setActivityLog(nextLog);
+      return nextLog;
+    } catch (err) {
+      console.error('Gagal mencatat activity log (diabaikan, tidak memengaruhi aksi utama):', err);
+      return activityLog;
+    }
+  };
+
+  const handleClearActivityLog = () => {
+    setActivityLog([]);
+    persistUserData({ activityLog: [] });
   };
 
   // Called by Login.tsx after the server has already verified Google login and set
@@ -423,6 +482,8 @@ export default function App() {
     setAccounts(initializedAccounts);
     setCategories(CATEGORIES);
     setReminders([]);
+    setWalletTransferLogs(INITIAL_WALLET_TRANSFER_LOGS);
+    setActivityLog(INITIAL_ACTIVITY_LOG);
     persistUserData({
       pockets: INITIAL_POCKETS,
       transactions: INITIAL_TRANSACTIONS,
@@ -431,6 +492,8 @@ export default function App() {
       accounts: initializedAccounts,
       categories: CATEGORIES,
       reminders: [],
+      walletTransferLogs: INITIAL_WALLET_TRANSFER_LOGS,
+      activityLog: INITIAL_ACTIVITY_LOG,
     });
     alert('Asisten KantongKu berhasil dikembalikan ke data mockup awal.');
   };
@@ -632,7 +695,14 @@ export default function App() {
       }
     });
 
-    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications);
+    const typeSign = newTransaction.type === 'incoming' ? '+' : '-';
+    const nextLog = logActivity(
+      `Menambahkan transaksi '${newTransaction.title}' ${typeSign}${formatRupiah(newTransaction.amount)}`,
+      'transaction',
+      'receipt'
+    );
+
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications, undefined, undefined, nextLog);
   };
 
   // Delete transaction operation
@@ -681,7 +751,14 @@ export default function App() {
       return b;
     });
 
-    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets);
+    const typeSign = target.type === 'incoming' ? '+' : '-';
+    const nextLog = logActivity(
+      `Menghapus transaksi '${target.title}' ${typeSign}${formatRupiah(target.amount)}`,
+      'transaction',
+      'receipt'
+    );
+
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, undefined, undefined, undefined, nextLog);
   };
 
   const handleEditTransactionSelect = (t: Transaction) => {
@@ -843,7 +920,9 @@ export default function App() {
       }
     });
 
-    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications);
+    const editLog = logActivity(`Mengedit transaksi '${editedTrans.title}'`, 'transaction', 'receipt');
+
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications, undefined, undefined, editLog);
     setEditingTransaction(null);
   };
 
@@ -900,12 +979,14 @@ export default function App() {
       nextTransactions = [initialTrans, ...transactions];
     }
 
-    updateStateAndStorage(nextTransactions, nextPockets, accounts);
+    const addPocketLog = logActivity(`Kantong '${newPocket.name}' ditambahkan`, 'pocket', 'wallet');
+    updateStateAndStorage(nextTransactions, nextPockets, accounts, undefined, undefined, undefined, undefined, addPocketLog);
   };
 
   const handleEditPocket = (updatedPocket: Pocket) => {
     const nextPockets = pockets.map(p => p.id === updatedPocket.id ? updatedPocket : p);
-    updateStateAndStorage(transactions, nextPockets, accounts);
+    const editPocketLog = logActivity(`Kantong '${updatedPocket.name}' diperbarui`, 'pocket', 'wallet');
+    updateStateAndStorage(transactions, nextPockets, accounts, undefined, undefined, undefined, undefined, editPocketLog);
   };
 
   const handleDeletePocket = (id: string) => {
@@ -913,6 +994,7 @@ export default function App() {
       alert("Kantong Pribadi tidak dapat dihapus!");
       return;
     }
+    const pocketToDelete = pockets.find(p => p.id === id);
     // 1. Find all transactions associated with this pocket
     const targetTrans = transactions.filter(t => t.pocketId === id);
     const targetTransIds = new Set(targetTrans.map(t => t.id));
@@ -938,92 +1020,152 @@ export default function App() {
     // 4. Delete pocket
     const nextPockets = pockets.filter(p => p.id !== id);
 
-    updateStateAndStorage(nextTransactions, nextPockets, accounts, nextBudgets);
+    const deletePocketLog = logActivity(`Kantong '${pocketToDelete?.name || id}' dihapus`, 'pocket', 'wallet');
+    updateStateAndStorage(nextTransactions, nextPockets, accounts, nextBudgets, undefined, undefined, undefined, deletePocketLog);
   };
 
   const handleReorderPockets = (reorderedPockets: Pocket[]) => {
     updateStateAndStorage(transactions, reorderedPockets, accounts);
   };
 
-  // Simulate instant secure pocket-to-pocket transfers
-  const handlePocketTransferSimulate = (fromId: PocketType, toId: PocketType, amount: number) => {
-    const sourcePocket = pockets.find(p => p.id === fromId);
-    if (!sourcePocket || sourcePocket.balance < amount) {
-      alert('Maaf, saldo di kantong pengirim tidak mencukupi untuk melakukan transfer ini.');
+  // Move balance between two Accounts (wallets) — a purely internal movement of
+  // money the user already has. Deliberately NOT recorded as a Transaction (that
+  // would double-count as income/expense in reports); recorded instead as a
+  // WalletTransferLog plus a textual activity-log entry.
+  const handleTransferBetweenWallets = (fromAccountId: string, toAccountId: string, amount: number, note?: string) => {
+    if (fromAccountId === toAccountId) {
+      alert('Wallet sumber dan tujuan tidak boleh sama.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      alert('Nominal transfer harus lebih dari 0.');
       return;
     }
 
-    const fromLabel = pockets.find(p => p.id === fromId)?.name || 'Sumber';
-    const toLabel = pockets.find(p => p.id === toId)?.name || 'Tujuan';
+    const sourceAccount = accounts.find(a => a.id === fromAccountId);
+    const destAccount = accounts.find(a => a.id === toAccountId);
+    if (!sourceAccount || !destAccount) return;
 
-    // 1. Run greedy Smart Allocation Balancer
-    let remainingToTransfer = amount;
-    const nextAccounts = accounts.map(a => ({
-      ...a,
-      allocations: { ...(a.allocations || {}) }
-    }));
-
-    while (remainingToTransfer > 0) {
-      let largestAccIndex = -1;
-      let largestAllocVal = 0;
-
-      for (let i = 0; i < nextAccounts.length; i++) {
-        const alloc = nextAccounts[i].allocations[fromId] || 0;
-        if (alloc > largestAllocVal) {
-          largestAllocVal = alloc;
-          largestAccIndex = i;
-        }
-      }
-
-      if (largestAccIndex === -1 || largestAllocVal <= 0) {
-        break;
-      }
-
-      const subtractAmount = Math.min(remainingToTransfer, largestAllocVal);
-      const acc = nextAccounts[largestAccIndex];
-      acc.allocations[fromId] = (acc.allocations[fromId] || 0) - subtractAmount;
-      acc.allocations[toId] = (acc.allocations[toId] || 0) + subtractAmount;
-
-      remainingToTransfer -= subtractAmount;
+    if (sourceAccount.balance < amount) {
+      alert('Saldo di wallet sumber tidak mencukupi untuk melakukan transfer ini.');
+      return;
     }
 
-    // 2. Recompute pocket balances
+    const defaultPocketId = pockets[0]?.id || 'pribadi';
+
+    // Shift both balance and the default-pocket allocation bucket together
+    // (mirrors handleEditAccount's balance-difference pattern) so every
+    // pocket's aggregate total stays mathematically unchanged.
+    const nextAccounts = accounts.map(a => {
+      if (a.id === fromAccountId) {
+        const currentAllocations = a.allocations || {};
+        const oldAlloc = currentAllocations[defaultPocketId] || 0;
+        return {
+          ...a,
+          balance: Math.max(0, a.balance - amount),
+          allocations: { ...currentAllocations, [defaultPocketId]: Math.max(0, oldAlloc - amount) }
+        };
+      }
+      if (a.id === toAccountId) {
+        const currentAllocations = a.allocations || {};
+        const oldAlloc = currentAllocations[defaultPocketId] || 0;
+        return {
+          ...a,
+          balance: a.balance + amount,
+          allocations: { ...currentAllocations, [defaultPocketId]: oldAlloc + amount }
+        };
+      }
+      return a;
+    });
+
     const nextPockets = pockets.map(p => {
-      const totalBalance = nextAccounts.reduce((sum, a) => {
-        return sum + (a.allocations?.[p.id] || 0);
-      }, 0);
+      const totalBalance = nextAccounts.reduce((sum, a) => sum + (a.allocations?.[p.id] || 0), 0);
       return { ...p, balance: totalBalance };
     });
 
-    // 3. Create success notification
-    const dapatkanWaktuSekarangString = (): string => {
-      const sekarang = new Date();
-      const opsiTanggal: Intl.DateTimeFormatOptions = { 
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-      };
-      const tanggalFormat = sekarang.toLocaleDateString('id-ID', opsiTanggal);
-      const jamFormat = sekarang.toLocaleTimeString('id-ID', { 
-        hour: '2-digit', minute: '2-digit', hour12: false 
-      }).replace(':', '.');
-
-      return `${tanggalFormat} - Pukul ${jamFormat}`;
+    const transferLog: WalletTransferLog = {
+      id: `wt-${Date.now()}`,
+      fromAccountId,
+      toAccountId,
+      amount,
+      note: note?.trim() || undefined,
+      date: new Date().toISOString(),
     };
+    const nextWalletTransferLogs = [transferLog, ...walletTransferLogs];
 
-    const transferNotif: Notification = {
-      id: `n-trans-${Date.now()}`,
-      title: 'Pemindahan Buku Berhasil',
-      message: `Pemindahan saldo dari Kantong "${fromLabel}" ke "${toLabel}" sejumlah ${amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })} berhasil disimpan.`,
-      time: dapatkanWaktuSekarangString(),
-      isRead: false,
-      type: 'info'
-    };
-
-    const nextNotifications = [transferNotif, ...notifications];
+    const nextLog = logActivity(
+      `Transfer ${formatRupiah(amount)} dari ${sourceAccount.name} ke ${destAccount.name}`,
+      'transfer',
+      'send'
+    );
 
     setPockets(nextPockets);
     setAccounts(nextAccounts);
-    setNotifications(nextNotifications);
-    saveStateToStorage(nextPockets, transactions, budgets, nextNotifications, nextAccounts, categories);
+    setWalletTransferLogs(nextWalletTransferLogs);
+    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories, nextWalletTransferLogs, nextLog);
+  };
+
+  // Top up a wallet's balance from an outside source (e.g. cash deposit, salary).
+  // UNLIKE a wallet transfer, this IS recorded as a normal incoming Transaction
+  // (dedicated 'topup' category) so it counts correctly in income reports.
+  const handleTopUpWallet = (accountId: string, amount: number, note?: string) => {
+    if (!amount || amount <= 0) {
+      alert('Nominal top up harus lebih dari 0.');
+      return;
+    }
+    const targetAccount = accounts.find(a => a.id === accountId);
+    if (!targetAccount) return;
+
+    const defaultPocketId = pockets[0]?.id || 'pribadi';
+
+    // Retrofit safety net: make sure the 'topup' category exists even if this
+    // account somehow predates the load-time retrofit in loadSessionAndData.
+    const nextCategories = categories.some(c => c.id === 'topup')
+      ? categories
+      : [...categories, TOPUP_CATEGORY];
+
+    const topUpTransaction: Transaction = {
+      id: `t-topup-${Date.now()}`,
+      title: note?.trim() || `Top Up ${targetAccount.name}`,
+      amount,
+      type: 'incoming',
+      pocketId: defaultPocketId,
+      accountId,
+      category: 'topup',
+      date: new Date().toISOString(),
+      notes: note?.trim() || undefined,
+    };
+    const nextTransactions = [topUpTransaction, ...transactions].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    const nextAccounts = accounts.map(a => {
+      if (a.id === accountId) {
+        const currentAllocations = a.allocations || {};
+        const oldAlloc = currentAllocations[defaultPocketId] || 0;
+        return {
+          ...a,
+          balance: a.balance + amount,
+          allocations: { ...currentAllocations, [defaultPocketId]: oldAlloc + amount }
+        };
+      }
+      return a;
+    });
+
+    const nextPockets = pockets.map(p => {
+      if (p.id === defaultPocketId) {
+        return { ...p, balance: p.balance + amount };
+      }
+      return p;
+    });
+
+    const nextLog = logActivity(
+      `Top up ${formatRupiah(amount)} ke wallet ${targetAccount.name}`,
+      'topup',
+      'piggy'
+    );
+
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, budgets, notifications, nextCategories, walletTransferLogs, nextLog);
   };
 
   // CRUD Handlers for Accounts (Rekening)
@@ -1052,9 +1194,10 @@ export default function App() {
       return p;
     });
 
+    const addAccountLog = logActivity(`Wallet '${newAccount.name}' ditambahkan`, 'wallet', 'wallet');
     setPockets(nextPockets);
     setAccounts(nextAccounts);
-    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories);
+    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories, undefined, addAccountLog);
   };
 
   const handleEditAccount = (updatedAccount: Account, balanceDifference?: number) => {
@@ -1085,9 +1228,10 @@ export default function App() {
       return p;
     });
 
+    const editAccountLog = logActivity(`Wallet '${updatedAccount.name}' diperbarui`, 'wallet', 'wallet');
     setPockets(nextPockets);
     setAccounts(nextAccounts);
-    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories);
+    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories, undefined, editAccountLog);
   };
 
   const handleDeleteAccount = (id: string) => {
@@ -1104,9 +1248,10 @@ export default function App() {
     const nextAccounts = accounts.filter(a => a.id !== id);
 
     // Keep transaction history completely untouched!
+    const deleteAccountLog = logActivity(`Wallet '${accountToDelete.name}' dihapus`, 'wallet', 'wallet');
     setPockets(nextPockets);
     setAccounts(nextAccounts);
-    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories);
+    saveStateToStorage(nextPockets, transactions, budgets, notifications, nextAccounts, categories, undefined, deleteAccountLog);
   };
 
   // Reorder wallet cards (long-press drag & drop in AccountView) and persist the
@@ -1154,22 +1299,26 @@ export default function App() {
       id: `cat-${Date.now()}`
     };
     const nextCategories = [...categories, newCategory];
-    updateStateAndStorage(transactions, pockets, accounts, budgets, notifications, nextCategories);
+    const addCatLog = logActivity(`Kategori '${newCategory.name}' ditambahkan`, 'category', 'tag');
+    updateStateAndStorage(transactions, pockets, accounts, budgets, notifications, nextCategories, undefined, addCatLog);
   };
 
   const handleEditCategory = (updatedCat: Category) => {
     const nextCategories = categories.map(c => c.id === updatedCat.id ? updatedCat : c);
-    updateStateAndStorage(transactions, pockets, accounts, budgets, notifications, nextCategories);
+    const editCatLog = logActivity(`Kategori '${updatedCat.name}' diperbarui`, 'category', 'tag');
+    updateStateAndStorage(transactions, pockets, accounts, budgets, notifications, nextCategories, undefined, editCatLog);
   };
 
   const handleDeleteCategory = (id: string) => {
+    const categoryToDelete = categories.find(c => c.id === id);
     const nextCategories = categories.filter(c => c.id !== id);
-    
+
     // Cascade delete: remove all transactions and budgets associated with this category
     const nextTransactions = transactions.filter(t => t.category !== id);
     const nextBudgets = budgets.filter(b => b.category !== id);
-    
-    updateStateAndStorage(nextTransactions, pockets, accounts, nextBudgets, notifications, nextCategories);
+
+    const deleteCatLog = logActivity(`Kategori '${categoryToDelete?.name || id}' dihapus`, 'category', 'tag');
+    updateStateAndStorage(nextTransactions, pockets, accounts, nextBudgets, notifications, nextCategories, undefined, deleteCatLog);
   };
 
   const handleReorderCategories = (reordered: Category[]) => {
@@ -1421,13 +1570,15 @@ export default function App() {
           {activeTab === 'home' && (
             <HomeDashboard
               pockets={pockets}
+              accounts={accounts}
               transactions={transactions}
               notifications={notifications}
               userProfile={currentUser}
               categories={categories}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onDeleteTransaction={handleDeleteTransaction}
-              onPocketTransferSimulate={handlePocketTransferSimulate}
+              onTransferBetweenWallets={handleTransferBetweenWallets}
+              onTopUpWallet={handleTopUpWallet}
               onChangeTab={setActiveTab}
               onOpenPocketManager={() => setIsPocketManagerOpen(true)}
               onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
@@ -1466,6 +1617,7 @@ export default function App() {
               pockets={pockets}
               accounts={accounts}
               categories={categories}
+              walletTransferLogs={walletTransferLogs}
               initialFilter={historyInitialFilter}
               onEditTransactionSelect={handleEditTransactionSelect}
               onDeleteTransaction={handleDeleteTransaction}
@@ -1474,13 +1626,25 @@ export default function App() {
           )}
 
           {activeTab === 'profile' && (
-            <ProfileView 
+            <ProfileView
               userProfile={currentUser}
               appSettings={appSettings}
               onLogout={handleLogout}
               onResetData={handleResetData}
               onSaveProfile={handleSaveProfile}
               onSaveSettings={handleSaveSettings}
+              onOpenPocketManager={() => setIsPocketManagerOpen(true)}
+              onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
+              onNavigateHistory={() => setActiveTab('history')}
+              onNavigateActivityLog={() => setActiveTab('activity-log')}
+            />
+          )}
+
+          {activeTab === 'activity-log' && (
+            <ActivityLogView
+              activityLog={activityLog}
+              onBack={() => setActiveTab('profile')}
+              onClearLog={handleClearActivityLog}
             />
           )}
         </div>

@@ -84,3 +84,25 @@ export interface Reminder {
   targetDate?: string; // Format: "YYYY-MM-DD"
 }
 
+// Internal movement of balance between two Accounts (wallets). Deliberately
+// NOT a Transaction — must stay excluded from income/expense reports.
+export interface WalletTransferLog {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  note?: string;
+  date: string; // ISO string
+}
+
+// Purely textual/historical activity feed. Must never be read by any
+// balance/report calculation — logging failures must never block the
+// action they describe.
+export interface ActivityLogEntry {
+  id: string;
+  message: string;
+  timestamp: string; // ISO string
+  category?: string;
+  icon?: string;
+}
+
