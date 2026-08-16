@@ -12,9 +12,12 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- v6: `last_active_at`, set best-effort (fire-and-forget, non-blocking) from
 -- requireSession in server.ts on every authenticated request. `CREATE TABLE IF
--- NOT EXISTS` will NOT add this to a `users` table that already exists — for
--- an existing deployment, run manually against it once instead:
---   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+-- NOT EXISTS` will NOT add this to a `users` table that already exists — the
+-- ALTER right after CREATE TABLE below is what actually applies it to an
+-- existing deployment; unlike earlier versions of this file, it's a REAL
+-- statement, not a comment (a comment here silently never runs — this is
+-- exactly the bug that let production's `orders`/`users` drift out of sync
+-- with the code for multiple releases; see the equivalent ALTERs below).
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
@@ -28,31 +31,18 @@ CREATE TABLE IF NOT EXISTS users (
   activated_at TIMESTAMPTZ,
   last_active_at TIMESTAMPTZ
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 
--- v5: Meta Pixel/CAPI + UTM attribution columns below (utm_source .. fbc).
--- `CREATE TABLE IF NOT EXISTS` will NOT add these to an `orders` table that
--- already exists in a running database. For an existing deployment, run this
--- manually against it once instead of relying on this file:
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_source TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_medium TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_content TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_term TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbclid TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbp TEXT;
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbc TEXT;
---
 -- Manual payment orders (no payment gateway): QRIS statis ShopeePay or BCA bank
 -- transfer, matched by hand against a "kode unik" added to the base price.
 --
--- v8: `order_type` distinguishes the main license purchase from a
--- collaborator-seat order (Task 2 revision — collaboration now goes through
--- this SAME manual-payment flow instead of a free stub). For an existing
--- deployment, run manually once instead of relying on this file:
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type TEXT NOT NULL DEFAULT 'license';
---   ALTER TABLE orders ADD CONSTRAINT orders_order_type_check CHECK (order_type IN ('license', 'collaborator'));
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_owner_user_id UUID REFERENCES users(id);
---   ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_email TEXT;
+-- v5 (utm_* / fbclid / fbp / fbc), v8 (order_type / collaborator_*), v9
+-- (doku_* / confirmed_via) all added columns to this table after it already
+-- existed in production — `CREATE TABLE IF NOT EXISTS` alone can't add them
+-- to a database that already has an `orders` table. The real ALTER
+-- statements right after CREATE TABLE below apply them for real, every time
+-- this file runs, on any deployment (fresh or existing) — ADD COLUMN IF NOT
+-- EXISTS is always a safe no-op once a column is already there.
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_code TEXT UNIQUE NOT NULL,
@@ -87,13 +77,7 @@ CREATE TABLE IF NOT EXISTS orders (
   -- v9: Doku Checkout (Non-SNAP) integration — automatic payment alongside
   -- the manual BCA/QRIS flow (which stays fully functional as a fallback).
   -- `confirmed_via` distinguishes an admin's manual click from an automatic
-  -- webhook confirmation, for the Admin Console badge. For an existing
-  -- deployment, run manually once instead of relying on this file:
-  --   ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_payment_url TEXT;
-  --   ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_token_id TEXT;
-  --   ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_expired_at TIMESTAMPTZ;
-  --   ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_via TEXT;
-  --   ALTER TABLE orders ADD CONSTRAINT orders_confirmed_via_check CHECK (confirmed_via IN ('manual', 'doku'));
+  -- webhook confirmation, for the Admin Console badge.
   doku_payment_url TEXT,
   doku_token_id TEXT,
   doku_expired_at TIMESTAMPTZ,
@@ -103,6 +87,39 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
 -- Helps the "find a free unique_code" check in POST /api/payment/create.
 CREATE INDEX IF NOT EXISTS idx_orders_pending_unique_code ON orders (unique_code) WHERE status = 'pending';
+
+-- Real, unconditionally-run ALTERs for every column ever added to `orders`
+-- after it first shipped (v5 utm_*/fbclid/fbp/fbc, v8 order_type/
+-- collaborator_*, v9 doku_*/confirmed_via) — ADD COLUMN IF NOT EXISTS is a
+-- safe no-op on a fresh table that already has these from CREATE TABLE
+-- above, and is what ACTUALLY fixes an existing deployment (a `-- ALTER
+-- TABLE ...` comment, which is what earlier versions of this file had here,
+-- never runs on its own — that gap is what let production drift out of sync
+-- with the code across several releases until orders.order_type finally hard
+-- 500'd on every new order).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_source TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_medium TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_content TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_term TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbclid TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbp TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS fbc TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type TEXT NOT NULL DEFAULT 'license';
+DO $$ BEGIN
+  ALTER TABLE orders ADD CONSTRAINT orders_order_type_check CHECK (order_type IN ('license', 'collaborator'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_owner_user_id UUID REFERENCES users(id);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_email TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_payment_url TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_token_id TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_expired_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_via TEXT;
+DO $$ BEGIN
+  ALTER TABLE orders ADD CONSTRAINT orders_confirmed_via_check CHECK (confirmed_via IN ('manual', 'doku'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Per-account application state (pockets, transactions, budgets, categories,
 -- notifications, reminders, profile, settings) stored as a single JSON blob so
@@ -174,16 +191,10 @@ ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ;
 -- confirmed by an admin exactly like a license order. `status` therefore
 -- starts at 'pending_payment' (not 'pending') and only reaches 'active' via
 -- POST /api/admin/orders/:code/confirm or a free reconnect (disconnected
--- collaborators don't need to pay again). For an existing deployment that
--- already ran the v7 shape of this table, run manually once instead of
--- relying on this file:
---   ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_status_check;
---   ALTER TABLE collaborators ALTER COLUMN status SET DEFAULT 'pending_payment';
---   ALTER TABLE collaborators ADD CONSTRAINT collaborators_status_check CHECK (status IN ('pending_payment', 'active', 'revoked'));
---   UPDATE collaborators SET status = 'pending_payment' WHERE status = 'pending';
---   ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMPTZ;
---   ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS disconnected_by TEXT;
---   ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id);
+-- collaborators don't need to pay again). The real ALTERs for a deployment
+-- that already ran the pre-v8 shape of this table are right after CREATE
+-- TABLE below (a `-- ALTER TABLE ...` comment here never executes on its
+-- own — see the note on `orders` above for how that silently went wrong).
 CREATE TABLE IF NOT EXISTS collaborators (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -202,6 +213,18 @@ CREATE TABLE IF NOT EXISTS collaborators (
 );
 
 CREATE INDEX IF NOT EXISTS idx_collaborators_email_active ON collaborators(email) WHERE status = 'active';
+
+-- Real, unconditionally-run ALTERs bringing a pre-v8 `collaborators` table
+-- (free-stub activation, `status` default 'pending') up to the current
+-- manual-payment-order shape. Harmless no-ops on a fresh table that already
+-- has this shape from CREATE TABLE above.
+ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_status_check;
+ALTER TABLE collaborators ALTER COLUMN status SET DEFAULT 'pending_payment';
+ALTER TABLE collaborators ADD CONSTRAINT collaborators_status_check CHECK (status IN ('pending_payment', 'active', 'revoked'));
+UPDATE collaborators SET status = 'pending_payment' WHERE status = 'pending';
+ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMPTZ;
+ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS disconnected_by TEXT;
+ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id);
 
 -- v9: Web Push subscriptions (cicilan-ai-notifikasi Task 5). Kept as its own
 -- relational table (unlike Debt/DebtPayment, which the same prompt chose to
