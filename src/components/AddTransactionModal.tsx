@@ -371,32 +371,85 @@ export default function AddTransactionModal({
     }
   };
 
+  // Resize (max 1280px on the longest side) + re-encode as JPEG q=0.8 via the
+  // native Canvas API before a receipt photo ever leaves the browser — no new
+  // dependency, just a smaller payload so Gemini has less to chew through.
+  // Falls back to the original, uncompressed data URL if anything about the
+  // decode/draw step fails (e.g. an exotic image format canvas can't touch).
+  const compressImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const original = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIMENSION = 1280;
+          let { width, height } = img;
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height = Math.round(height * (MAX_DIMENSION / width));
+              width = MAX_DIMENSION;
+            }
+          } else if (height > MAX_DIMENSION) {
+            width = Math.round(width * (MAX_DIMENSION / height));
+            height = MAX_DIMENSION;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(original);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => resolve(original);
+        img.src = original;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'audio') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessing(true);
-    setProgressMsg('Membaca file & mengonversinya ke Base64...');
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64Data = reader.result as string;
-        setProgressMsg('Mengunggah ke AI dan menganalisis berkas asli...');
-        
-        const parsed = await (window as any).kirimKeGeminiAI(base64Data, file.type);
-        if (parsed) {
-          applyAiMetadataToForm(parsed, `Berkas ${file.name}`);
-        }
-      } catch (err: any) {
-        console.error("Gagal memproses berkas:", err);
-        alert("Gagal memproses file: " + (err.message || err));
-      } finally {
-        setIsProcessing(false);
-        setAudioRecording(false);
+    try {
+      let base64Data: string;
+      let mimeType = file.type;
+
+      if (type === 'image') {
+        setProgressMsg('Mengompres gambar struk...');
+        base64Data = await compressImageFile(file);
+        mimeType = 'image/jpeg'; // compressImageFile always re-encodes as JPEG
+      } else {
+        setProgressMsg('Membaca file & mengonversinya ke Base64...');
+        base64Data = await new Promise<string>((resolve, reject) => {
+          const audioReader = new FileReader();
+          audioReader.onload = () => resolve(audioReader.result as string);
+          audioReader.onerror = reject;
+          audioReader.readAsDataURL(file);
+        });
       }
-    };
-    reader.readAsDataURL(file);
+
+      setProgressMsg('Mengunggah ke AI dan menganalisis berkas asli...');
+      const parsed = await (window as any).kirimKeGeminiAI(base64Data, mimeType);
+      if (parsed) {
+        applyAiMetadataToForm(parsed, `Berkas ${file.name}`);
+      }
+    } catch (err: any) {
+      console.error("Gagal memproses berkas:", err);
+      alert("Gagal memproses file: " + (err.message || err));
+    } finally {
+      setIsProcessing(false);
+      setAudioRecording(false);
+    }
   };
 
   // Mock Data untuk Demo Simulasi Cepat
@@ -492,7 +545,7 @@ export default function AddTransactionModal({
                 {currentView === 'camera' && 'AI Scanner Struk'}
                 {currentView === 'voice' && 'Mendikte lewat Suara'}
                 {currentView === 'manual' && 'Input Manual'}
-                {currentView === 'parser' && 'JSON Parser AI KantongKu'}
+                {currentView === 'parser' && 'Ketik Apapun'}
               </>
             )}
           </span>
@@ -505,13 +558,19 @@ export default function AddTransactionModal({
         <div className="px-container_margin flex-grow">
           {currentView === 'options' && (
             <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-on-surface-variant font-label-caps text-xs">Pilih Cara Catat Uang</h3>
-                <button type="button" onClick={() => setCurrentView('parser')} className="text-xs text-primary font-bold flex items-center gap-1 hover:underline">
-                  <Brain className="w-4 h-4 shrink-0" /> Playground Parser
-                </button>
-              </div>
-              
+              <h3 className="text-on-surface-variant font-label-caps text-xs">Pilih Cara Catat Uang</h3>
+
+              <button onClick={() => setCurrentView('parser')} className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-all text-left group active:scale-[0.98]">
+                <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shrink-0">
+                  <Brain className="w-6 h-6" />
+                </div>
+                <div className="flex-grow">
+                  <p className="font-body-lg text-white font-bold">Ketik Apapun</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Tulis bebas satu kalimat, AI yang urus sisanya</p>
+                </div>
+                <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0" />
+              </button>
+
               <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-left group active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Camera className="w-6 h-6" />
@@ -553,9 +612,12 @@ export default function AddTransactionModal({
               {isProcessing ? (
                 <div className="flex flex-col items-center gap-4 py-8">
                   <Loader className="w-12 h-12 text-primary animate-spin" />
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2 items-center">
                     <p className="text-white font-medium text-lg">Menganalisis Struk...</p>
                     <p className="text-xs text-on-surface-variant animate-pulse">{progressMsg}</p>
+                    <div className="w-40 h-1.5 rounded-full bg-white/10 overflow-hidden mt-1">
+                      <div className="h-full w-2/3 bg-primary rounded-full animate-pulse" />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -594,9 +656,12 @@ export default function AddTransactionModal({
           {currentView === 'voice' && (
             <div className="flex flex-col gap-6 text-center items-center py-4">
               {isProcessing ? (
-                <div className="flex flex-col items-center gap-4 py-8">
+                <div className="flex flex-col items-center gap-3 py-8">
                   <Loader className="w-12 h-12 text-secondary animate-spin" />
                   <p className="text-xs text-secondary animate-pulse">{progressMsg}</p>
+                  <div className="w-40 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full w-2/3 bg-secondary rounded-full animate-pulse" />
+                  </div>
                 </div>
               ) : audioRecording ? (
                 <div className="flex flex-col items-center gap-6 py-6 w-full">
@@ -650,7 +715,7 @@ export default function AddTransactionModal({
             <div className="flex flex-col gap-4 text-left py-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Input Teks/Suara Bebas</label>
-                <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ketik kalimat bebas (cth: 'terima omset grosir hoki dimsum dua juta rupiah langsung masuk cash bca')..." className="h-24 bg-surface-variant/40 border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
+                <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')..." className="h-24 bg-surface-variant/40 border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
               </div>
 
               <div className="flex gap-2">

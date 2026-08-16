@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Transaction, Pocket, Category } from '../types';
 import { formatRupiah, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
-import DonutChart from './DonutChart';
-import { 
+import CategoryDonutChart, { CategoryDonutFilter } from './CategoryDonutChart';
+import {
   TrendingDown,
   Receipt,
-  ExternalLink
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react';
 
 interface ActivityViewProps {
@@ -14,12 +15,23 @@ interface ActivityViewProps {
   pockets: Pocket[];
   categories: Category[];
   onOpenHistory: (filter?: { category?: string }) => void;
+  onOpenMonthlyDetail: () => void;
 }
 
-export default function ActivityView({ transactions, pockets, categories, onOpenHistory }: ActivityViewProps) {
+export default function ActivityView({ transactions, pockets, categories, onOpenHistory, onOpenMonthlyDetail }: ActivityViewProps) {
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  // Driven by CategoryDonutChart's onFilterChange below — used here to filter
+  // the "Pengeluaran/Pemasukan Terbesar" sections (Task 7's reusable donut
+  // widget owns the click/toggle interaction itself, this just reacts to it).
+  const [donutFilter, setDonutFilter] = useState<CategoryDonutFilter | null>(null);
 
   const totalBalance = pockets.reduce((sum, p) => sum + p.balance, 0);
+
+  const now0 = new Date();
+  const currentMonthTransactions = transactions.filter(t => {
+    const d = new Date(t.date);
+    return d.getMonth() === now0.getMonth() && d.getFullYear() === now0.getFullYear();
+  });
 
   // REVISI 1: LOGIKA MINGGU RIIL KALENDER (SENIN - MINGGU) BERJALAN DINAMIS (BISA 4, 5, ATAU 6 MINGGU)
   const getWeeklyTrendData = (): number[] => {
@@ -62,21 +74,21 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
   const weeklyTrendData = getWeeklyTrendData();
   const totalWeeklySpent = weeklyTrendData.reduce((sum, val) => sum + val, 0);
 
-  // REVISI 2: AGREGASI PENGELUARAN TERBESAR URUT TURUN & PACKING TRANSAKSI TANPA KATEGORI KE "LAIN-LAIN"
-  const getTopExpenseCategories = () => {
+  // REVISI 2: AGREGASI PENGELUARAN/PEMASUKAN TERBESAR URUT TURUN & PACKING TRANSAKSI TANPA KATEGORI KE "LAIN-LAIN"
+  const getTopCategories = (type: 'incoming' | 'outgoing') => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
     const categoryTotals: Record<string, { spent: number; count: number }> = {};
-    
-    const outgoingList = transactions.filter(t => {
-      if (t.type !== 'outgoing') return false;
+
+    const list = transactions.filter(t => {
+      if (t.type !== type) return false;
       const d = new Date(t.date);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
-    outgoingList.forEach(t => {
+    list.forEach(t => {
       // Proteksi otomatis: Jika kategori kosong, tidak valid, atau tidak dikenal -> Paksa masuk ke wadah "lainnya"
       const isValidCat = categories.some(c => c.id === t.category);
       const targetCategory = (t.category && isValidCat) ? t.category : 'lainnya';
@@ -88,12 +100,12 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
       categoryTotals[targetCategory].count += 1;
     });
 
-    const totalSpent = outgoingList.reduce((s, t) => s + t.amount, 0);
+    const totalAmount = list.reduce((s, t) => s + t.amount, 0);
 
     const categoriesArray = Object.keys(categoryTotals).map(catId => {
       const catInfo = categories.find(c => c.id === catId);
       const data = categoryTotals[catId];
-      const percent = totalSpent > 0 ? Math.round((data.spent / totalSpent) * 100) : 0;
+      const percent = totalAmount > 0 ? Math.round((data.spent / totalAmount) * 100) : 0;
       return {
         id: catId,
         name: catInfo?.name || 'Lain-lain',
@@ -109,41 +121,8 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
     return categoriesArray.sort((a, b) => b.spent - a.spent);
   };
 
-  const topCategories = getTopExpenseCategories();
-
-  // REVISI 3: DONAT KATEGORI PENGELUARAN & PEMASUKAN BULAN BERJALAN
-  const getCategoryBreakdown = (type: 'incoming' | 'outgoing') => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const totals: Record<string, number> = {};
-    const filtered = transactions.filter(t => {
-      if (t.type !== type) return false;
-      const d = new Date(t.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-
-    filtered.forEach(t => {
-      const isValidCat = categories.some(c => c.id === t.category);
-      const targetCategory = (t.category && isValidCat) ? t.category : 'lainnya';
-      totals[targetCategory] = (totals[targetCategory] || 0) + t.amount;
-    });
-
-    return Object.keys(totals)
-      .map(catId => {
-        const catInfo = categories.find(c => c.id === catId);
-        return {
-          category: catInfo?.name || 'Lain-lain',
-          amount: totals[catId],
-          color: getCategoryColorHex(catInfo?.color || 'slate'),
-        };
-      })
-      .sort((a, b) => b.amount - a.amount);
-  };
-
-  const expenseByCategory = getCategoryBreakdown('outgoing');
-  const incomeByCategory = getCategoryBreakdown('incoming');
+  const topCategories = getTopCategories('outgoing');
+  const topIncomeCategories = getTopCategories('incoming');
 
   // SVG coordinate calculations untuk mengalirkan curva spline berdasarkan jumlah minggu kalender riil dinamis
   const maxWeeklyHeight = Math.max(...weeklyTrendData, 1);
@@ -195,8 +174,14 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                 <div>
                   <p className="text-[10px] text-on-surface-variant font-label-caps uppercase tracking-wider">Total Belanja Bulan Ini</p>
                   <p className="font-display-lg text-white font-mono-data text-2xl font-bold">{formatRupiah(totalWeeklySpent)}</p>
+                  <button
+                    onClick={onOpenMonthlyDetail}
+                    className="flex items-center gap-0.5 text-[11px] text-primary hover:underline font-label-caps mt-1"
+                  >
+                    Lihat Keseluruhan <ChevronRight className="w-3 h-3" />
+                  </button>
                 </div>
-                
+
                 <div className="flex items-center gap-1 text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-full">
                   <TrendingDown className="w-4 h-4 shrink-0" />
                   <span className="font-mono-data text-xs font-bold">Grafik Riil</span>
@@ -253,10 +238,14 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
         {/* Pengeluaran & Pemasukan per Kategori: donat chart, di antara Tren Mingguan & Pengeluaran Terbesar */}
         <section className="flex flex-col gap-2.5 w-full min-w-0">
           <h2 className="font-headline-sm text-base text-white">Pengeluaran &amp; Pemasukan per Kategori</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <DonutChart title="Pengeluaran" data={expenseByCategory} emptyLabel="Belum ada pengeluaran bulan ini." />
-            <DonutChart title="Pemasukan" data={incomeByCategory} emptyLabel="Belum ada pemasukan bulan ini." />
-          </div>
+          <CategoryDonutChart
+            transactions={currentMonthTransactions}
+            categories={categories}
+            expenseEmptyLabel="Belum ada pengeluaran bulan ini."
+            incomeEmptyLabel="Belum ada pemasukan bulan ini."
+            value={donutFilter}
+            onChange={setDonutFilter}
+          />
         </section>
 
         {/* AGREGASI PENGELUARAN TERBESAR */}
@@ -267,17 +256,25 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
             </div>
 
             <div className="flex flex-col gap-3">
-              {topCategories.length === 0 ? (
-                <div className="text-center py-6 text-on-surface-variant/40 text-xs">
-                  Belum ada data sirkulasi pengeluaran bulan ini.
-                </div>
-              ) : (
-                topCategories.slice(0, 4).map(cat => {
+              {(() => {
+                const expenseFiltered = donutFilter?.type === 'outgoing'
+                  ? topCategories.filter(c => c.id === donutFilter.id)
+                  : topCategories.slice(0, 4);
+
+                if (topCategories.length === 0) {
+                  return (
+                    <div className="text-center py-6 text-on-surface-variant/40 text-xs">
+                      Belum ada data sirkulasi pengeluaran bulan ini.
+                    </div>
+                  );
+                }
+
+                return expenseFiltered.map(cat => {
                   const actualCat = categories.find(c => c.id === cat.id);
                   const colorHex = actualCat ? getCategoryColorHex(actualCat.color) : '#64748B';
                   return (
                     <button
-                      key={cat.id} 
+                      key={cat.id}
                       onClick={() => onOpenHistory({ category: cat.id })}
                       className="glass-card rounded-lg p-3.5 flex items-center gap-4 group hover:bg-white/5 transition-all text-left w-full border border-white/5"
                       title={`Lihat semua mutasi ${cat.name}`}
@@ -303,10 +300,73 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                       <ExternalLink className="w-3.5 h-3.5 text-on-surface-variant/30 group-hover:text-primary transition-colors shrink-0" />
                     </button>
                   );
-                })
-              )}
+                });
+              })()}
 
-              {topCategories.length > 0 && (
+              {topCategories.length > 0 && !donutFilter && (
+                <button onClick={() => onOpenHistory()} className="text-xs text-primary hover:underline font-label-caps text-center py-1" >
+                  Lihat Semua Riwayat Mutasi →
+                </button>
+              )}
+            </div>
+        </section>
+
+        {/* AGREGASI PEMASUKAN TERBESAR */}
+        <section className="flex flex-col gap-2.5 w-full min-w-0">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <h2 className="font-headline-sm text-base text-white">Pemasukan Terbesar</h2>
+              <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Urutan Terbesar</span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {(() => {
+                const incomeFiltered = donutFilter?.type === 'incoming'
+                  ? topIncomeCategories.filter(c => c.id === donutFilter.id)
+                  : topIncomeCategories.slice(0, 4);
+
+                if (topIncomeCategories.length === 0) {
+                  return (
+                    <div className="text-center py-6 text-on-surface-variant/40 text-xs">
+                      Belum ada data sirkulasi pemasukan bulan ini.
+                    </div>
+                  );
+                }
+
+                return incomeFiltered.map(cat => {
+                  const actualCat = categories.find(c => c.id === cat.id);
+                  const colorHex = actualCat ? getCategoryColorHex(actualCat.color) : '#64748B';
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => onOpenHistory({ category: cat.id })}
+                      className="glass-card rounded-lg p-3.5 flex items-center gap-4 group hover:bg-white/5 transition-all text-left w-full border border-white/5"
+                      title={`Lihat semua mutasi ${cat.name}`}
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: colorHex + '15', border: `1px solid ${colorHex}30` }}>
+                        <CategoryIcon name={cat.icon} className="w-4 h-4" style={{ color: colorHex }} />
+                      </div>
+
+                      <div className="flex-grow flex flex-col min-w-0">
+                        <span className="font-body-lg text-white font-medium truncate">{cat.name}</span>
+                        <span className="font-body-md text-xs text-on-surface-variant">{cat.count} Transaksi</span>
+                      </div>
+
+                      <div className="text-right shrink-0 px-2">
+                        <span className="font-mono-data text-primary font-bold block">
+                          + {formatRupiah(cat.spent)}
+                        </span>
+                        <span className="text-[10px] uppercase font-label-caps text-on-surface-variant/60 tracking-wider block mt-0.5">
+                          {cat.percent}% total
+                        </span>
+                      </div>
+
+                      <ExternalLink className="w-3.5 h-3.5 text-on-surface-variant/30 group-hover:text-primary transition-colors shrink-0" />
+                    </button>
+                  );
+                });
+              })()}
+
+              {topIncomeCategories.length > 0 && !donutFilter && (
                 <button onClick={() => onOpenHistory()} className="text-xs text-primary hover:underline font-label-caps text-center py-1" >
                   Lihat Semua Riwayat Mutasi →
                 </button>

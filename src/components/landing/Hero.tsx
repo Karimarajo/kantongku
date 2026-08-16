@@ -5,6 +5,16 @@ import { ArrowRight } from 'lucide-react';
 const PROMO_DEADLINE_KEY = 'kantongku_promo_deadline';
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
 
+// Task 1 (landing-page-revamp) — secondary pain points, auto-rotated below
+// the main headline. Plain setInterval, no new library.
+const PAIN_POINTS = [
+  'Susah nabung meski niat udah kuat?',
+  'Atur keuangan bareng pasangan kok ribet?',
+  'Uang bisnis & pribadi keseringan kecampur?',
+  'Suka lupa bayar tagihan pas jatuh tempo?',
+];
+const PAIN_POINT_ROTATE_MS = 3500;
+
 interface HeroProps {
   priceOriginal: number;
   pricePromo: number;
@@ -41,6 +51,7 @@ function formatCountdown(msRemaining: number): string {
 export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaClick }: HeroProps) {
   const [deadline, setDeadline] = useState<number>(() => getOrInitDeadline());
   const [now, setNow] = useState(() => Date.now());
+  const [painPointIndex, setPainPointIndex] = useState(0);
 
   useEffect(() => {
     const intervalId = setInterval(() => setNow(Date.now()), 1000);
@@ -52,6 +63,13 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
       setDeadline(getOrInitDeadline());
     }
   }, [now, deadline]);
+
+  useEffect(() => {
+    const rotateId = setInterval(() => {
+      setPainPointIndex((i) => (i + 1) % PAIN_POINTS.length);
+    }, PAIN_POINT_ROTATE_MS);
+    return () => clearInterval(rotateId);
+  }, []);
 
   return (
     <section className="w-full flex flex-col items-center px-6 pt-14 pb-16 relative overflow-hidden">
@@ -65,22 +83,33 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
         </div>
 
         <h1 className="font-display-lg text-3xl sm:text-5xl text-white font-bold tracking-tight leading-tight">
-          Catat Keuangan Kamu Tanpa Ribet
+          Uangmu Ada, Tapi Ke Mana Perginya Kamu Nggak Pernah Tahu?
         </h1>
 
         <p className="text-on-surface-variant text-base sm:text-lg max-w-xl leading-relaxed">
-          Cukup ucapkan atau foto struk belanjaanmu, AI KantongKu langsung ubah jadi catatan keuangan rapi. Kelola
-          dompet pribadi & bisnis kamu dalam satu aplikasi.
+          KantongKu bantu kamu balik pegang kendali — cukup ucapkan atau foto struk belanjaanmu, AI yang urus
+          sisanya. Kelola dompet pribadi & bisnis kamu dalam satu aplikasi.
         </p>
 
+        {/* Task 1 — badge pain point sekunder, auto-rotate tiap ~3.5 detik.
+            key={painPointIndex} memicu ulang animasi fade-in tiap pergantian. */}
+        <div className="h-8 flex items-center justify-center">
+          <span
+            key={painPointIndex}
+            className="text-xs font-semibold text-on-surface-variant bg-white/5 border border-white/10 rounded-full px-4 py-2 animate-fade-in"
+          >
+            {PAIN_POINTS[painPointIndex]}
+          </span>
+        </div>
+
         <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
-          🔥 Promo Terbatas — Hemat Rp150.000
+          🔥 Harga Promo — Hemat {formatCurrency(priceOriginal - pricePromo)}, Segera Ambil!
         </span>
 
         <div className="flex flex-col items-center gap-1">
           <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(priceOriginal)}</span>
           <span className="text-4xl font-bold text-white">{formatCurrency(pricePromo)}</span>
-          <span className="text-xs text-on-surface-variant/60">akses selamanya</span>
+          <span className="text-xs text-on-surface-variant/60">akses selamanya — harga promo, sewaktu-waktu bisa naik</span>
         </div>
 
         <div className="flex flex-col items-center gap-1.5">

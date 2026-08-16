@@ -29,7 +29,31 @@ declare global {
 export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [devLoading, setDevLoading] = useState<boolean>(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+
+  // Dev-only bypass for testing from a phone on the same WiFi — Google OAuth
+  // rejects a LAN IP as an Authorized Origin, so the real Google button can't
+  // be tested that way. Server-side this 404s outright in production
+  // (see POST /api/dev/login-as-test-user in server.ts); this button is an
+  // extra layer on top of that, hidden from any production build entirely.
+  const handleDevLogin = async () => {
+    setError('');
+    setDevLoading(true);
+    try {
+      const res = await fetch('/api/dev/login-as-test-user', { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal login sebagai test user.');
+      }
+      onLogin(data.user?.email || defaultEmail);
+      window.location.hash = 'beranda';
+    } catch (err: any) {
+      setError(err.message || 'Terjadi kesalahan saat login dev.');
+    } finally {
+      setDevLoading(false);
+    }
+  };
 
   const handleCredentialResponse = async (response: GoogleCredentialResponse) => {
     setError('');
@@ -123,6 +147,20 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
           {loading && (
             <span className="text-xs text-on-surface-variant/70">Memproses login...</span>
           )}
+
+          {/* import.meta.env.DEV is statically true only under `npm run dev` —
+              Vite strips this whole block out of any production build. */}
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              onClick={handleDevLogin}
+              disabled={devLoading}
+              className="text-xs font-label-caps uppercase tracking-wider text-amber-400 hover:text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-full px-4 py-2 transition-colors disabled:opacity-50"
+            >
+              {devLoading ? 'Memproses...' : '[DEV] Login sebagai Test User'}
+            </button>
+          )}
+
           {error && (
             <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10 text-center max-w-sm">
               {error}

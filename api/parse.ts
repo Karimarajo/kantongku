@@ -109,7 +109,7 @@ export default async function handler(req: any, res: any) {
 
     // Perbaikan struktur parameter payload sesuai standar SDK @google/genai terbaru
     const response = await generateContentWithRetry(aiInstance, {
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-3.5-flash-lite",
       contents: [
         {
           role: "user",

@@ -112,7 +112,7 @@ export default async function handler(req: any, res: any) {
       const promptLengkap = `${payloadObj.instruksi}\n\nData Transaksi Terfilter:\n${JSON.stringify(payloadObj.data_transaksi, null, 2)}`;
 
       const response = await generateContentWithRetry(aiInstance, {
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.5-flash-lite",
         contents: promptLengkap
       });
 
@@ -126,7 +126,7 @@ export default async function handler(req: any, res: any) {
 
     // Menggunakan parameter generateContent yang sesuai standar SDK @google/genai terbaru
     const response = await generateContentWithRetry(aiInstance, {
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-3.5-flash-lite",
       contents: [
         {
           role: "user",

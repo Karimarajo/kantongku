@@ -2,6 +2,7 @@ import React from 'react';
 import { formatRupiah } from '../utils';
 
 export interface DonutDatum {
+  id: string; // category id — stable key for click-to-filter, unlike `category` (display name)
   category: string;
   amount: number;
   color: string; // resolved hex color
@@ -11,6 +12,8 @@ interface DonutChartProps {
   title: string;
   data: DonutDatum[];
   emptyLabel?: string;
+  selectedId?: string | null;
+  onSelect?: (datum: DonutDatum) => void;
 }
 
 const SIZE = 108;
@@ -20,7 +23,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 // Native SVG donut chart (stroke-dasharray/stroke-dashoffset trick) — no chart
 // library, mirrors the manual-SVG style already used for the weekly trend chart.
-export default function DonutChart({ title, data, emptyLabel }: DonutChartProps) {
+// Slices and legend rows are both clickable (via onSelect) when provided —
+// used by ActivityView to filter the "Terbesar" list below each donut.
+export default function DonutChart({ title, data, emptyLabel, selectedId, onSelect }: DonutChartProps) {
   const total = data.reduce((sum, d) => sum + d.amount, 0);
   const hasData = total > 0 && data.length > 0;
 
@@ -53,6 +58,7 @@ export default function DonutChart({ title, data, emptyLabel }: DonutChartProps)
                 const arcLength = fraction * CIRCUMFERENCE;
                 const dashOffset = -cumulative;
                 cumulative += arcLength;
+                const isDimmed = !!selectedId && selectedId !== d.id;
                 return (
                   <circle
                     key={idx}
@@ -64,6 +70,9 @@ export default function DonutChart({ title, data, emptyLabel }: DonutChartProps)
                     strokeWidth={STROKE}
                     strokeDasharray={`${arcLength} ${CIRCUMFERENCE - arcLength}`}
                     strokeDashoffset={dashOffset}
+                    opacity={isDimmed ? 0.25 : 1}
+                    className={onSelect ? 'cursor-pointer transition-opacity' : undefined}
+                    onClick={onSelect ? () => onSelect(d) : undefined}
                   />
                 );
               })}
@@ -78,10 +87,15 @@ export default function DonutChart({ title, data, emptyLabel }: DonutChartProps)
           <div className="flex flex-col gap-1.5 w-full min-w-0">
             {data.slice(0, 5).map((d, idx) => {
               const percent = Math.round((d.amount / total) * 100);
+              const isSelected = selectedId === d.id;
               return (
-                <div key={idx} className="flex items-center gap-1.5 text-[10px] min-w-0">
+                <div
+                  key={idx}
+                  onClick={onSelect ? () => onSelect(d) : undefined}
+                  className={`flex items-center gap-1.5 text-[10px] min-w-0 rounded-md px-1 -mx-1 py-0.5 transition-colors ${onSelect ? 'cursor-pointer hover:bg-white/5' : ''} ${isSelected ? 'bg-white/5' : ''}`}
+                >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                  <span className="text-white/80 truncate flex-grow min-w-0">{d.category}</span>
+                  <span className={`truncate flex-grow min-w-0 ${isSelected ? 'text-white font-semibold' : 'text-white/80'}`}>{d.category}</span>
                   <span className="text-on-surface-variant font-mono-data shrink-0">{percent}%</span>
                 </div>
               );

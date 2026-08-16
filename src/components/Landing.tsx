@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Mail, ArrowRight, CheckCircle2, Loader2, QrCode, Landmark, Copy, Check, Gift, ShieldCheck } from 'lucide-react';
+import { User, Mail, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, CreditCard, ExternalLink, AlertTriangle } from 'lucide-react';
 import Hero from './landing/Hero';
 import SocialProofStrip from './landing/SocialProofStrip';
 import BeforeAfter from './landing/BeforeAfter';
@@ -7,6 +7,8 @@ import HowItWorks from './landing/HowItWorks';
 import TimeSavingsCalculator from './landing/TimeSavingsCalculator';
 import Testimonials from './landing/Testimonials';
 import Features from './landing/Features';
+import ValueStack from './landing/ValueStack';
+import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
 
@@ -32,6 +34,12 @@ interface OrderDetails {
   qrImage?: string;
   bankAccountNumber?: string;
   bankAccountName?: string;
+  // Present only when Doku Checkout succeeded when the order was created —
+  // absent (not just falsy) whenever Doku isn't configured or the API call
+  // failed, so the manual BCA/QRIS instructions below are the only thing
+  // shown in that case (full fallback, nothing missing from the customer's
+  // point of view).
+  doku_payment_url?: string;
 }
 
 type Step = 'form' | 'paying' | 'success' | 'expired' | 'error';
@@ -92,16 +100,17 @@ const PRICING_CHECKLIST = [
   'Support respon cepat via WhatsApp',
 ];
 
-const PRICING_BONUSES = [
-  { title: 'E-book "7 Kebiasaan Kecil Biar Nggak Boncos Akhir Bulan"', value: 'Rp99rb' },
-  { title: 'Template kategori budgeting siap pakai', value: 'Rp75rb' },
-  { title: 'Panduan pisah keuangan pribadi & usaha kecil', value: 'Rp76rb' },
-];
+// Payment revision — pembayaran sudah 100% lewat Doku (VA/QRIS/e-wallet/
+// kartu di halaman hosted Doku), pilihan channel manual QRIS ShopeePay
+// statis / Transfer BCA tidak lagi ditampilkan ke customer. Backend
+// (createOrderRecord di server.ts) masih menerima `channel` sebagai
+// parameter wajib untuk data order & fallback manual internal kalau Doku
+// gagal dibuat — nilai ini dikirim diam-diam, bukan pilihan user lagi.
+const DEFAULT_CHANNEL: Channel = 'transfer_bca';
 
 export default function Landing() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [channel, setChannel] = useState<Channel>('qris_shopee');
   const [price, setPrice] = useState<PriceConfig | null>(null);
   const [step, setStep] = useState<Step>('form');
   const [loading, setLoading] = useState(false);
@@ -122,6 +131,24 @@ export default function Landing() {
   // the order form — so they're available to send along with the order later.
   useEffect(() => {
     captureUtmParams();
+  }, []);
+
+  // Fire-and-forget page view tracking for the Admin Console's Analytics tab —
+  // never awaited, never blocks/affects the landing page render either way.
+  useEffect(() => {
+    const utm = readStoredUtmParams();
+    fetch('/api/track/pageview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: window.location.pathname,
+        utm_source: utm.utm_source,
+        utm_medium: utm.utm_medium,
+        utm_campaign: utm.utm_campaign,
+      }),
+    }).catch(() => {
+      // Analytics is best-effort — never surface this to the visitor.
+    });
   }, []);
 
   useEffect(() => {
@@ -187,7 +214,7 @@ export default function Landing() {
         body: JSON.stringify({
           name,
           email,
-          channel,
+          channel: DEFAULT_CHANNEL,
           utm_source: utm.utm_source,
           utm_medium: utm.utm_medium,
           utm_campaign: utm.utm_campaign,
@@ -252,8 +279,10 @@ export default function Landing() {
       <BeforeAfter />
       <HowItWorks />
       <TimeSavingsCalculator />
-      <Testimonials />
       <Features />
+      <ValueStack />
+      <Testimonials />
+      <UpdateForever />
 
       <section id="pricing" className="w-full px-6 py-16 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-0">
@@ -263,13 +292,13 @@ export default function Landing() {
         <div className="max-w-md mx-auto flex flex-col items-center gap-8 z-10 relative">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
-              🔥 Promo Terbatas — Hemat 75%
+              🔥 Harga Promo — Hemat {Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%, Segera Ambil!
             </span>
             <div className="flex flex-col items-center">
               <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
               <span className="text-4xl font-bold text-white">{formatCurrency(PRICE_PROMO)}</span>
             </div>
-            <p className="text-sm text-on-surface-variant">akses selamanya (bukan langganan bulanan)</p>
+            <p className="text-sm text-on-surface-variant">akses selamanya (bukan langganan bulanan) — harga promo, sewaktu-waktu bisa naik</p>
           </div>
 
           <div className="w-full flex flex-col gap-2.5">
@@ -277,21 +306,6 @@ export default function Landing() {
               <div key={i} className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-sm text-on-surface-variant">{item}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="w-full bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Gift className="w-4 h-4 text-primary" />
-              <p className="text-xs font-label-caps uppercase tracking-wider text-primary/80">
-                Bonus (senilai Rp250.000, GRATIS hari ini)
-              </p>
-            </div>
-            {PRICING_BONUSES.map((bonus, i) => (
-              <div key={i} className="flex items-center justify-between gap-3">
-                <span className="text-xs text-on-surface-variant">{bonus.title}</span>
-                <span className="text-xs text-on-surface-variant/50 shrink-0">({bonus.value})</span>
               </div>
             ))}
           </div>
@@ -349,26 +363,9 @@ export default function Landing() {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-primary/80 tracking-wider">Metode Pembayaran</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setChannel('qris_shopee')}
-                    className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all ${channel === 'qris_shopee' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-surface-variant/40 text-on-surface-variant hover:text-white'}`}
-                  >
-                    <QrCode className="w-6 h-6" />
-                    <span className="text-xs font-semibold">QRIS ShopeePay</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChannel('transfer_bca')}
-                    className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all ${channel === 'transfer_bca' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-surface-variant/40 text-on-surface-variant hover:text-white'}`}
-                  >
-                    <Landmark className="w-6 h-6" />
-                    <span className="text-xs font-semibold">Transfer BCA</span>
-                  </button>
-                </div>
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                <CreditCard className="w-4 h-4 text-primary shrink-0" />
+                <span>Pembayaran otomatis lewat Doku — VA, QRIS, e-wallet, atau kartu, tinggal pilih di halaman pembayaran.</span>
               </div>
 
               {error && (
@@ -405,35 +402,38 @@ export default function Landing() {
                     {copied ? <Check className="w-5 h-5 text-primary" /> : <Copy className="w-5 h-5" />}
                   </button>
                 </div>
-                <p className="text-xs text-rose-400 mt-3 font-semibold">
-                  ⚠️ Bayar PERSIS nominal ini, jangan dibulatkan — nominal ini yang dipakai untuk mencocokkan pembayaranmu.
-                </p>
               </div>
 
-              {order.channel === 'qris_shopee' ? (
+              {/* Doku Checkout — SATU-SATUNYA jalur pembayaran sekarang (revisi:
+                  pilihan manual QRIS ShopeePay statis/Transfer BCA dihapus dari
+                  UI). Kalau order creation gagal dapat link dari Doku, tampilkan
+                  error yang jelas + tombol coba lagi — bukan fallback manual. */}
+              {order.doku_payment_url ? (
                 <div className="w-full flex flex-col items-center gap-3">
-                  <p className="text-sm text-on-surface-variant">Scan QR ini dengan aplikasi ShopeePay</p>
-                  <img
-                    src={order.qrImage}
-                    alt="QRIS ShopeePay"
-                    className="w-56 h-56 object-contain rounded-2xl border border-white/10 bg-white p-2"
-                  />
+                  <a
+                    href={order.doku_payment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+                  >
+                    <CreditCard className="w-5 h-5" /> Bayar Sekarang via Doku
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                  <p className="text-xs text-on-surface-variant/60">Dikonfirmasi otomatis begitu pembayaran sukses — tidak perlu menunggu admin.</p>
                 </div>
               ) : (
-                <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
-                  <p className="text-sm text-on-surface-variant">Transfer ke rekening BCA</p>
-                  <p className="text-2xl font-bold text-white tracking-wider">{order.bankAccountNumber}</p>
-                  <p className="text-sm text-on-surface-variant">a.n. {order.bankAccountName}</p>
+                <div className="w-full flex flex-col items-center gap-3 text-center p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl">
+                  <AlertTriangle className="w-6 h-6 text-rose-400" />
+                  <p className="text-xs text-rose-300">Gagal membuka halaman pembayaran Doku. Coba lagi sebentar, atau hubungi kami lewat halaman Bantuan &amp; Saran kalau masih gagal.</p>
                 </div>
               )}
 
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <p className="text-sm">Menunggu konfirmasi admin (order {order.order_code})...</p>
+                <p className="text-sm">Menunggu pembayaran (order {order.order_code})...</p>
               </div>
               <p className="text-xs text-on-surface-variant/50">
-                Order ini berlaku 24 jam. Setelah kamu bayar, admin akan konfirmasi manual — halaman ini otomatis
-                update begitu terkonfirmasi.
+                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran dikonfirmasi Doku.
               </p>
 
               <a
@@ -492,7 +492,7 @@ export default function Landing() {
             <span className="text-xs">Garansi 3 Hari — Uang kembali 100% kalau nggak cocok</span>
           </div>
           <p className="text-[10px] text-on-surface-variant/40 text-center uppercase tracking-wider">
-            Pembayaran dikonfirmasi manual oleh admin dalam waktu 24 jam.
+            Pembayaran diproses otomatis lewat Doku — akun aktif dalam hitungan detik.
           </p>
         </div>
       </section>

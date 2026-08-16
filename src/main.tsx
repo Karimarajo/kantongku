@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import Landing from './components/Landing.tsx';
 import AdminConsole from './components/AdminConsole.tsx';
+import SupportPage from './components/SupportPage.tsx';
 import './index.css';
 
 // Meta Pixel base code, loaded dynamically here (rather than inline in
@@ -41,6 +42,7 @@ const path = window.location.pathname;
 function Root() {
   if (path === '/') return <Landing />;
   if (path === '/admin') return <AdminConsole />;
+  if (path === '/support') return <SupportPage />;
   return <App />;
 }
 

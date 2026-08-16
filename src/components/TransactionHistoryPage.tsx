@@ -2,10 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { Transaction, Pocket, Account, Category, WalletTransferLog } from '../types';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
+import CategoryDonutChart, { CategoryDonutFilter } from './CategoryDonutChart';
+import FinancialHealthCard from './FinancialHealthCard';
 import {
   Search, SlidersHorizontal, ChevronDown, Calendar, Tag, Wallet,
   ArrowDownLeft, ArrowUpRight, Receipt, Edit3, Trash2, RotateCcw,
-  ChevronLeft, Send, ArrowLeftRight
+  ChevronLeft, ArrowLeftRight
 } from 'lucide-react';
 
 interface TransactionHistoryPageProps {
@@ -39,14 +41,22 @@ export default function TransactionHistoryPage({
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
   const [showFilters, setShowFilters] = useState(!!initialFilter?.category);
+  // Separate from `selectedCategories` (the multi-select chips below) on
+  // purpose — Task 7's donut chart is single-select-with-toggle-off, a
+  // different interaction, and ANDing it in as one more independent
+  // condition means neither filter has to know about the other to combine
+  // correctly.
+  const [donutFilter, setDonutFilter] = useState<CategoryDonutFilter | null>(null);
 
   const getCategoryHexColor = (catId: string) => {
     const cat = categories.find(c => c.id === catId);
     return cat ? getCategoryColorHex(cat.color) : '#64748B';
   };
 
-  // Logic Opsi Penyaringan Tingkat Lanjut
-  const filteredTransactions = useMemo(() => {
+  // Everything EXCEPT the donut filter itself — this is what feeds the donut
+  // chart's own breakdown, so selecting a slice can't circularly shrink the
+  // chart down to 100% of itself.
+  const preDonutFilteredTransactions = useMemo(() => {
     return transactions.filter(t => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.notes?.toLowerCase().includes(search.toLowerCase())) return false;
       if (dateFrom && new Date(t.date) < new Date(dateFrom)) return false;
@@ -56,8 +66,16 @@ export default function TransactionHistoryPage({
       if (selectedAccounts.length > 0 && !selectedAccounts.includes(t.accountId)) return false;
       if (typeFilter !== 'all' && t.type !== typeFilter) return false;
       return true;
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
   }, [transactions, search, dateFrom, dateTo, selectedCategories, selectedPockets, selectedAccounts, typeFilter]);
+
+  // The list/totals actually shown — same as above, plus the donut filter as
+  // one more AND condition.
+  const filteredTransactions = useMemo(() => {
+    return preDonutFilteredTransactions
+      .filter(t => !donutFilter || t.category === donutFilter.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [preDonutFilteredTransactions, donutFilter]);
 
   const getAccountName = (id: string) => accounts.find(a => a.id === id)?.name || 'Wallet';
 
@@ -72,41 +90,14 @@ export default function TransactionHistoryPage({
   const totalOutgoing = filteredTransactions.filter(t => t.type === 'outgoing').reduce((s, t) => s + t.amount, 0);
   const netCashFlow = totalIncoming - totalOutgoing;
 
-  const hasActiveFilters = !!(search || dateFrom || dateTo || selectedCategories.length > 0 || selectedPockets.length > 0 || selectedAccounts.length > 0 || typeFilter !== 'all');
+  const hasActiveFilters = !!(search || dateFrom || dateTo || selectedCategories.length > 0 || selectedPockets.length > 0 || selectedAccounts.length > 0 || typeFilter !== 'all' || donutFilter);
 
   const toggleCategory = (id: string) => setSelectedCategories(p => p.includes(id) ? p.filter(c => c !== id) : [...p, id]);
   const togglePocket = (id: string) => setSelectedPockets(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const toggleAccount = (id: string) => setSelectedAccounts(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
   const resetFilters = () => {
-    setSearch(''); setDateFrom(''); setDateTo(''); setSelectedCategories([]); setSelectedPockets([]); setSelectedAccounts([]); setTypeFilter('all');
-  };
-
-  const handleExportWA = () => {
-    if (filteredTransactions.length === 0) return alert("Tidak ada data terfilter.");
-    
-    // Format: Nama Transaksi | Waktu | Nominal +/-
-    const transLines = filteredTransactions.map(t => {
-      const sign = t.type === 'outgoing' ? '-' : '+';
-      const formattedAmount = formatRupiah(t.amount, false);
-      return `${t.title} | ${formatDate(t.date)} | ${sign}${formattedAmount}`;
-    }).join('\n');
-
-    const totalIncoming = filteredTransactions.filter(t => t.type === 'incoming').reduce((s, t) => s + t.amount, 0);
-    const totalOutgoing = filteredTransactions.filter(t => t.type === 'outgoing').reduce((s, t) => s + t.amount, 0);
-    const netCashFlow = totalIncoming - totalOutgoing;
-
-    const reportText = 
-      `*ANALISIS LAPORAN TRANSAKSI*\n` +
-      `-------------------------------------\n` +
-      `${transLines}\n` +
-      `-------------------------------------\n` +
-      `• *Jumlah Arus Masuk* : Rp ${formatRupiah(totalIncoming, false)}\n` +
-      `• *Jumlah Arus Keluar* : Rp ${formatRupiah(totalOutgoing, false)}\n` +
-      `• *Arus Kas Bersih* : ${netCashFlow >= 0 ? '+' : '-'}Rp ${formatRupiah(Math.abs(netCashFlow), false)}\n\n` +
-      `laporan otomatis aplikasi KantongKu`;
-
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(reportText)}`, '_blank');
+    setSearch(''); setDateFrom(''); setDateTo(''); setSelectedCategories([]); setSelectedPockets([]); setSelectedAccounts([]); setTypeFilter('all'); setDonutFilter(null);
   };
 
   return (
@@ -116,6 +107,17 @@ export default function TransactionHistoryPage({
         <button onClick={onBack} className="p-2 bg-white/5 rounded-lg"><ChevronLeft className="w-5 h-5"/></button>
         <h1 className="text-xl font-bold">Riwayat Transaksi</h1>
       </div>
+
+      {/* Donut chart pengeluaran/pemasukan + klik-untuk-filter (Task 7) —
+          dihitung dari transaksi yang sudah lolos filter lain (search/
+          tanggal/tipe/kantong/wallet/kategori chip), TIDAK termasuk filter
+          donut itu sendiri supaya tidak melingkar. */}
+      <CategoryDonutChart
+        transactions={preDonutFilteredTransactions}
+        categories={categories}
+        value={donutFilter}
+        onChange={setDonutFilter}
+      />
 
       {/* Filter UI */}
       <div className="flex flex-col gap-2">
@@ -206,9 +208,12 @@ export default function TransactionHistoryPage({
         </div>
       </div>
 
-      <button onClick={handleExportWA} className="w-full h-12 bg-primary text-black font-bold text-xs font-label-caps uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all hover:opacity-90 active:scale-[0.99] shrink-0">
-         <Send className="w-4 h-4"/> Kirim Analisis Laporan
-      </button>
+      {/* Analisis Kesehatan Keuangan AI (cicilan-ai-notifikasi Task 4, revisi:
+          dipindah dari halaman Statistik ke sini; revisi lanjutan: tombol
+          "Kirim Analisis Laporan" (export WA) DIHAPUS, hanya satu tombol
+          analisis yang dipertahankan — ini, memakai filter tanggal
+          (dateFrom/dateTo) yang sama dengan halaman ini). */}
+      <FinancialHealthCard startDate={dateFrom || undefined} endDate={dateTo || undefined} />
 
       {/* Riwayat Transfer Antar Wallet — dipisah dari daftar transaksi agar
           tidak tertukar dengan transaksi biasa (bukan income/expense). */}

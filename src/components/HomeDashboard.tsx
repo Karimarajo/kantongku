@@ -3,6 +3,7 @@ import { Pocket, Transaction, Notification, UserProfile, Category, Account } fro
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
+import PushNotificationToggle from './PushNotificationToggle';
 import {
   RefreshCw,
   Bell,
@@ -36,7 +37,8 @@ import {
   Dumbbell,
   Briefcase,
   Utensils,
-  Users
+  Users,
+  ChevronRight
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -57,6 +59,7 @@ interface HomeDashboardProps {
   onEditTransactionSelect: (transaction: Transaction) => void;
   onMarkAllNotificationsRead: () => void;
   onOpenHistory: () => void;
+  onOpenMonthlyDetail: () => void;
 }
 
 export default function HomeDashboard({
@@ -76,7 +79,8 @@ export default function HomeDashboard({
   onOpenReminderModal,
   onEditTransactionSelect,
   onMarkAllNotificationsRead,
-  onOpenHistory
+  onOpenHistory,
+  onOpenMonthlyDetail
 }: HomeDashboardProps) {
   const [selectedPocketId, setSelectedPocketId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -117,6 +121,20 @@ export default function HomeDashboard({
 
   // Calculate dynamic totals
   const totalBalance = pockets.reduce((sum, p) => sum + p.balance, 0);
+
+  // Total Pengeluaran Bulan Ini (Task 6) — sum of every 'outgoing'
+  // transaction in the current calendar month/year, the entry point into
+  // MonthlyExpenseView.tsx.
+  const monthlyExpenseTotal = (() => {
+    const now = new Date();
+    return transactions
+      .filter(t => {
+        if (t.type !== 'outgoing') return false;
+        const d = new Date(t.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  })();
 
   // Calculate trend percentage over the last 30 days
   const getTrendPercentage = () => {
@@ -269,6 +287,7 @@ export default function HomeDashboard({
                 <span className="font-label-caps text-xs text-primary uppercase">Notifikasi</span>
                 <span className="text-[10px] text-on-surface-variant font-mono-data">{unreadNotifCount} baru</span>
               </div>
+              <PushNotificationToggle />
               <div className="flex flex-col gap-2 max-h-60 overflow-y-auto no-scrollbar">
                 {notifications.length === 0 ? (
                   <p className="text-xs text-on-surface-variant/40 py-4 text-center">Tidak ada notifikasi baru</p>
@@ -341,6 +360,25 @@ export default function HomeDashboard({
               <span className="text-on-surface-variant text-xs">dari bulan lalu</span>
             </div>
           </section>
+
+          {/* Total Pengeluaran Bulan Ini — entry point ke drill-down bulanan (Task 6) */}
+          <button
+            onClick={onOpenMonthlyDetail}
+            className="glass-card rounded-xl p-4 flex items-center justify-between gap-3 text-left hover:bg-white/5 transition-all border border-white/5 group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                <TrendingDown className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">Total Pengeluaran Bulan Ini</p>
+                <p className="font-mono-data text-white font-bold text-base truncate">{formatRupiah(monthlyExpenseTotal)}</p>
+              </div>
+            </div>
+            <span className="flex items-center gap-0.5 text-[11px] text-primary font-label-caps shrink-0 group-hover:underline">
+              Lihat Detail <ChevronRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
 
           {/* Sub Pockets Carousel */}
           <div className="w-full overflow-x-auto pb-2 pt-1 flex gap-3 no-scrollbar scroll-smooth snap-x">

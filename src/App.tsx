@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pocket, Transaction, Budget, Notification, UserProfile, Account, Category, Reminder, WalletTransferLog, ActivityLogEntry } from './types';
+import { Pocket, Transaction, Budget, Notification, UserProfile, Account, Category, Reminder, WalletTransferLog, ActivityLogEntry, Collaborator, CollaboratorOrder, Debt, DebtPayment } from './types';
 import {
   INITIAL_POCKETS,
   INITIAL_TRANSACTIONS,
@@ -28,13 +28,15 @@ import TransactionHistoryView from './components/TransactionHistoryView';
 import TransactionHistoryPage from './components/TransactionHistoryPage';
 import ReminderModal from './components/ReminderModal';
 import ActivityLogView from './components/ActivityLogView';
+import DebtManagerView from './components/DebtManagerView';
+import MonthlyExpenseView from './components/MonthlyExpenseView';
 
 // Default category added retroactively for any account that predates the Top
 // Up Wallet feature — kept in one place so App.tsx and mockData.ts stay in sync.
 const TOPUP_CATEGORY: Category = { id: 'topup', name: 'Top Up Saldo', icon: 'piggy', color: 'teal' };
 
 // Icons for navigation
-import { Home, Wallet, PlusCircle, LineChart, User, Receipt } from 'lucide-react';
+import { Home, Wallet, PlusCircle, LineChart, User, Receipt, Users } from 'lucide-react';
 
 
 const getBudgetCategories = (b: Budget): string[] => {
@@ -75,6 +77,18 @@ export default function App() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [walletTransferLogs, setWalletTransferLogs] = useState<WalletTransferLog[]>(INITIAL_WALLET_TRANSFER_LOGS);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(INITIAL_ACTIVITY_LOG);
+  // Kelola Cicilan/Hutang (Task 3) — same JSONB-blob persistence pattern as
+  // everything else above (see the comment on the Debt/DebtPayment types).
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [debtPayments, setDebtPayments] = useState<DebtPayment[]>([]);
+
+  // Collaboration (Task 2). Non-null collaboratorOwnerEmail means the
+  // CURRENTLY LOGGED-IN account is a collaborator viewing someone else's
+  // data — set from /api/me's response, never guessed client-side. The
+  // `collaborators` list (invites managed BY this account, as an owner) is
+  // separate and only relevant when this account isn't itself a collaborator.
+  const [collaboratorOwnerEmail, setCollaboratorOwnerEmail] = useState<string | null>(null);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   const [activeTab, setActiveTab] = useState<string>('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -102,6 +116,10 @@ export default function App() {
     setWalletTransferLogs(INITIAL_WALLET_TRANSFER_LOGS);
     setActivityLog(INITIAL_ACTIVITY_LOG);
     setAppSettings(DEFAULT_SETTINGS);
+    setCollaboratorOwnerEmail(null);
+    setCollaborators([]);
+    setDebts([]);
+    setDebtPayments([]);
   };
 
   // Load the authenticated session (server-verified, httpOnly cookie) and hydrate
@@ -123,6 +141,7 @@ export default function App() {
         avatarUrl: me.avatarUrl || fallback.avatarUrl,
         joinedAt: me.joinedAt || fallback.joinedAt,
       };
+      setCollaboratorOwnerEmail(me.collaboratorOwnerEmail || null);
 
       const dataRes = await fetch('/api/data', { credentials: 'include' });
       if (dataRes.ok) {
@@ -156,10 +175,13 @@ export default function App() {
         setWalletTransferLogs(data.walletTransferLogs ?? INITIAL_WALLET_TRANSFER_LOGS);
         setActivityLog(data.activityLog ?? INITIAL_ACTIVITY_LOG);
         setAppSettings(data.settings ?? DEFAULT_SETTINGS);
+        setDebts(data.debts ?? []);
+        setDebtPayments(data.debtPayments ?? []);
       }
 
       setCurrentUser(profile);
       setActiveTab('home');
+      loadCollaborators();
     } catch (err) {
       console.error('Gagal memuat sesi/data akun:', err);
       setCurrentUser(null);
@@ -182,6 +204,8 @@ export default function App() {
     settings: AppSettings;
     walletTransferLogs: WalletTransferLog[];
     activityLog: ActivityLogEntry[];
+    debts: Debt[];
+    debtPayments: DebtPayment[];
   }>) => {
     const payload = {
       pockets: overrides.pockets ?? pockets,
@@ -195,6 +219,8 @@ export default function App() {
       settings: overrides.settings ?? appSettings,
       walletTransferLogs: overrides.walletTransferLogs ?? walletTransferLogs,
       activityLog: overrides.activityLog ?? activityLog,
+      debts: overrides.debts ?? debts,
+      debtPayments: overrides.debtPayments ?? debtPayments,
     };
 
     try {
@@ -430,11 +456,20 @@ export default function App() {
   // Centralized, purely-textual activity feed. Must NEVER affect balance/report
   // calculations, and a logging failure must never block the caller's main
   // action — hence the try/catch that silently falls back to the current log.
+  //
+  // Actor prefix (cicilan-ai-notifikasi Task 2): currentUser always reflects
+  // the ACTUAL logged-in identity — /api/me returns the real session's own
+  // email/name even when that session is a collaborator viewing an owner's
+  // data (see loadSessionAndData/collaboratorOwnerEmail above), so no
+  // separate "am I a collaborator" branch is needed here: prefixing with
+  // currentUser's own name/email is already correct for both the owner and
+  // a collaborator, with zero effect on any balance/data calculation.
   const logActivity = (message: string, category?: string, icon?: string): ActivityLogEntry[] => {
     try {
+      const actor = currentUser?.name || currentUser?.email;
       const entry: ActivityLogEntry = {
         id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        message,
+        message: actor ? `[${actor}] ${message}` : message,
         timestamp: new Date().toISOString(),
         category,
         icon,
@@ -484,6 +519,8 @@ export default function App() {
     setReminders([]);
     setWalletTransferLogs(INITIAL_WALLET_TRANSFER_LOGS);
     setActivityLog(INITIAL_ACTIVITY_LOG);
+    setDebts([]);
+    setDebtPayments([]);
     persistUserData({
       pockets: INITIAL_POCKETS,
       transactions: INITIAL_TRANSACTIONS,
@@ -494,6 +531,8 @@ export default function App() {
       reminders: [],
       walletTransferLogs: INITIAL_WALLET_TRANSFER_LOGS,
       activityLog: INITIAL_ACTIVITY_LOG,
+      debts: [],
+      debtPayments: [],
     });
     alert('Asisten KantongKu berhasil dikembalikan ke data mockup awal.');
   };
@@ -1360,6 +1399,78 @@ export default function App() {
   };
 
   // CRUD Handlers for Reminders (Pengingat)
+  // CRUD Handlers for Collaboration (Task 2) — all owner-only server-side
+  // (server.ts checks owner_user_id === req.user.id, not effectiveUserId), so
+  // these are only meaningful/shown when this account is NOT itself viewing
+  // as a collaborator (see collaboratorOwnerEmail).
+  const loadCollaborators = async () => {
+    try {
+      const res = await fetch('/api/collaborators', { credentials: 'include' });
+      if (res.ok) setCollaborators(await res.json());
+    } catch (err) {
+      console.error('Gagal memuat daftar kolaborator:', err);
+    }
+  };
+
+  // Task 2 revision: invite now creates a real manual-payment order (same
+  // infra as the main license) instead of a free stub — returns the order's
+  // payment instructions so ProfileView can open the payment modal directly.
+  const handleInviteCollaborator = async (
+    email: string,
+    channel: 'qris_shopee' | 'transfer_bca'
+  ): Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch('/api/collaborators/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, channel }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error || 'Gagal mengundang kolaborator' };
+      await loadCollaborators();
+      return { ok: true, order: data as CollaboratorOrder };
+    } catch (err: any) {
+      return { ok: false, error: err.message || 'Gagal mengundang kolaborator' };
+    }
+  };
+
+  // "Lanjutkan Pembayaran" on a pending_payment collaborator — re-opens the
+  // same order's instructions instead of creating a new one.
+  const handleGetPendingCollaboratorOrder = async (
+    collaboratorId: string
+  ): Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/pending-order`, { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error || 'Gagal memuat order' };
+      return { ok: true, order: data as CollaboratorOrder };
+    } catch (err: any) {
+      return { ok: false, error: err.message || 'Gagal memuat order' };
+    }
+  };
+
+  // Free — no new order/payment. Only valid for a previously-paid,
+  // currently-revoked row (server enforces this).
+  const handleReconnectCollaborator = async (id: string) => {
+    try {
+      const res = await fetch(`/api/collaborators/${id}/reconnect`, { method: 'POST', credentials: 'include' });
+      if (res.ok) await loadCollaborators();
+      else console.error('Gagal menyambungkan kembali kolaborator:', (await res.json().catch(() => ({}))).error);
+    } catch (err) {
+      console.error('Gagal menyambungkan kembali kolaborator:', err);
+    }
+  };
+
+  const handleDisconnectCollaborator = async (id: string) => {
+    try {
+      const res = await fetch(`/api/collaborators/${id}/disconnect`, { method: 'POST', credentials: 'include' });
+      if (res.ok) await loadCollaborators();
+    } catch (err) {
+      console.error('Gagal memutuskan sambungan kolaborator:', err);
+    }
+  };
+
   const handleAddReminder = (newReminder: Reminder) => {
     const nextReminders = [...reminders, newReminder];
     setReminders(nextReminders);
@@ -1376,6 +1487,89 @@ export default function App() {
     const nextReminders = reminders.filter(r => r.id !== id);
     setReminders(nextReminders);
     persistUserData({ reminders: nextReminders });
+  };
+
+  // Kelola Cicilan/Hutang (cicilan-ai-notifikasi Task 3) — reuses the
+  // EXISTING reminder mechanism instead of building a parallel one: adding a
+  // debt auto-creates a normal 'every_month' Reminder tied to its dueDay, so
+  // the same background alarm-check effect above (and, once wired, Task 5's
+  // push notifications) picks it up with zero extra code. The reminder's id
+  // is kept on the Debt row so deleting the debt can clean it up too.
+  const handleAddDebt = (input: Omit<Debt, 'id' | 'createdAt' | 'status' | 'reminderId'>) => {
+    const debtId = `debt-${Date.now()}`;
+    const reminderId = `rem-debt-${debtId}`;
+
+    const newDebt: Debt = {
+      ...input,
+      id: debtId,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      reminderId,
+    };
+
+    const newReminder: Reminder = {
+      id: reminderId,
+      title: `Cicilan/Hutang: ${input.name}`,
+      time: '09:00',
+      repeatType: 'every_month',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      dayOfWeek: 0,
+      dayOfMonth: input.dueDay,
+    };
+
+    const nextDebts = [...debts, newDebt];
+    const nextReminders = [...reminders, newReminder];
+    setDebts(nextDebts);
+    setReminders(nextReminders);
+    const nextLog = logActivity(`Menambahkan cicilan/hutang '${input.name}'`, 'debt', 'wallet');
+    persistUserData({ debts: nextDebts, reminders: nextReminders, activityLog: nextLog });
+  };
+
+  // Records a debt_payments-equivalent entry and auto-flips status to
+  // 'paid_off' once the number of recorded payments reaches the tenor —
+  // mirrors the SQL version's "COUNT(*) >= tenor_months" check the prompt
+  // described, just evaluated over the JSONB array instead of a table.
+  const handleMarkDebtPaid = (debtId: string) => {
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt || debt.status === 'paid_off') return;
+
+    const newPayment: DebtPayment = {
+      id: `debtpay-${Date.now()}`,
+      debtId,
+      paidAmount: debt.monthlyInstallment,
+      paidAt: new Date().toISOString(),
+    };
+    const nextPayments = [...debtPayments, newPayment];
+    const paidCount = nextPayments.filter(p => p.debtId === debtId).length;
+    const isNowPaidOff = paidCount >= debt.tenorMonths;
+
+    const nextDebts = debts.map(d => d.id === debtId ? { ...d, status: isNowPaidOff ? 'paid_off' as const : d.status } : d);
+    setDebts(nextDebts);
+    setDebtPayments(nextPayments);
+    const nextLog = logActivity(
+      isNowPaidOff
+        ? `Cicilan/hutang '${debt.name}' lunas!`
+        : `Menandai cicilan/hutang '${debt.name}' sudah dibayar bulan ini`,
+      'debt',
+      'wallet'
+    );
+    persistUserData({ debts: nextDebts, debtPayments: nextPayments, activityLog: nextLog });
+  };
+
+  const handleDeleteDebt = (debtId: string) => {
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+    const nextDebts = debts.filter(d => d.id !== debtId);
+    const nextPayments = debtPayments.filter(p => p.debtId !== debtId);
+    // Clean up the linked monthly reminder too, otherwise it keeps firing for
+    // a debt that no longer exists.
+    const nextReminders = debt.reminderId ? reminders.filter(r => r.id !== debt.reminderId) : reminders;
+    setDebts(nextDebts);
+    setDebtPayments(nextPayments);
+    setReminders(nextReminders);
+    const nextLog = logActivity(`Menghapus cicilan/hutang '${debt.name}'`, 'debt', 'wallet');
+    persistUserData({ debts: nextDebts, debtPayments: nextPayments, reminders: nextReminders, activityLog: nextLog });
   };
 
   // Background check effect for active alarm reminders
@@ -1567,6 +1761,15 @@ export default function App() {
             </span>
           </div>
 
+          {/* Collaboration (Task 2): visible on every tab so it's never
+              ambiguous whose data is currently on screen. */}
+          {collaboratorOwnerEmail && (
+            <div className="w-full flex items-center gap-2.5 px-4 py-2.5 mb-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs">
+              <Users className="w-4 h-4 shrink-0" />
+              <span>Anda login sebagai kolaborator dari akun <span className="font-semibold text-white">{collaboratorOwnerEmail}</span></span>
+            </div>
+          )}
+
           {activeTab === 'home' && (
             <HomeDashboard
               pockets={pockets}
@@ -1586,6 +1789,7 @@ export default function App() {
               onEditTransactionSelect={handleEditTransactionSelect}
               onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
               onOpenHistory={handleOpenHistory}
+              onOpenMonthlyDetail={() => setActiveTab('monthly-detail')}
             />
           )}
 
@@ -1603,11 +1807,22 @@ export default function App() {
           )}
 
           {activeTab === 'activity' && (
-            <ActivityView 
+            <ActivityView
               transactions={transactions}
               pockets={pockets}
               categories={categories}
               onOpenHistory={handleOpenHistory}
+              onOpenMonthlyDetail={() => setActiveTab('monthly-detail')}
+            />
+          )}
+
+          {activeTab === 'monthly-detail' && (
+            <MonthlyExpenseView
+              transactions={transactions}
+              categories={categories}
+              onEditTransactionSelect={handleEditTransactionSelect}
+              onDeleteTransaction={handleDeleteTransaction}
+              onBack={() => setActiveTab('home')}
             />
           )}
 
@@ -1637,6 +1852,14 @@ export default function App() {
               onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
               onNavigateHistory={() => setActiveTab('history')}
               onNavigateActivityLog={() => setActiveTab('activity-log')}
+              onNavigateDebtManager={() => setActiveTab('debts')}
+              isCollaborator={!!collaboratorOwnerEmail}
+              collaborators={collaborators}
+              onInviteCollaborator={handleInviteCollaborator}
+              onGetPendingCollaboratorOrder={handleGetPendingCollaboratorOrder}
+              onReconnectCollaborator={handleReconnectCollaborator}
+              onDisconnectCollaborator={handleDisconnectCollaborator}
+              onRefreshCollaborators={loadCollaborators}
             />
           )}
 
@@ -1645,6 +1868,17 @@ export default function App() {
               activityLog={activityLog}
               onBack={() => setActiveTab('profile')}
               onClearLog={handleClearActivityLog}
+            />
+          )}
+
+          {activeTab === 'debts' && (
+            <DebtManagerView
+              debts={debts}
+              debtPayments={debtPayments}
+              onBack={() => setActiveTab('profile')}
+              onAddDebt={handleAddDebt}
+              onMarkPaid={handleMarkDebtPaid}
+              onDeleteDebt={handleDeleteDebt}
             />
           )}
         </div>

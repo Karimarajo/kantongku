@@ -20,9 +20,16 @@ function getTransporter() {
   return transporter;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  path: string; // absolute filesystem path — nodemailer reads it itself, no need to preload the buffer
+}
+
 // Reusable low-level sender — any feature that needs to email a user goes
-// through this (currently just the Admin Console's "Kirim Link Login").
-export async function sendEmail(to: string, subject: string, html: string, text?: string): Promise<void> {
+// through this (Admin Console's "Kirim Link Login", the post-order
+// confirmation email, support replies, etc). `attachments` is optional and
+// native to nodemailer (cicilan-ai-notifikasi Task 6) — no new dependency.
+export async function sendEmail(to: string, subject: string, html: string, text?: string, attachments?: EmailAttachment[]): Promise<void> {
   const from = process.env.EMAIL_FROM || "KantongKu <no-reply@kantongku.app>";
-  await getTransporter().sendMail({ from, to, subject, html, text });
+  await getTransporter().sendMail({ from, to, subject, html, text, attachments });
 }
