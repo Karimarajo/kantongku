@@ -96,40 +96,61 @@ export async function createCheckoutPayment(params: {
     },
   };
   const bodyString = JSON.stringify(body);
-  const requestId = crypto.randomUUID();
-  const timestamp = dokuTimestamp();
-  const digest = digestOf(bodyString);
-  const signature = computeSignature({ clientId, requestId, timestamp, requestTarget, digest, secretKey });
 
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl()}${requestTarget}`, {
-      method: "POST",
-      headers: {
-        "Client-Id": clientId,
-        "Request-Id": requestId,
-        "Request-Timestamp": timestamp,
-        "Signature": signature,
-        "Content-Type": "application/json",
-      },
-      body: bodyString,
-    });
-  } catch (err: any) {
-    throw new Error(`Doku create payment gagal (network): ${err.message}`);
+  // Observed in production: an otherwise-healthy call intermittently throws
+  // a bare "fetch failed" with no HTTP response at all — classic symptom of
+  // undici (Node's built-in fetch) reusing a pooled keep-alive socket that
+  // the remote end (or a load balancer in front of it) silently closed
+  // after this long-running server process sat idle for a while. A fresh
+  // TCP/TLS connection on retry doesn't hit the stale socket, so it just
+  // works — confirmed live (the exact same request, retried seconds later,
+  // succeeded). One retry with a FRESH signature (Request-Id/Timestamp must
+  // both be current, not reused) is the standard fix for this class of
+  // issue, same shape as generateContentWithRetry's retry loop in server.ts
+  // for Gemini. Only retries actual network failures — a real HTTP
+  // response from Doku (2xx or an error status) is never retried here.
+  let lastNetworkError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const requestId = crypto.randomUUID();
+    const timestamp = dokuTimestamp();
+    const digest = digestOf(bodyString);
+    const signature = computeSignature({ clientId, requestId, timestamp, requestTarget, digest, secretKey });
+
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl()}${requestTarget}`, {
+        method: "POST",
+        headers: {
+          "Client-Id": clientId,
+          "Request-Id": requestId,
+          "Request-Timestamp": timestamp,
+          "Signature": signature,
+          "Content-Type": "application/json",
+        },
+        body: bodyString,
+      });
+    } catch (err: any) {
+      const cause = err?.cause ? ` (cause: ${err.cause.code || err.cause.message || err.cause})` : "";
+      lastNetworkError = new Error(`Doku create payment gagal (network): ${err.message}${cause}`);
+      console.warn(`[Doku] Percobaan ${attempt + 1} gagal koneksi untuk order ${params.orderCode}${attempt === 0 ? ", mencoba lagi sekali..." : ""}`);
+      continue;
+    }
+
+    const data: any = await res.json().catch(() => ({}));
+    const paymentUrl = data?.response?.payment?.url;
+    if (!res.ok || !paymentUrl) {
+      const message = Array.isArray(data?.message) ? data.message.join(", ") : (data?.message || `HTTP ${res.status}`);
+      throw new Error(`Doku create payment gagal: ${message}`);
+    }
+
+    return {
+      paymentUrl,
+      tokenId: data.response.payment.token_id,
+      expiredDate: data.response.payment.expired_date || null,
+    };
   }
 
-  const data: any = await res.json().catch(() => ({}));
-  const paymentUrl = data?.response?.payment?.url;
-  if (!res.ok || !paymentUrl) {
-    const message = Array.isArray(data?.message) ? data.message.join(", ") : (data?.message || `HTTP ${res.status}`);
-    throw new Error(`Doku create payment gagal: ${message}`);
-  }
-
-  return {
-    paymentUrl,
-    tokenId: data.response.payment.token_id,
-    expiredDate: data.response.payment.expired_date || null,
-  };
+  throw lastNetworkError!;
 }
 
 // Verifies an incoming Doku webhook notification's signature by recomputing
