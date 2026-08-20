@@ -11,6 +11,7 @@ import ValueStack from './landing/ValueStack';
 import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
+import QrisImage from './QrisImage';
 
 // Anchoring price shown on marketing sections (Hero, Pricing badge). Change
 // here to update everywhere it's displayed. This is separate from the actual
@@ -397,18 +398,13 @@ export default function Landing() {
 
               {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
                   unik, dikonfirmasi manual oleh admin lewat Admin Console
-                  setelah mencocokkan mutasi. Fixed after live prod test:
-                  w-56 (224px) was too small for a phone camera to
-                  focus/scan a dense QRIS code — full-width up to 340px
-                  reads reliably while still fitting this max-w-md section. */}
+                  setelah mencocokkan mutasi. Fixed after live prod test: a
+                  small fixed-size QR was too small for a phone camera to
+                  focus/scan reliably — QrisImage renders it bigger inline
+                  AND offers a genuine full-screen view via tap or the
+                  button underneath. */}
+              <QrisImage src={order.qrImage} boxClassName="max-w-[340px]" />
               <div className="w-full flex flex-col items-center gap-3">
-                <div className="bg-white rounded-2xl p-4 w-full max-w-[340px]">
-                  <img
-                    src={order.qrImage}
-                    alt="Kode QRIS pembayaran"
-                    className="w-full h-auto object-contain"
-                  />
-                </div>
                 <p className="text-xs text-on-surface-variant/60 text-center max-w-xs">
                   Scan pakai aplikasi apa saja yang mendukung QRIS (GoPay, OVO, DANA, ShopeePay, m-banking, dll) — pastikan nominalnya <b>persis sama</b> sampai 3 digit terakhir (kode unik), lalu tunggu konfirmasi.
                 </p>
