@@ -397,13 +397,16 @@ export default function Landing() {
 
               {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
                   unik, dikonfirmasi manual oleh admin lewat Admin Console
-                  setelah mencocokkan mutasi. */}
+                  setelah mencocokkan mutasi. Fixed after live prod test:
+                  w-56 (224px) was too small for a phone camera to
+                  focus/scan a dense QRIS code — full-width up to 340px
+                  reads reliably while still fitting this max-w-md section. */}
               <div className="w-full flex flex-col items-center gap-3">
-                <div className="bg-white rounded-2xl p-3">
+                <div className="bg-white rounded-2xl p-4 w-full max-w-[340px]">
                   <img
                     src={order.qrImage}
                     alt="Kode QRIS pembayaran"
-                    className="w-56 h-56 object-contain"
+                    className="w-full h-auto object-contain"
                   />
                 </div>
                 <p className="text-xs text-on-surface-variant/60 text-center max-w-xs">

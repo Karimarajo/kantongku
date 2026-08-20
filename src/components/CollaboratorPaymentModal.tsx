@@ -109,10 +109,14 @@ export default function CollaboratorPaymentModal({ order, collaboratorEmail, onC
             </div>
 
             {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
-                unik, dikonfirmasi manual oleh admin. */}
+                unik, dikonfirmasi manual oleh admin. Fixed after live prod
+                test: w-40 (160px) was too small for a phone camera to
+                focus/scan a dense QRIS code — full-width up to 320px (w-full
+                scales down on very narrow screens, max-w caps it on wider
+                modals) reads reliably. */}
             <div className="w-full flex flex-col items-center gap-2">
-              <div className="bg-white rounded-xl p-2.5">
-                <img src={order.qrImage} alt="Kode QRIS pembayaran" className="w-40 h-40 object-contain" />
+              <div className="bg-white rounded-2xl p-4 w-full max-w-[320px]">
+                <img src={order.qrImage} alt="Kode QRIS pembayaran" className="w-full h-auto object-contain" />
               </div>
               <p className="text-[11px] text-on-surface-variant/60 text-center">
                 Scan pakai aplikasi apa saja yang mendukung QRIS — pastikan nominalnya persis sama sampai 3 digit terakhir.
