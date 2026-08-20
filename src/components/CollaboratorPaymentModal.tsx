@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CollaboratorOrder } from '../types';
-import { Loader2, Copy, Check, X, CreditCard, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Loader2, Copy, Check, X, CreditCard } from 'lucide-react';
 
 interface CollaboratorPaymentModalProps {
   order: CollaboratorOrder | null;
@@ -12,8 +12,8 @@ interface CollaboratorPaymentModalProps {
 }
 
 // Payment instructions for a collaborator-seat order — visually mirrors
-// Landing.tsx's "paying" step (same Doku-only CTA / polling pattern) but as
-// an in-app modal, since Landing.tsx itself is the public unauthenticated
+// Landing.tsx's "paying" step (same static-QRIS CTA / polling pattern) but
+// as an in-app modal, since Landing.tsx itself is the public unauthenticated
 // page and isn't set up to be embedded inside the logged-in app. Backend
 // infra (order, polling endpoint, admin confirm) is fully shared — this is
 // just the UI shell.
@@ -108,29 +108,20 @@ export default function CollaboratorPaymentModal({ order, collaboratorEmail, onC
               </div>
             </div>
 
-            {/* Doku Checkout — SATU-SATUNYA jalur pembayaran sekarang (revisi:
-                pilihan manual QRIS ShopeePay statis/Transfer BCA dihapus dari
-                UI). Kalau order creation gagal dapat link dari Doku, tampilkan
-                error yang jelas — bukan fallback manual. */}
-            {order.doku_payment_url ? (
-              <a
-                href={order.doku_payment_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full h-12 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all bg-primary text-on-primary font-semibold text-sm"
-              >
-                <CreditCard className="w-4 h-4" /> Bayar Sekarang via Doku <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            ) : (
-              <div className="w-full flex flex-col items-center gap-2 text-center p-3 bg-rose-500/5 border border-rose-500/20 rounded-xl">
-                <AlertTriangle className="w-5 h-5 text-rose-400" />
-                <p className="text-[11px] text-rose-300">Gagal membuka halaman pembayaran Doku. Tutup dan coba undang ulang, atau hubungi Bantuan &amp; Saran.</p>
+            {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
+                unik, dikonfirmasi manual oleh admin. */}
+            <div className="w-full flex flex-col items-center gap-2">
+              <div className="bg-white rounded-xl p-2.5">
+                <img src={order.qrImage} alt="Kode QRIS pembayaran" className="w-40 h-40 object-contain" />
               </div>
-            )}
+              <p className="text-[11px] text-on-surface-variant/60 text-center">
+                Scan pakai aplikasi apa saja yang mendukung QRIS — pastikan nominalnya persis sama sampai 3 digit terakhir.
+              </p>
+            </div>
 
             <div className="flex items-center justify-center gap-2 text-on-surface-variant">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <p className="text-xs">Menunggu pembayaran ({order.order_code})...</p>
+              <p className="text-xs">Menunggu konfirmasi admin ({order.order_code})...</p>
             </div>
           </>
         )}

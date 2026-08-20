@@ -30,13 +30,31 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [devLoading, setDevLoading] = useState<boolean>(false);
+  // Task 1 fix: `import.meta.env.DEV` (build-time, always false in any
+  // `vite build` output) doesn't reflect the SERVER's runtime NODE_ENV —
+  // docker-compose.local.yml runs the same production build as the real
+  // deploy, just with NODE_ENV=development at runtime specifically so the
+  // dev-login-bypass endpoint works. Asking the server at mount time (same
+  // gate as the actual endpoint, see GET /api/dev/enabled) is what makes
+  // this button's visibility match whether it would actually work, in
+  // every environment — `npm run dev`, this Docker setup, and real
+  // production alike.
+  const [devLoginAvailable, setDevLoginAvailable] = useState<boolean>(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch('/api/dev/enabled')
+      .then((r) => r.json())
+      .then((data) => setDevLoginAvailable(!!data.enabled))
+      .catch(() => setDevLoginAvailable(false));
+  }, []);
 
   // Dev-only bypass for testing from a phone on the same WiFi — Google OAuth
   // rejects a LAN IP as an Authorized Origin, so the real Google button can't
-  // be tested that way. Server-side this 404s outright in production
-  // (see POST /api/dev/login-as-test-user in server.ts); this button is an
-  // extra layer on top of that, hidden from any production build entirely.
+  // be tested that way. Server-side this 404s outright in production (see
+  // POST /api/dev/login-as-test-user in server.ts) — that's the real gate;
+  // devLoginAvailable above just keeps this button's visibility in sync
+  // with it at runtime.
   const handleDevLogin = async () => {
     setError('');
     setDevLoading(true);
@@ -148,9 +166,7 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
             <span className="text-xs text-on-surface-variant/70">Memproses login...</span>
           )}
 
-          {/* import.meta.env.DEV is statically true only under `npm run dev` —
-              Vite strips this whole block out of any production build. */}
-          {import.meta.env.DEV && (
+          {devLoginAvailable && (
             <button
               type="button"
               onClick={handleDevLogin}

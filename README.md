@@ -19,6 +19,35 @@ View your app in AI Studio: https://ai.studio/apps/23be34da-a6e4-4f51-8181-6b09f
 3. Run the app:
    `npm run dev`
 
+## Local dev server (Docker, Task 1)
+
+To test against a real Postgres + built server on your own machine before
+deploying to CT101, without needing Google OAuth credentials:
+
+1. `copy .env.local.example .env.local` and adjust if needed (defaults work
+   out of the box).
+2. `docker compose -f docker-compose.local.yml up --build`
+3. Open http://localhost:3000. Log in without Google via the dev-login-bypass
+   endpoint (only active because this compose file forces
+   `NODE_ENV=development`; it stays a 404 in production):
+   ```
+   fetch('/api/dev/login-as-test-user', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'include', body: '{}' }).then(() => location.reload())
+   ```
+   (run that in the browser console on http://localhost:3000)
+4. Seed dummy wallets/pockets/categories/transactions (run from your host,
+   not inside the container — the production image doesn't ship `tsx`):
+   ```
+   set DATABASE_URL=postgres://kantongku_local:kantongku_local_dev@localhost:5432/kantongku
+   npx tsx scripts/seed-dummy-data.ts
+   ```
+   Then log in as one of the seeded emails (see the script's console output
+   or its header comment) via the same dev-login-bypass call, passing
+   `{ "email": "usera.dummy@kantongku.test" }` as the body.
+
+This is a completely separate stack from `docker-compose.yml` (the CT101
+production compose file) — different container names, network, volume, and
+env file — so the two never collide.
+
 ## Deploy
 
 This app runs as a plain Node/Express process (`server.ts`) with a PostgreSQL database, a Google

@@ -149,6 +149,26 @@ export default function PocketManagerModal({
     setDeleteWarning(null);
   };
 
+  // Task 4: this modal is always rendered by App.tsx (isOpen just toggles
+  // `if (!isOpen) return null` below) rather than being mounted/unmounted —
+  // so without this, closing while mid "Tambah"/"Ubah" left formMode/name
+  // stuck, and reopening later showed that stale add/edit form (with
+  // whatever text was typed) instead of the pocket list.
+  useEffect(() => {
+    if (!isOpen) {
+      setFormMode('list');
+      setEditingPocketId(null);
+      setName('');
+      setTag('');
+      setInitialBalance(0);
+      setInitialBalanceExpr('');
+      setShowCalc(false);
+      setIcon('wallet');
+      setColor('emerald');
+      setDeleteWarning(null);
+    }
+  }, [isOpen]);
+
   // Dynamically update evaluated amount from raw expression
   useEffect(() => {
     const evaluated = evaluateEquation(initialBalanceExpr);

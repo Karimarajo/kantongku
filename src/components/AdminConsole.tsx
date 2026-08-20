@@ -56,11 +56,6 @@ interface Order {
   collaborator_owner_user_id: string | null;
   collaborator_email: string | null;
   collaborator_owner_email: string | null; // joined server-side
-  // Doku Checkout integration — confirmed_via distinguishes an admin's
-  // manual click from an automatic webhook confirmation.
-  doku_payment_url: string | null;
-  doku_token_id: string | null;
-  confirmed_via: 'manual' | 'doku' | null;
 }
 
 interface AdminUser {
@@ -228,6 +223,27 @@ export default function AdminConsole() {
       await loadAdminCollaborators();
     } catch (err: any) {
       setActionError(err.message || 'Gagal disconnect kolaborator');
+    } finally {
+      setCollabActionId(null);
+    }
+  };
+
+  // Task 9 — separate, irreversible action from Disconnect above: hard-
+  // deletes the row (no order_id left behind), so a future re-invite of the
+  // same email is treated as brand new (pay again), not a free reconnect.
+  // Explicit confirm() dialog since there's no undo, mirroring the pattern
+  // already used for delete-category/delete-pocket confirmations elsewhere.
+  const handleAdminDeleteCollaborator = async (id: string, email: string) => {
+    if (!confirm(`Hapus PERMANEN kolaborator "${email}"? Tindakan ini tidak bisa dibatalkan — baris datanya hilang total dari database, dan kalau diundang ulang nanti akan dianggap kolaborator baru (harus bayar lagi, bukan gratis sambung ulang).`)) {
+      return;
+    }
+    setCollabActionId(id);
+    try {
+      const res = await fetch(`/api/admin/collaborators/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal menghapus permanen kolaborator');
+      await loadAdminCollaborators();
+    } catch (err: any) {
+      setActionError(err.message || 'Gagal menghapus permanen kolaborator');
     } finally {
       setCollabActionId(null);
     }
@@ -785,27 +801,18 @@ export default function AdminConsole() {
                     </td>
                     <td className="px-4 py-3 text-lg font-bold text-white whitespace-nowrap">
                       {formatCurrency(o.total_amount)}
-                      {o.doku_payment_url && (
-                        <span className="block text-[9px] font-semibold text-primary/70 uppercase tracking-wider mt-0.5">Doku tersedia</span>
-                      )}
                     </td>
                     <td className="px-4 py-3">
-                      {/* Task: Doku (auto-confirmed) integration — an order
-                          already settled (via webhook racing ahead of this
-                          admin's still-stale "pending" list, or confirmed
-                          moments ago by someone else) shows a status badge
-                          instead of the action buttons, so it can't be
-                          double-confirmed/double-emailed from here. The
-                          backend (confirmOrderRecord) is idempotent
+                      {/* An order already settled (confirmed moments ago by
+                          someone else, e.g. two admin tabs open) shows a
+                          status badge instead of the action buttons, so it
+                          can't be double-confirmed/double-emailed from here.
+                          The backend (confirmOrderRecord) is idempotent
                           regardless — this is a UI nicety on top of that,
                           not the only thing preventing a double-fire. */}
                       {o.status === 'settlement' ? (
-                        <span
-                          className={`text-[10px] font-bold px-2 py-1.5 rounded-lg uppercase tracking-wider whitespace-nowrap ${
-                            o.confirmed_via === 'doku' ? 'bg-primary/10 text-primary' : 'bg-white/5 text-on-surface-variant'
-                          }`}
-                        >
-                          {o.confirmed_via === 'doku' ? 'Terkonfirmasi via Doku' : 'Terkonfirmasi Manual'}
+                        <span className="text-[10px] font-bold px-2 py-1.5 rounded-lg uppercase tracking-wider whitespace-nowrap bg-white/5 text-on-surface-variant">
+                          Terkonfirmasi
                         </span>
                       ) : (
                       <div className="flex gap-2">
@@ -1003,6 +1010,21 @@ export default function AdminConsole() {
                                 Connect
                               </button>
                             )}
+                            {/* Task 9 — deliberately separate button from
+                                Disconnect above: this hard-deletes the row
+                                (irreversible, confirm() dialog inside the
+                                handler), Disconnect just revokes status and
+                                keeps the row/order_id around for a free
+                                reconnect later. Always available regardless
+                                of current status. */}
+                            <button
+                              onClick={() => handleAdminDeleteCollaborator(c.id, c.email)}
+                              disabled={collabActionId === c.id}
+                              title="Hapus permanen — tidak bisa dibatalkan"
+                              className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" /> Hapus Permanen
+                            </button>
                           </div>
                         </div>
                       ))}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Mail, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, CreditCard, ExternalLink, AlertTriangle } from 'lucide-react';
+import { User, Mail, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, QrCode } from 'lucide-react';
 import Hero from './landing/Hero';
 import SocialProofStrip from './landing/SocialProofStrip';
 import BeforeAfter from './landing/BeforeAfter';
@@ -32,14 +32,6 @@ interface OrderDetails {
   channel: Channel;
   total_amount: number;
   qrImage?: string;
-  bankAccountNumber?: string;
-  bankAccountName?: string;
-  // Present only when Doku Checkout succeeded when the order was created —
-  // absent (not just falsy) whenever Doku isn't configured or the API call
-  // failed, so the manual BCA/QRIS instructions below are the only thing
-  // shown in that case (full fallback, nothing missing from the customer's
-  // point of view).
-  doku_payment_url?: string;
 }
 
 type Step = 'form' | 'paying' | 'success' | 'expired' | 'error';
@@ -100,13 +92,12 @@ const PRICING_CHECKLIST = [
   'Support respon cepat via WhatsApp',
 ];
 
-// Payment revision — pembayaran sudah 100% lewat Doku (VA/QRIS/e-wallet/
-// kartu di halaman hosted Doku), pilihan channel manual QRIS ShopeePay
-// statis / Transfer BCA tidak lagi ditampilkan ke customer. Backend
-// (createOrderRecord di server.ts) masih menerima `channel` sebagai
-// parameter wajib untuk data order & fallback manual internal kalau Doku
-// gagal dibuat — nilai ini dikirim diam-diam, bukan pilihan user lagi.
-const DEFAULT_CHANNEL: Channel = 'transfer_bca';
+// Task 2: satu-satunya metode pembayaran sekarang adalah QRIS statis —
+// tidak ada lagi pilihan channel di UI (Doku dan Transfer BCA manual sudah
+// dihapus total). Backend (createOrderRecord di server.ts) masih menerima
+// `channel` sebagai parameter wajib untuk data order — nilai ini dikirim
+// diam-diam, bukan pilihan user.
+const DEFAULT_CHANNEL: Channel = 'qris_shopee';
 
 export default function Landing() {
   const [name, setName] = useState('');
@@ -364,8 +355,8 @@ export default function Landing() {
               </div>
 
               <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                <CreditCard className="w-4 h-4 text-primary shrink-0" />
-                <span>Pembayaran otomatis lewat Doku — VA, QRIS, e-wallet, atau kartu, tinggal pilih di halaman pembayaran.</span>
+                <QrCode className="w-4 h-4 text-primary shrink-0" />
+                <span>Bayar pakai QRIS — scan pakai aplikasi apa saja (GoPay, OVO, DANA, m-banking, dll), langsung muncul di halaman berikutnya.</span>
               </div>
 
               {error && (
@@ -404,36 +395,28 @@ export default function Landing() {
                 </div>
               </div>
 
-              {/* Doku Checkout — SATU-SATUNYA jalur pembayaran sekarang (revisi:
-                  pilihan manual QRIS ShopeePay statis/Transfer BCA dihapus dari
-                  UI). Kalau order creation gagal dapat link dari Doku, tampilkan
-                  error yang jelas + tombol coba lagi — bukan fallback manual. */}
-              {order.doku_payment_url ? (
-                <div className="w-full flex flex-col items-center gap-3">
-                  <a
-                    href={order.doku_payment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
-                  >
-                    <CreditCard className="w-5 h-5" /> Bayar Sekarang via Doku
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                  <p className="text-xs text-on-surface-variant/60">Dikonfirmasi otomatis begitu pembayaran sukses — tidak perlu menunggu admin.</p>
+              {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
+                  unik, dikonfirmasi manual oleh admin lewat Admin Console
+                  setelah mencocokkan mutasi. */}
+              <div className="w-full flex flex-col items-center gap-3">
+                <div className="bg-white rounded-2xl p-3">
+                  <img
+                    src={order.qrImage}
+                    alt="Kode QRIS pembayaran"
+                    className="w-56 h-56 object-contain"
+                  />
                 </div>
-              ) : (
-                <div className="w-full flex flex-col items-center gap-3 text-center p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl">
-                  <AlertTriangle className="w-6 h-6 text-rose-400" />
-                  <p className="text-xs text-rose-300">Gagal membuka halaman pembayaran Doku. Coba lagi sebentar, atau hubungi kami lewat halaman Bantuan &amp; Saran kalau masih gagal.</p>
-                </div>
-              )}
+                <p className="text-xs text-on-surface-variant/60 text-center max-w-xs">
+                  Scan pakai aplikasi apa saja yang mendukung QRIS (GoPay, OVO, DANA, ShopeePay, m-banking, dll) — pastikan nominalnya <b>persis sama</b> sampai 3 digit terakhir (kode unik), lalu tunggu konfirmasi.
+                </p>
+              </div>
 
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <p className="text-sm">Menunggu pembayaran (order {order.order_code})...</p>
+                <p className="text-sm">Menunggu konfirmasi admin (order {order.order_code})...</p>
               </div>
               <p className="text-xs text-on-surface-variant/50">
-                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran dikonfirmasi Doku.
+                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran dikonfirmasi admin.
               </p>
 
               <a
@@ -492,7 +475,7 @@ export default function Landing() {
             <span className="text-xs">Garansi 3 Hari — Uang kembali 100% kalau nggak cocok</span>
           </div>
           <p className="text-[10px] text-on-surface-variant/40 text-center uppercase tracking-wider">
-            Pembayaran diproses otomatis lewat Doku — akun aktif dalam hitungan detik.
+            Pembayaran dikonfirmasi manual oleh admin — biasanya dalam hitungan menit.
           </p>
         </div>
       </section>

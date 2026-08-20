@@ -31,7 +31,7 @@ const webpush = loadWebPush();
 // Web Push (cicilan-ai-notifikasi Task 5) — thin wrapper around the `web-push`
 // package, the ONE npm dependency this whole prompt explicitly allowed
 // (VAPID/encryption isn't realistic to hand-roll). Mirrors this project's
-// existing lib/*.ts pattern (doku.ts, email.ts, metaCapi.ts): one concern per
+// existing lib/*.ts pattern (email.ts, metaCapi.ts): one concern per
 // file, configuration read lazily from env so a missing VAPID key pair never
 // crashes the server at boot — push is purely additive, every other feature
 // must keep working with it fully unconfigured.

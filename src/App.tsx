@@ -11,6 +11,7 @@ import {
   INITIAL_ACTIVITY_LOG
 } from './mockData';
 import { getDefaultProfile, formatRupiah } from './utils';
+import { disablePushNotifications } from './lib/pushNotifications';
 
 // Import Views
 import Login from './components/Login';
@@ -128,7 +129,18 @@ export default function App() {
   // account across devices instead of being pinned to one browser's localStorage.
   const loadSessionAndData = async () => {
     try {
-      const meRes = await fetch('/api/me', { credentials: 'include' });
+      // Task 8: these two used to run one-after-another (await /api/me, THEN
+      // await /api/data) even though /api/data doesn't need anything from
+      // /api/me's response — both only need the session cookie, which the
+      // browser already sends on every request. Firing them together turns
+      // two sequential round-trips into one round-trip's worth of wall time
+      // on every app open. /api/data still requires a valid session
+      // server-side (requireSession) — if /api/me comes back 401, we just
+      // discard whatever /api/data returned instead of using it.
+      const [meRes, dataRes] = await Promise.all([
+        fetch('/api/me', { credentials: 'include' }),
+        fetch('/api/data', { credentials: 'include' }),
+      ]);
       if (!meRes.ok) {
         setCurrentUser(null);
         return;
@@ -143,7 +155,6 @@ export default function App() {
       };
       setCollaboratorOwnerEmail(me.collaboratorOwnerEmail || null);
 
-      const dataRes = await fetch('/api/data', { credentials: 'include' });
       if (dataRes.ok) {
         const data = await dataRes.json();
         if (data.profile) {
@@ -495,6 +506,11 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    // Task 7: unsubscribe from push BEFORE clearing the session — it needs
+    // the still-valid session cookie (POST /api/push/unsubscribe requires
+    // requireSession, same as subscribe). Best-effort by design, like every
+    // other step here: a failure must never block the actual logout.
+    await disablePushNotifications();
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (err) {
@@ -1897,11 +1913,14 @@ export default function App() {
         pockets={pockets}
         accounts={accounts}
         categories={categories}
-        onOpenCategoryManager={() => {
-          setIsAddModalOpen(false);
-          setEditingTransaction(null);
-          setIsCategoryManagerOpen(true);
-        }}
+        // Task 3: keep AddTransactionModal mounted (don't close/clear it)
+        // while CategoryManagerModal opens on top (it already renders at a
+        // higher z-index, z-[70] vs z-[60] — designed to stack, not
+        // replace). Closing/unmounting it here used to reset its internal
+        // `currentView` and wipe whatever the user had already typed in the
+        // manual/parser detail view, landing back on 'options' (effectively
+        // the dashboard) instead of returning to the in-progress input.
+        onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
       />
 
       {/* Budget Modal */}

@@ -10,8 +10,8 @@ perbedaan kalau pakai Render.
 - Repo ini sudah di-push ke GitHub (buat repo baru kalau belum: `git init && git add -A && git commit -m "init"` lalu push).
 - Akun Railway (https://railway.app) — login pakai GitHub.
 - Akun Google Cloud Console untuk bikin OAuth Client ID.
-- Gambar QR statis ShopeePay (`public/qris-shopee.png`) dan nomor rekening BCA — pembayaran di
-  sini manual (bukan payment gateway), lihat bagian 3.
+- Gambar QR statis (`public/qris-statis.png`) — pembayaran di sini manual (bukan payment
+  gateway), lihat bagian 3.
 
 ## 1. Buat project di Railway
 
@@ -40,17 +40,15 @@ Di service **web app** → tab **Variables**, tambahkan seluruh isi `.env.exampl
 | `DATABASE_URL` | dari langkah 2 |
 | `PRICE_AMOUNT` | harga dasar sebelum kode unik, mis. `49000` |
 | `PRICE_LABEL` | mis. `Akses KantongKu Selamanya` |
-| `BANK_BCA_ACCOUNT_NUMBER` | nomor rekening BCA kamu |
-| `BANK_BCA_ACCOUNT_NAME` | nama pemilik rekening |
 | `ADMIN_PASSWORD` | password untuk masuk ke `/admin` — string acak yang cuma kamu tahu |
 | `GOOGLE_CLIENT_ID` | dari langkah 6 |
 | `VITE_GOOGLE_CLIENT_ID` | sama dengan `GOOGLE_CLIENT_ID` |
 | `SESSION_COOKIE_SECRET` | random string panjang, mis. hasil `openssl rand -hex 32` — dipakai untuk sign cookie sesi customer maupun admin |
 | `NODE_ENV` | `production` |
 
-Selain env var, upload juga gambar QR statis ShopeePay kamu sebagai `public/qris-shopee.png` di
-repo (commit filenya) sebelum build — halaman landing me-referensikan path itu langsung, jadi
-kalau filenya belum ada, gambar QR akan broken di halaman instruksi bayar.
+Selain env var, upload juga gambar QR statis kamu sebagai `public/qris-statis.png` di repo (commit
+filenya) sebelum build — halaman landing me-referensikan path itu langsung, jadi kalau filenya
+belum ada, gambar QR akan broken di halaman instruksi bayar.
 
 Catatan: variabel `VITE_*` di-inline ke bundle frontend saat `npm run build` berjalan di
 Railway — pastikan sudah di-set **sebelum** trigger build/deploy.

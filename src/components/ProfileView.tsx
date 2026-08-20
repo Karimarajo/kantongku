@@ -62,11 +62,11 @@ export default function ProfileView({
 }: ProfileViewProps) {
   // Collaboration invite form state
   const [inviteEmail, setInviteEmail] = useState('');
-  // Revisi: pilihan channel manual QRIS ShopeePay/Transfer BCA sudah tidak
-  // ditampilkan ke user (pembayaran 100% lewat Doku sekarang) — nilai ini
-  // hanya dikirim diam-diam supaya kontrak API onInviteCollaborator (dan
-  // createOrderRecord di server.ts) tidak perlu diubah.
-  const inviteChannel: 'qris_shopee' | 'transfer_bca' = 'transfer_bca';
+  // Task 2: satu-satunya metode pembayaran adalah QRIS statis — tidak ada
+  // lagi pilihan channel di UI. Nilai ini hanya dikirim diam-diam supaya
+  // kontrak API onInviteCollaborator (dan createOrderRecord di server.ts)
+  // tidak perlu diubah.
+  const inviteChannel: 'qris_shopee' | 'transfer_bca' = 'qris_shopee';
   const [inviteError, setInviteError] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [pendingOrderLoadingId, setPendingOrderLoadingId] = useState<string | null>(null);
@@ -321,7 +321,7 @@ export default function ProfileView({
       {/* Kelola Kolaborator (Task 2, revised) — owner-only, hidden for a
           collaborator account itself since managing invites stays exclusive
           to the owner. Invite now goes through a real payment order (same
-          Doku-only flow as the main license), not a free stub. */}
+          static-QRIS flow as the main license), not a free stub. */}
       {!isCollaborator && (
         <section className="flex flex-col gap-2.5 mt-2">
           <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Kelola Kolaborator</span>
@@ -339,7 +339,7 @@ export default function ProfileView({
             />
             <div className="flex items-center gap-2 text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
               <CreditCard className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span>Pembayaran otomatis lewat Doku — VA, QRIS, e-wallet, atau kartu.</span>
+              <span>Bayar pakai QRIS statis, dikonfirmasi manual oleh admin.</span>
             </div>
             <button
               type="submit"

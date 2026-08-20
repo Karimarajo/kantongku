@@ -1,0 +1,77 @@
+# Local dev server (Windows laptop) — Task 1.
+#
+# Completely separate from docker-compose.yml (the CT101 production stack):
+# different compose file name, different container names, different network,
+# different volume, and no cloudflared tunnel. Running this never touches or
+# overlaps with the production stack, even if both happened to run on the
+# same Docker engine.
+#
+# Usage:
+#   1. Copy .env.local.example to .env.local and fill in whatever you need
+#      (defaults work for most local testing — Google OAuth isn't required
+#      because you log in via the dev-login-bypass endpoint instead).
+#   2. docker compose -f docker-compose.local.yml up --build
+#   3. Open http://localhost:3000, then log in without Google using the
+#      dev-login-bypass flow (see README.md "Local dev server" section).
+#   4. Optional: seed dummy wallets/pockets/categories/transactions — see
+#      scripts/seed-dummy-data.ts usage in README.md.
+#
+# NODE_ENV is forced to "development" here (overriding the "production"
+# baked into the image by Dockerfile) specifically so that
+# POST /api/dev/login-as-test-user stays enabled — it 404s whenever
+# NODE_ENV === "production", by design, and that check must never be
+# loosened. The production compose file never sets NODE_ENV=development.
+
+# Explicit distinct project name so Compose never derives the same default
+# project name ("kantongku", from the folder) that docker-compose.yml would
+# use — belt-and-suspenders on top of the already-distinct container/network/
+# volume names above.
+name: kantongku-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kantongku-db-local
+    environment:
+      POSTGRES_USER: kantongku_local
+      POSTGRES_PASSWORD: kantongku_local_dev
+      POSTGRES_DB: kantongku
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - kantongku-local-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kantongku_local -d kantongku"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_META_PIXEL_ID: ${VITE_META_PIXEL_ID:-}
+    container_name: kantongku-app-local
+    env_file: .env.local
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://kantongku_local:kantongku_local_dev@postgres:5432/kantongku
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kantongku-local-net
+    restart: unless-stopped
+
+volumes:
+  postgres_data_local:
+
+networks:
+  kantongku-local-net:
+    driver: bridge

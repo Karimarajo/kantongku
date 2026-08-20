@@ -11,7 +11,6 @@ import { OAuth2Client } from "google-auth-library";
 import { sendEmail } from "./lib/email";
 import { sendMetaCapiEvent } from "./lib/metaCapi";
 import { parseUserAgent } from "./lib/userAgent";
-import { createCheckoutPayment, verifyDokuNotificationSignature, parseDokuExpiredDate } from "./lib/doku";
 import { isPushConfigured, sendPushToSubscriptions } from "./lib/push";
 
 dotenv.config();
@@ -19,18 +18,7 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// `verify` captures the exact raw request bytes into req.rawBody for every
-// JSON request — needed by the Doku webhook (POST /api/webhooks/doku/notification)
-// to recompute its signature digest, since Doku's digest is sensitive to the
-// exact bytes received (re-serializing req.body after JSON.parse can reorder
-// keys/whitespace and produce a different digest). Cheap for every other
-// route — just an extra Buffer reference, no added parsing work.
-app.use(express.json({
-  limit: "50mb",
-  verify: (req, _res, buf) => {
-    (req as any).rawBody = buf;
-  },
-}));
+app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser(process.env.SESSION_COOKIE_SECRET));
 
@@ -673,7 +661,7 @@ app.post("/api/analysis/financial-health", requireSession, requireActiveStatus, 
 });
 
 // ==========================================
-// Payment Routes (manual: QRIS ShopeePay statis / Transfer BCA)
+// Payment Routes (manual: QRIS statis, Task 2)
 // ==========================================
 
 // Price for a collaborator seat order (Task 2 revision) — deliberately NOT
@@ -690,6 +678,12 @@ app.get("/api/payment/config", (req, res) => {
     collaboratorAmount: COLLABORATOR_PRICE_AMOUNT,
   });
 });
+
+// Task 2: single static QRIS image served from public/ (works with any
+// QRIS-compatible scanner — GoPay, OVO, DANA, mobile banking, etc, not just
+// ShopeePay) — the only payment method now shown to customers, matched by
+// hand against the unique-code total via the Admin Console.
+const STATIC_QRIS_IMAGE_PATH = "/qris-statis.png";
 
 // Short, human-readable order reference, e.g. "KK-20260809-4F2A".
 function generateOrderCode(): string {
@@ -726,11 +720,6 @@ interface CreateOrderResult {
   qrImage?: string;
   bankAccountNumber?: string;
   bankAccountName?: string;
-  // Present only when Doku Checkout succeeded — absent (not null-but-present)
-  // when DOKU_CLIENT_ID/SECRET_KEY aren't configured or the API call failed,
-  // so the frontend's `if (doku_payment_url)` check naturally falls back to
-  // manual-only without needing a separate "did Doku work" flag.
-  doku_payment_url?: string;
 }
 
 // Shared by POST /api/payment/create (license) and POST /api/collaborators/invite
@@ -769,19 +758,17 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
   const utm = params.utm || {};
 
   let orderCode = "";
-  let orderId = "";
   let inserted = false;
   for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
     orderCode = generateOrderCode();
     try {
-      const insertResult = await pool.query(
+      await pool.query(
         `INSERT INTO orders (
            order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at,
            utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbclid, fbp, fbc,
            order_type, collaborator_owner_user_id, collaborator_email
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '24 hours', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-         RETURNING id`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '24 hours', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
         [
           orderCode, name, email, channel, baseAmount, uniqueCode, totalAmount,
           utm.source || null, utm.medium || null, utm.campaign || null, utm.content || null,
@@ -789,7 +776,6 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
           orderType, params.collaboratorOwnerUserId || null, params.collaboratorEmail || null,
         ]
       );
-      orderId = insertResult.rows[0].id;
       inserted = true;
     } catch (err: any) {
       if (err.code !== "23505") throw err; // not a unique_violation on order_code, rethrow
@@ -797,24 +783,6 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
   }
   if (!inserted) {
     throw Object.assign(new Error("Gagal membuat kode order, coba lagi"), { statusCode: 503 });
-  }
-
-  // Doku Checkout (automatic payment) — AWAITED, unlike the fire-and-forget
-  // side effects below, because its result (the payment URL) is part of the
-  // response the customer needs. Best-effort regardless: any failure here
-  // (Doku down, credentials missing, network) is caught and logged, NEVER
-  // thrown — the order is already committed with manual BCA/QRIS
-  // instructions as a full fallback, so a Doku hiccup can't block checkout.
-  let dokuPaymentUrl: string | undefined;
-  try {
-    const doku = await createCheckoutPayment({ orderCode, amount: totalAmount });
-    dokuPaymentUrl = doku.paymentUrl;
-    await pool.query(
-      `UPDATE orders SET doku_payment_url = $2, doku_token_id = $3, doku_expired_at = $4 WHERE id = $1`,
-      [orderId, doku.paymentUrl, doku.tokenId, parseDokuExpiredDate(doku.expiredDate)]
-    );
-  } catch (err: any) {
-    console.error(`Doku Checkout gagal untuk order ${orderCode} (fallback ke manual):`, err.message);
   }
 
   // --- Best-effort side effects below: Meta CAPI event + admin notification
@@ -866,27 +834,18 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
     console.warn("ADMIN_NOTIFY_EMAIL (dan EMAIL_FROM) belum diset — notifikasi order baru dilewati.");
   }
 
-  const instructions =
-    channel === "qris_shopee"
-      ? { qrImage: "/qris-shopee.png" }
-      : {
-          bankAccountNumber: process.env.BANK_BCA_ACCOUNT_NUMBER || "",
-          bankAccountName: process.env.BANK_BCA_ACCOUNT_NAME || "",
-        };
-
   return {
     order_code: orderCode,
     channel,
     total_amount: totalAmount,
-    ...instructions,
-    ...(dokuPaymentUrl ? { doku_payment_url: dokuPaymentUrl } : {}),
+    qrImage: STATIC_QRIS_IMAGE_PATH,
   };
 }
 
 // Create a pending manual-payment order for the MAIN LICENSE. A random 0-999
 // "kode unik" is added to the base price so the exact total_amount can be
-// matched by hand against a ShopeePay/BCA mutation later — no payment
-// gateway involved.
+// matched by hand against a QRIS mutation later — no payment gateway
+// involved.
 app.post("/api/payment/create", async (req, res) => {
   try {
     const {
@@ -954,7 +913,6 @@ app.get("/api/payment/status/:order_code", async (req, res) => {
       status: order.status,
       channel: order.channel,
       total_amount: Number(order.total_amount),
-      doku_payment_url: order.doku_payment_url || undefined,
     });
   } catch (error: any) {
     console.error("Gagal mengambil status order:", error);
@@ -962,62 +920,106 @@ app.get("/api/payment/status/:order_code", async (req, res) => {
   }
 });
 
-// ==========================================
-// Doku Checkout (Non-SNAP) — automatic payment webhook
-// ==========================================
-// Doku POSTs here after a customer completes payment on their hosted
-// checkout page (VA/QRIS/e-wallet/card — whatever method the customer
-// picked there). This is what makes activation automatic; the admin's
-// manual "Konfirmasi" button (confirmOrderRecord's other caller) remains a
-// full fallback if this never arrives or Doku itself isn't configured.
-app.post("/api/webhooks/doku/notification", async (req, res) => {
-  const requestTarget = "/api/webhooks/doku/notification";
+// Task 6 — Activity Log retention (14 days). `activityLog` lives inside each
+// account's user_app_data JSONB blob (same read-through as the admin
+// endpoint above), so "DELETE ... WHERE created_at < ..." doesn't apply
+// directly — there's no separate SQL table/rows to delete, just an array
+// field to trim. Mirrors this file's existing background-sweep convention
+// (see runReminderPushSweep below): scan, filter in JS, write back only the
+// rows that actually changed.
+const ACTIVITY_LOG_RETENTION_DAYS = 14;
+const ACTIVITY_LOG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // once a day is plenty for a 14-day window
+
+async function runActivityLogCleanup() {
   try {
-    // Needs the EXACT raw bytes Doku sent (see the express.json `verify`
-    // callback near the top of this file) — re-serializing req.body after
-    // JSON.parse can reorder keys/change whitespace and produce a different
-    // (wrong) digest than what Doku signed.
-    const rawBody: Buffer | undefined = (req as any).rawBody;
-    if (!rawBody) {
-      console.error("Doku webhook: raw body tidak tersedia (express.json verify callback tidak terpasang?).");
-      return res.status(500).json({ responseCode: "5000000", responseMessage: "Internal error" });
-    }
+    const cutoffMs = Date.now() - ACTIVITY_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    // jsonb_array_length guard skips accounts with an empty/missing
+    // activityLog entirely — no point pulling their whole data blob just to
+    // find nothing to trim.
+    const dataRows = await pool.query(
+      `SELECT user_id, data FROM user_app_data
+       WHERE jsonb_typeof(data->'activityLog') = 'array' AND jsonb_array_length(data->'activityLog') > 0`
+    );
 
-    const isValid = verifyDokuNotificationSignature(req.headers as any, rawBody, requestTarget);
-    if (!isValid) {
-      // Deliberately no detail in the log about WHY it failed (no header/key
-      // dump) — just enough to know a bad notification arrived.
-      console.warn("Doku webhook: signature tidak valid, request ditolak (401).");
-      return res.status(401).json({ responseCode: "4010000", responseMessage: "Invalid signature" });
-    }
+    let trimmedUsers = 0;
+    for (const row of dataRows.rows) {
+      const data = row.data || {};
+      const log: any[] = Array.isArray(data.activityLog) ? data.activityLog : [];
+      const kept = log.filter((entry) => {
+        const t = new Date(entry?.timestamp).getTime();
+        // Defensive: an entry with a missing/unparseable timestamp is kept
+        // rather than silently discarded — better to over-retain a
+        // malformed entry than lose user data to a parsing edge case.
+        return !Number.isFinite(t) || t >= cutoffMs;
+      });
+      if (kept.length === log.length) continue; // nothing older than 14 days here
 
-    const invoiceNumber: string | undefined = req.body?.order?.invoice_number;
-    const transactionStatus: string | undefined = req.body?.transaction?.status;
-    if (!invoiceNumber) {
-      return res.status(400).json({ responseCode: "4000000", responseMessage: "Missing order.invoice_number" });
+      await pool.query(
+        `UPDATE user_app_data SET data = $2, updated_at = now() WHERE user_id = $1`,
+        [row.user_id, JSON.stringify({ ...data, activityLog: kept })]
+      );
+      trimmedUsers++;
     }
-
-    if (transactionStatus === "SUCCESS") {
-      // confirmOrderRecord is the SAME function the admin's manual button
-      // calls, and is itself atomically idempotent — a retried/duplicate
-      // notification for an already-settlement order just observes
-      // alreadyConfirmed:true and does nothing more (no double email, no
-      // double activation).
-      const outcome = await confirmOrderRecord(invoiceNumber, "doku");
-      if (outcome.ok === false) {
-        // Order genuinely doesn't exist — nothing a retry will fix either,
-        // but still ack 200 so Doku doesn't keep hammering us over it.
-        console.error(`Doku webhook: order ${invoiceNumber} tidak ditemukan saat konfirmasi.`);
-      }
+    if (trimmedUsers > 0) {
+      console.log(`Activity log cleanup: trimmed entries older than ${ACTIVITY_LOG_RETENTION_DAYS} hari untuk ${trimmedUsers} akun.`);
     }
-    // Any other status (PENDING/EXPIRED/FAILED/…) — no action, just ack.
-
-    res.status(200).json({ responseCode: "2000700", responseMessage: "Successful" });
   } catch (error: any) {
-    console.error("Gagal memproses notifikasi webhook Doku:", error.message);
-    res.status(500).json({ responseCode: "5000000", responseMessage: "Internal error" });
+    // Best-effort by design — same footing as runReminderPushSweep: a
+    // failed sweep must never crash the server or block the next tick.
+    console.error("Activity log cleanup gagal (akan dicoba lagi tick berikutnya):", error.message);
   }
-});
+}
+
+// Task 7 — daily 20:00 WIB "sudah input transaksi hari ini?" broadcast to
+// EVERY active push subscriber, independent of each account's own
+// custom reminders/debts above (those still work exactly the same,
+// unaffected by this). One shared in-memory flag tracks the WIB calendar
+// date this last fired for, so the 5-minute-granularity sweep tick below
+// doesn't double-send within the ~5 minute window it catches 20:00 in —
+// resets naturally at WIB midnight since the date string changes. A server
+// restart could in theory cause a second send on the same day if it
+// happens to restart inside that same 5-minute window — an acceptable,
+// extremely rare edge case (same "worst case: fires once extra, never data
+// loss" tolerance as the reminder sweep above), not worth a DB-backed flag.
+let lastDailyTransactionReminderDateWIB: string | null = null;
+
+// Asia/Jakarta is a fixed UTC+7 offset with no DST — safe to compute by
+// hand without a timezone library (constraint: no new dependency for this
+// task besides `web-push` itself).
+function getWibDateParts(now: Date): { dateStr: string; hour: number; minute: number } {
+  const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return { dateStr: wib.toISOString().slice(0, 10), hour: wib.getUTCHours(), minute: wib.getUTCMinutes() };
+}
+
+async function runDailyTransactionReminderSweep() {
+  if (!isPushConfigured()) return;
+  try {
+    const { dateStr, hour, minute } = getWibDateParts(new Date());
+    // 20:00–20:04 WIB window — matches this sweep's 5-minute tick interval
+    // (REMINDER_PUSH_INTERVAL_MS) so it fires exactly once as soon as the
+    // window opens, without needing sub-minute precision.
+    if (hour !== 20 || minute >= 5) return;
+    if (lastDailyTransactionReminderDateWIB === dateStr) return; // already sent today
+    lastDailyTransactionReminderDateWIB = dateStr;
+
+    const subsResult = await pool.query(`SELECT id, endpoint, p256dh, auth FROM push_subscriptions`);
+    if (subsResult.rowCount === 0) return;
+
+    const { sent, expiredIds } = await sendPushToSubscriptions(subsResult.rows, {
+      title: "Sudah catat transaksi hari ini?",
+      body: "Jangan lupa input pemasukan/pengeluaran hari ini biar catatan keuanganmu tetap rapi.",
+      icon: "/logo.png",
+    });
+    if (expiredIds.length > 0) {
+      await pool.query(`DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`, [expiredIds]);
+    }
+    console.log(`Daily transaction reminder (20:00 WIB) terkirim ke ${sent} subscription.`);
+  } catch (error: any) {
+    // Best-effort by design, same footing as runReminderPushSweep — never
+    // crash the server or block the next tick.
+    console.error("Daily transaction reminder sweep gagal:", error.message);
+  }
+}
 
 // ==========================================
 // Landing Page Analytics (public tracking + admin read)
@@ -1378,14 +1380,11 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   }
 });
 
-// Manually confirm a pending order after checking the ShopeePay/BCA mutation by hand.
-// Shared by the admin's manual "Konfirmasi" button AND the Doku webhook
-// (POST /api/webhooks/doku/notification) — exactly ONE place that actually
-// activates an order, so both paths get identical behavior and neither can
-// double-activate/double-email. Atomically idempotent: the UPDATE's
-// `WHERE status != 'settlement'` guard means at most one caller ever wins a
-// race between an admin click and a webhook arriving at the same moment;
-// everyone else just observes `alreadyConfirmed: true` and does nothing more.
+// Manually confirm a pending order after checking the QRIS mutation by hand.
+// Atomically idempotent: the UPDATE's `WHERE status != 'settlement'` guard
+// means a double-click (or any other concurrent caller) never double-
+// activates/double-emails — the loser just observes `alreadyConfirmed: true`
+// and does nothing more.
 // Guide PDF (cicilan-ai-notifikasi Task 6) — lives in public/, NOT a bare
 // assets/ folder as the prompt's own suggested path assumed: Task 0
 // verification of the Dockerfile showed only `dist/` and `public/` get
@@ -1411,7 +1410,7 @@ function getGuidePdfAttachment(): { filename: string; path: string }[] | undefin
 // already told customers "link ini juga akan dikirim ke email kamu". This
 // fills that real gap, on the SAME best-effort/fire-and-forget footing as
 // the Meta CAPI call right below it: never awaited, a failure here must
-// never affect the order confirmation itself (admin click or Doku webhook).
+// never affect the order confirmation itself.
 function sendOrderConfirmationEmail(order: any) {
   const loginUrl = `${process.env.APP_URL}/app`;
 
@@ -1446,8 +1445,7 @@ function sendOrderConfirmationEmail(order: any) {
 }
 
 async function confirmOrderRecord(
-  orderCode: string,
-  confirmedVia: "manual" | "doku"
+  orderCode: string
 ): Promise<
   | { ok: true; order: any; alreadyConfirmed: boolean }
   | { ok: false; error: string; statusCode: number }
@@ -1462,10 +1460,10 @@ async function confirmOrderRecord(
   }
 
   const updateResult = await pool.query(
-    `UPDATE orders SET status = 'settlement', confirmed_at = now(), confirmed_by = $2, confirmed_via = $3
+    `UPDATE orders SET status = 'settlement', confirmed_at = now(), confirmed_by = $2
      WHERE order_code = $1 AND status != 'settlement'
      RETURNING *`,
-    [orderCode, confirmedVia === "doku" ? "doku-webhook" : "admin", confirmedVia]
+    [orderCode, "admin"]
   );
   if (updateResult.rowCount === 0) {
     // Lost a race to a concurrent confirm (admin + webhook at nearly the same
@@ -1501,8 +1499,8 @@ async function confirmOrderRecord(
     [order.email]
   );
 
-  // Best-effort, fired-and-forgotten (not awaited) — the caller (admin click
-  // OR Doku webhook) shouldn't sit waiting on a Meta API round-trip. Server-
+  // Best-effort, fired-and-forgotten (not awaited) — the admin confirming an
+  // order shouldn't sit waiting on a Meta API round-trip. Server-
   // to-server either way, so user_data is just the hashed email + whatever
   // fbp/fbc were captured on the original order — helps Meta match this to
   // the earlier "Lead" event for a better match rate. A separate event_id
@@ -1525,16 +1523,14 @@ async function confirmOrderRecord(
   return { ok: true, order, alreadyConfirmed: false };
 }
 
-// Manually confirm a pending order after checking the ShopeePay/BCA mutation
-// by hand — the fallback path, kept fully working alongside the automatic
-// Doku webhook below. Safe to click even if a webhook already confirmed it
-// (confirmOrderRecord is idempotent) — the Admin Console also hides this
-// button once an order shows `confirmed_via`, as a first line of defense
-// against double-clicks, but the backend doesn't rely on that alone.
+// Manually confirm a pending order after checking the QRIS mutation by
+// hand. Safe to click twice — confirmOrderRecord is idempotent — but the
+// Admin Console also hides this button once an order shows `settlement`,
+// as a first line of defense against double-clicks.
 app.post("/api/admin/orders/:order_code/confirm", requireAdmin, async (req, res) => {
   try {
     const { order_code } = req.params;
-    const outcome = await confirmOrderRecord(order_code, "manual");
+    const outcome = await confirmOrderRecord(order_code);
     if (outcome.ok === false) {
       return res.status(outcome.statusCode).json({ error: outcome.error });
     }
@@ -1869,6 +1865,21 @@ app.post("/api/auth/google", async (req, res) => {
 // each. Defaults to the original single fixed test user when omitted, so the
 // plain "[DEV] Login sebagai Test User" button in Login.tsx keeps working
 // unchanged.
+// Task 1 (docker-compose.local.yml) fix: Login.tsx used to gate its
+// "[DEV] Login sebagai Test User" button on `import.meta.env.DEV` — a Vite
+// BUILD-TIME constant that's `false` in any `vite build` output regardless
+// of runtime NODE_ENV. That made the button silently never render against
+// the local Docker image (which runs the same production build as the real
+// deploy, just with NODE_ENV=development at runtime for this exact reason)
+// — the backend bypass endpoint below worked fine, there was just no way to
+// reach it from the UI without opening devtools. This tiny public endpoint
+// lets the frontend ask at runtime instead; same NODE_ENV gate as the actual
+// bypass endpoint, so the button's visibility always matches whether it
+// would actually work.
+app.get("/api/dev/enabled", (req, res) => {
+  res.json({ enabled: process.env.NODE_ENV !== "production" });
+});
+
 app.post("/api/dev/login-as-test-user", async (req, res) => {
   if (process.env.NODE_ENV === "production") {
     return res.status(404).end();
@@ -2108,7 +2119,7 @@ app.get("/api/collaborators/:id/pending-order", requireSession, requireActiveSta
       return res.status(403).json({ error: "Anda bukan pemilik akun ini" });
     }
     const orderResult = await pool.query(
-      `SELECT order_code, channel, total_amount, doku_payment_url FROM orders
+      `SELECT order_code, channel, total_amount FROM orders
        WHERE order_type = 'collaborator' AND collaborator_owner_user_id = $1 AND collaborator_email = $2 AND status = 'pending'
        ORDER BY created_at DESC LIMIT 1`,
       [ownerId, collab.email]
@@ -2117,16 +2128,11 @@ app.get("/api/collaborators/:id/pending-order", requireSession, requireActiveSta
     if (!order) {
       return res.status(404).json({ error: "Tidak ada order pending untuk kolaborator ini — undang ulang untuk membuat order baru" });
     }
-    const instructions =
-      order.channel === "qris_shopee"
-        ? { qrImage: "/qris-shopee.png" }
-        : { bankAccountNumber: process.env.BANK_BCA_ACCOUNT_NUMBER || "", bankAccountName: process.env.BANK_BCA_ACCOUNT_NAME || "" };
     res.json({
       order_code: order.order_code,
       channel: order.channel,
       total_amount: Number(order.total_amount),
-      doku_payment_url: order.doku_payment_url || undefined,
-      ...instructions,
+      qrImage: STATIC_QRIS_IMAGE_PATH,
     });
   } catch (error: any) {
     console.error("Gagal memuat order pending kolaborator:", error);
@@ -2268,17 +2274,79 @@ app.post("/api/admin/collaborators/:id/disconnect", requireAdmin, async (req, re
   }
 });
 
+// Task 9 — HARD delete, separate from "Disconnect" above. Disconnect just
+// flips status to 'revoked' (row stays, keeps its order_id as proof of past
+// payment — that's what makes "Sambungkan Lagi" free later). This instead
+// removes the row entirely: requireSession's collaborator lookup (SELECT ...
+// WHERE c.email = $1 AND c.status = 'active') then finds nothing at all, so
+// access is blocked immediately, same as disconnect — but with no order_id
+// left behind, a future invite of the same email hits the "no existing row"
+// branch in POST /api/collaborators/invite, i.e. treated as a brand new
+// collaborator who has to pay again, not a free reconnect. Irreversible by
+// design — the UI (AdminConsole) is expected to confirm before calling this.
+app.delete("/api/admin/collaborators/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`DELETE FROM collaborators WHERE id = $1 RETURNING id`, [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Kolaborator tidak ditemukan" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal menghapus permanen kolaborator (admin):", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus permanen kolaborator" });
+  }
+});
+
 // Vite Middleware Setup
+//
+// Task 1 fix: this used to branch purely on NODE_ENV !== "production", which
+// broke docker-compose.local.yml's setup — that image is built the SAME way
+// as production (only dist/ + public/ get copied into the final stage, see
+// Dockerfile), but deliberately runs with NODE_ENV=development so
+// POST /api/dev/login-as-test-user stays enabled (its own gate, checked
+// there — completely unrelated to and unaffected by this change). With the
+// old branching, that combination made THIS function try to start Vite's
+// dev middleware, which needs the actual source (src/, root index.html) —
+// absent from that image — and silently served 404s for everything.
+//
+// The real signal for "was this a `npm run build` output, or a live
+// tsx/`npm run dev` source checkout" is simply whether dist/index.html
+// exists on disk — checking that directly decouples static-vs-dev serving
+// from NODE_ENV entirely. The dev-login-bypass endpoint's own guard
+// (`NODE_ENV === "production"` → 404) is untouched by this and still the
+// only thing gating it — it still 404s in real production, unconditionally.
 async function setupVite() {
-  if (process.env.NODE_ENV !== "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  const hasBuiltDist = fs.existsSync(path.join(distPath, "index.html"));
+
+  if (!hasBuiltDist) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    // Task 8: diagnosed root cause of the slow (~10s) reopen — express.static
+    // with no options defaults to `maxAge: 0`, so the browser never cached
+    // dist/assets/* at all and had to fully re-download the JS/CSS bundle
+    // (~540KB/~80KB) on every single visit, not just the first. Vite content-
+    // hashes every filename under dist/assets/ (e.g. index-BhcMwqO-.js) — a
+    // given filename can only ever refer to one exact set of bytes, so it's
+    // safe to tell the browser to cache it forever and skip the network
+    // entirely on repeat visits. `index.html` itself (and anything outside
+    // assets/, e.g. public/'s unhashed files copied in by `vite build`) must
+    // NOT get this treatment — it has to be re-fetched every time so the
+    // browser sees the latest hashed asset filenames after each deploy.
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          if (filePath.split(path.sep).includes("assets")) {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          }
+        },
+      })
+    );
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
@@ -2293,6 +2361,17 @@ async function setupVite() {
   // No-ops instantly every tick if VAPID isn't configured (see
   // runReminderPushSweep), so this is safe to always start.
   setInterval(runReminderPushSweep, REMINDER_PUSH_INTERVAL_MS);
+
+  // Task 7 — daily 20:00 WIB transaction-input reminder, same interval/
+  // no-op-if-unconfigured footing as the reminder sweep right above.
+  setInterval(runDailyTransactionReminderSweep, REMINDER_PUSH_INTERVAL_MS);
+
+  // Task 6 — Activity Log retention sweep. Same "start after listen, run
+  // once immediately then on an interval" pattern as the reminder sweep
+  // above — the immediate first run means a server restart doesn't leave
+  // stale entries sitting for up to 24h before the first cleanup happens.
+  runActivityLogCleanup();
+  setInterval(runActivityLogCleanup, ACTIVITY_LOG_CLEANUP_INTERVAL_MS);
 }
 
 setupVite();

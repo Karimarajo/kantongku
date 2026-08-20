@@ -93,3 +93,40 @@ export async function isPushEnabled(): Promise<boolean> {
     return false;
   }
 }
+
+// Task 7 — called from handleLogout in App.tsx, BEFORE the session cookie is
+// cleared by POST /api/auth/logout (this itself needs requireSession, same
+// as /api/push/subscribe). Best-effort/never-throws by design: logout must
+// never be blocked or fail just because this cleanup step had trouble —
+// the server-side push cron also self-heals a stale/expired subscription on
+// its own the next time it tries to send to it anyway.
+//
+// Unsubscribes the BROWSER's PushManager too (not just the server-side
+// row) — otherwise the browser would keep holding a subscription with
+// nothing on the server to receive it, and a next-login on the same device
+// would see a "subscription" that silently goes nowhere until re-enabled.
+export async function disablePushNotifications(): Promise<void> {
+  if (!isPushSupported()) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return;
+
+    const endpoint = subscription.toJSON().endpoint;
+    if (endpoint) {
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ endpoint }),
+      }).catch(() => {
+        // Best-effort — the server-side row going stale is self-healing
+        // (see comment above), never worth surfacing to the user at logout.
+      });
+    }
+    await subscription.unsubscribe();
+  } catch (err) {
+    console.error('Gagal menonaktifkan notifikasi push saat logout:', err);
+  }
+}

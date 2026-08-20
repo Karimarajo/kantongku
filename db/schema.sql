@@ -7,6 +7,11 @@
 -- If you already ran the old v3 schema against this database and it has no
 -- real order rows yet, drop it first: `DROP TABLE IF EXISTS orders;` — then
 -- re-run this file.
+--
+-- Task 2 (this revision): the brief v9 Doku Checkout (Non-SNAP) integration
+-- has been fully removed — back to 100% manual QRIS-statis payment, admin-
+-- confirmed. If this database ever ran the v9 shape, run
+-- db/migrate_drop_doku_columns.sql once.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -73,15 +78,13 @@ CREATE TABLE IF NOT EXISTS orders (
   -- data — see the `collaborators` table below. Only set for 'collaborator'.
   order_type TEXT NOT NULL DEFAULT 'license' CHECK (order_type IN ('license', 'collaborator')),
   collaborator_owner_user_id UUID REFERENCES users(id),
-  collaborator_email TEXT,
-  -- v9: Doku Checkout (Non-SNAP) integration — automatic payment alongside
-  -- the manual BCA/QRIS flow (which stays fully functional as a fallback).
-  -- `confirmed_via` distinguishes an admin's manual click from an automatic
-  -- webhook confirmation, for the Admin Console badge.
-  doku_payment_url TEXT,
-  doku_token_id TEXT,
-  doku_expired_at TIMESTAMPTZ,
-  confirmed_via TEXT CHECK (confirmed_via IN ('manual', 'doku'))
+  collaborator_email TEXT
+  -- v9 briefly added doku_payment_url/doku_token_id/doku_expired_at/
+  -- confirmed_via here for a Doku Checkout (Non-SNAP) integration — fully
+  -- removed (Task 2: back to manual-only QRIS payment). A database that
+  -- already has those columns needs db/migrate_drop_doku_columns.sql run
+  -- once (schema.sql, like the rest of this file, never drops columns on
+  -- its own).
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
@@ -90,13 +93,14 @@ CREATE INDEX IF NOT EXISTS idx_orders_pending_unique_code ON orders (unique_code
 
 -- Real, unconditionally-run ALTERs for every column ever added to `orders`
 -- after it first shipped (v5 utm_*/fbclid/fbp/fbc, v8 order_type/
--- collaborator_*, v9 doku_*/confirmed_via) — ADD COLUMN IF NOT EXISTS is a
--- safe no-op on a fresh table that already has these from CREATE TABLE
--- above, and is what ACTUALLY fixes an existing deployment (a `-- ALTER
--- TABLE ...` comment, which is what earlier versions of this file had here,
--- never runs on its own — that gap is what let production drift out of sync
--- with the code across several releases until orders.order_type finally hard
--- 500'd on every new order).
+-- collaborator_*) — ADD COLUMN IF NOT EXISTS is a safe no-op on a fresh
+-- table that already has these from CREATE TABLE above, and is what
+-- ACTUALLY fixes an existing deployment (a `-- ALTER TABLE ...` comment,
+-- which is what earlier versions of this file had here, never runs on its
+-- own — that gap is what let production drift out of sync with the code
+-- across several releases until orders.order_type finally hard 500'd on
+-- every new order). v9's doku_*/confirmed_via columns are handled by
+-- db/migrate_drop_doku_columns.sql instead (Task 2 removed them again).
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_source TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_medium TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
@@ -112,14 +116,6 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_owner_user_id UUID REFERENCES users(id);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_email TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_payment_url TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_token_id TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_expired_at TIMESTAMPTZ;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_via TEXT;
-DO $$ BEGIN
-  ALTER TABLE orders ADD CONSTRAINT orders_confirmed_via_check CHECK (confirmed_via IN ('manual', 'doku'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
 
 -- Per-account application state (pockets, transactions, budgets, categories,
 -- notifications, reminders, profile, settings) stored as a single JSON blob so

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Plus, Edit3, Trash2, Save, Undo2, CircleDollarSign, ChevronUp, ChevronDown,
   Utensils, ShoppingBag, Coffee, Dumbbell, Heart, Users, Coins, 
@@ -95,6 +95,22 @@ export default function CategoryManagerModal({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('receipt');
   const [color, setColor] = useState('slate');
+
+  // Task 4: this modal is always rendered by App.tsx (isOpen just toggles
+  // `if (!isOpen) return null` below) rather than being mounted/unmounted —
+  // so without this, closing while mid "Tambah"/"Ubah" left formMode/name
+  // stuck, and reopening later showed that stale add/edit form (with
+  // whatever text was typed) instead of the category list.
+  useEffect(() => {
+    if (!isOpen) {
+      setFormMode('list');
+      setEditingCategoryId(null);
+      setName('');
+      setIcon('receipt');
+      setColor('slate');
+      setDeleteWarning(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

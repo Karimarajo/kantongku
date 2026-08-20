@@ -259,6 +259,11 @@ export default function AccountView({
     setAccountNumber('');
     setOwnerName('');
     setInitialBalance(0);
+    // Task 5: the saldo input field displays `initialBalanceExpr` (the raw
+    // calculator expression string), NOT `initialBalance` directly — so
+    // this must be cleared too, otherwise it'd show whatever expression was
+    // left over from a previous add/edit session.
+    setInitialBalanceExpr('');
     setIcon('bank');
     setColor('indigo');
     setFormMode('add');
@@ -272,6 +277,11 @@ export default function AccountView({
     setAccountNumber(acc.accountNumber || '');
     setOwnerName(acc.ownerName || '');
     setInitialBalance(acc.balance);
+    // Task 5 fix: the saldo input displays `initialBalanceExpr`, not
+    // `initialBalance` — this line was missing, so the field always showed
+    // 0 (or a stale leftover expression) regardless of the wallet's real
+    // balance, even though `initialBalance` itself was set correctly above.
+    setInitialBalanceExpr(acc.balance.toString());
     setIcon(acc.icon);
     setColor(acc.color);
     setFormMode('edit');

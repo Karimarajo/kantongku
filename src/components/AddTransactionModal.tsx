@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, 
   Mic, 
@@ -96,9 +96,33 @@ export default function AddTransactionModal({
     return `${year}-${month}-${day}`;
   });
 
+  // Task 3: AddTransactionModal now stays mounted (isOpen=false just hides
+  // it) while a nested manager (e.g. CategoryManagerModal) is opened on top
+  // of it — see App.tsx. That means `pockets`/`accounts`/`categories` props
+  // can change identity (a category just got added) WHILE this modal is
+  // still open underneath, and this effect must NOT treat that as "the
+  // modal was just opened" and wipe out whatever the user already typed.
+  // These refs let the effect below tell "isOpen actually just flipped
+  // true" / "editingTransaction actually just changed" apart from "some
+  // other dependency merely got a new array reference".
+  const prevIsOpenRef = useRef(false);
+  const prevEditingIdRef = useRef<string | null>(null);
+
   // Pre-fill form fields if editing, or reset to defaults if adding new transaction
   useEffect(() => {
-    if (isOpen) {
+    const justOpened = isOpen && !prevIsOpenRef.current;
+    const editingTargetChanged = isOpen && (editingTransaction?.id ?? null) !== prevEditingIdRef.current;
+    prevIsOpenRef.current = isOpen;
+    prevEditingIdRef.current = editingTransaction?.id ?? null;
+
+    if (isOpen && (justOpened || editingTargetChanged)) {
+      // Task 4: "Ketik Apapun" (parser) free-text input was never reset here
+      // — it's a separate ephemeral scratch field, not tied to
+      // editingTransaction either way, so it always clears whenever the
+      // modal opens (fresh add OR editing an existing transaction), leaving
+      // no stale text from a previous session's parse.
+      setInputText('');
+      setApiError('');
       if (editingTransaction) {
         setTitle(editingTransaction.title);
         setAmount(editingTransaction.amount);

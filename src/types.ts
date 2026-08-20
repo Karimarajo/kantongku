@@ -170,14 +170,12 @@ export interface Collaborator {
 
 // Payment instructions for a collaborator-seat order — same shape returned
 // by POST /api/collaborators/invite and GET /api/collaborators/:id/pending-order.
+// Task 2: always a single static QRIS image now (qrImage) — no more Doku
+// automatic checkout, no more manual BCA transfer option.
 export interface CollaboratorOrder {
   order_code: string;
   channel: 'qris_shopee' | 'transfer_bca';
   total_amount: number;
   qrImage?: string;
-  bankAccountNumber?: string;
-  bankAccountName?: string;
-  // Present only when Doku Checkout succeeded at order-creation time.
-  doku_payment_url?: string;
 }
 
