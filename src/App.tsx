@@ -1594,7 +1594,15 @@ export default function App() {
 
     const checkAlarms = () => {
       const now = new Date();
-      const currentDateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+      // Local calendar date, NOT now.toISOString()'s UTC date — every other
+      // field here (currentHour/Minute/DayOfWeek/DayOfMonth below) is already
+      // local, so a UTC date string would silently disagree with them for
+      // roughly the first 7 hours of each WIB day (a WIB user's UTC date is
+      // still "yesterday" until ~07:00 local), causing lastTriggeredDate to
+      // mismatch the server's WIB-based sweep (see getWibDateParts in
+      // server.ts) and risking a duplicate push notification for alarms
+      // timed in that window.
+      const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const currentHour = String(now.getHours()).padStart(2, '0');
       const currentMinute = String(now.getMinutes()).padStart(2, '0');
       const currentTimeStr = `${currentHour}:${currentMinute}`;

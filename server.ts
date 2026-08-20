@@ -393,17 +393,17 @@ app.post("/api/push/unsubscribe", requireSession, requireActiveStatus, async (re
 // matches AND it hasn't already fired today, it's due.
 function isReminderDueForPush(reminder: any, now: Date): boolean {
   if (!reminder?.isActive) return false;
-  const currentDateStr = now.toISOString().slice(0, 10);
+  const { dateStr: currentDateStr, hour, minute, dayOfWeek, dayOfMonth } = getWibDateParts(now);
   if (reminder.lastTriggeredDate === currentDateStr) return false;
 
   const [rh, rm] = String(reminder.time || "00:00").split(":").map((n: string) => parseInt(n, 10) || 0);
   const reminderMinutes = rh * 60 + rm;
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowMinutes = hour * 60 + minute;
   if (nowMinutes < reminderMinutes) return false;
 
   if (reminder.repeatType === "once" || reminder.repeatType === "every_day") return true;
-  if (reminder.repeatType === "every_week") return reminder.dayOfWeek === now.getDay();
-  if (reminder.repeatType === "every_month") return reminder.dayOfMonth === now.getDate();
+  if (reminder.repeatType === "every_week") return reminder.dayOfWeek === dayOfWeek;
+  if (reminder.repeatType === "every_month") return reminder.dayOfMonth === dayOfMonth;
   return false;
 }
 
@@ -447,7 +447,7 @@ async function runReminderPushSweep() {
 
       const subs = subsByUser.get(row.user_id);
       let anyDue = false;
-      const currentDateStr = now.toISOString().slice(0, 10);
+      const currentDateStr = getWibDateParts(now).dateStr;
       const nextReminders = reminders.map((r) => {
         if (!isReminderDueForPush(r, now)) return r;
         anyDue = true;
@@ -808,7 +808,9 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
 
   const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || process.env.EMAIL_FROM;
   if (adminEmail) {
-    const channelLabel = channel === "qris_shopee" ? "QRIS ShopeePay" : "Transfer BCA";
+    // Semua channel pembayaran sekarang dibayar lewat QRIS statis yang sama —
+    // tidak ada lagi pembedaan Transfer BCA vs ShopeePay.
+    const channelLabel = "QRIS";
     const sourceLine = utm.source
       ? `<p><b>Sumber:</b> ${utm.source}${utm.campaign ? ` / ${utm.campaign}` : ""}</p>`
       : "";
@@ -985,10 +987,23 @@ let lastDailyTransactionReminderDateWIB: string | null = null;
 
 // Asia/Jakarta is a fixed UTC+7 offset with no DST — safe to compute by
 // hand without a timezone library (constraint: no new dependency for this
-// task besides `web-push` itself).
-function getWibDateParts(now: Date): { dateStr: string; hour: number; minute: number } {
+// task besides `web-push` itself). Also used by isReminderDueForPush/
+// runReminderPushSweep above (function declarations are hoisted, so the
+// earlier-in-file usage is fine) — the production container runs Node with
+// no TZ set (node:20-slim defaults to UTC), so `now.getHours()` etc. on a
+// bare `new Date()` reflect UTC, not WIB. Every reminder time the user picks
+// in the UI is a WIB wall-clock time, so any due-check must convert through
+// this helper — using bare local getters here previously fired custom/debt
+// reminders up to 7 hours late (or on the wrong WIB calendar day).
+function getWibDateParts(now: Date): { dateStr: string; hour: number; minute: number; dayOfWeek: number; dayOfMonth: number } {
   const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return { dateStr: wib.toISOString().slice(0, 10), hour: wib.getUTCHours(), minute: wib.getUTCMinutes() };
+  return {
+    dateStr: wib.toISOString().slice(0, 10),
+    hour: wib.getUTCHours(),
+    minute: wib.getUTCMinutes(),
+    dayOfWeek: wib.getUTCDay(),
+    dayOfMonth: wib.getUTCDate(),
+  };
 }
 
 async function runDailyTransactionReminderSweep() {

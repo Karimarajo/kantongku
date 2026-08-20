@@ -137,7 +137,10 @@ const formatDateTime = (iso: string | null) => {
   return new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-const channelLabel = (channel: string) => (channel === 'qris_shopee' ? 'QRIS ShopeePay' : 'Transfer BCA');
+// Semua channel pembayaran (lama & baru) sekarang dibayar lewat QRIS statis
+// yang sama — tidak ada lagi pembedaan Transfer BCA vs ShopeePay, jadi
+// labelnya disamakan jadi "QRIS" saja apa pun nilai channel di data lama.
+const channelLabel = (_channel: string) => 'QRIS';
 
 export default function AdminConsole() {
   const [checkingAuth, setCheckingAuth] = useState(true);
