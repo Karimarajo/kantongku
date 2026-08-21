@@ -1802,6 +1802,7 @@ export default function App() {
               notifications={notifications}
               userProfile={currentUser}
               categories={categories}
+              budgets={budgets}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onDeleteTransaction={handleDeleteTransaction}
               onTransferBetweenWallets={handleTransferBetweenWallets}

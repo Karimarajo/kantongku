@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pocket, Transaction, Notification, UserProfile, Category, Account } from '../types';
+import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budget } from '../types';
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
@@ -38,7 +38,8 @@ import {
   Briefcase,
   Utensils,
   Users,
-  ChevronRight
+  ChevronRight,
+  Target
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -48,6 +49,7 @@ interface HomeDashboardProps {
   notifications: Notification[];
   userProfile: UserProfile;
   categories: Category[];
+  budgets: Budget[];
   onOpenAddModal: () => void;
   onDeleteTransaction: (id: string) => void;
   onTransferBetweenWallets: (fromAccountId: string, toAccountId: string, amount: number, note?: string) => void;
@@ -69,6 +71,7 @@ export default function HomeDashboard({
   notifications,
   userProfile,
   categories,
+  budgets,
   onOpenAddModal,
   onDeleteTransaction,
   onTransferBetweenWallets,
@@ -464,6 +467,60 @@ export default function HomeDashboard({
               </button>
             </div>
           </section>
+
+          {/* Ringkasan Target & Limit aktif — biar user langsung tahu progresnya
+              tanpa buka modal Target & Limit. Pakai budget.spent/sisaPercent
+              yang sudah di-maintain live di App.tsx setiap transaksi berubah,
+              bukan dihitung ulang di sini. */}
+          {budgets.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <h3 className="font-headline-sm text-lg text-white flex items-center gap-1.5">
+                  <Target className="w-4 h-4 text-primary" /> Target &amp; Limit
+                </h3>
+                <button
+                  onClick={onOpenBudgetModal}
+                  className="font-label-caps text-xs text-primary hover:opacity-80 transition-opacity shrink-0"
+                >
+                  Lihat Semua
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {budgets.slice(0, 3).map((budget) => {
+                  const percentage = budget.limit > 0 ? Math.min(100, Math.max(0, (budget.spent / budget.limit) * 100)) : 0;
+                  const isOver = budget.type === 'expense_limit' && budget.spent >= budget.limit;
+                  const isDone = budget.type === 'target_funding' && budget.spent >= budget.limit;
+                  const barColor = budget.type === 'expense_limit'
+                    ? (isOver ? 'bg-rose-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-emerald-400')
+                    : (isDone ? 'bg-blue-500' : 'bg-sky-400');
+
+                  return (
+                    <button
+                      key={budget.id}
+                      onClick={onOpenBudgetModal}
+                      className="glass-card rounded-xl p-3.5 flex flex-col gap-2 border border-white/5 hover:bg-white/5 transition-all text-left"
+                    >
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-xs font-semibold text-white truncate">{budget.title}</span>
+                        <span className="text-[10px] font-mono-data text-on-surface-variant shrink-0">
+                          {formatRupiah(budget.spent, false)} / {formatRupiah(budget.limit, false)}
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${percentage}%` }} />
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant/70">
+                        {budget.type === 'expense_limit'
+                          ? (isOver ? 'Sudah melebihi limit' : `Sisa ${budget.sisaPercent}% dari limit`)
+                          : (isDone ? 'Target tercapai 🎉' : `Terkumpul ${Math.round(percentage)}% dari target`)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
         </div>
 

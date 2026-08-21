@@ -108,11 +108,59 @@ interface PageViewRow {
   visited_at: string;
 }
 
+interface AnalyticsBreakdownRow {
+  label: string;
+  count: number;
+}
+
 interface AnalyticsData {
   totalViews: number;
   uniqueVisitors: number;
   rows: PageViewRow[];
   rowsTruncated: boolean;
+  countryBreakdown: AnalyticsBreakdownRow[];
+  browserBreakdown: AnalyticsBreakdownRow[];
+  deviceBreakdown: AnalyticsBreakdownRow[];
+}
+
+// Palet warna tetap (bukan acak) supaya urutan legend konsisten antar render
+// — dipakai bergiliran per baris breakdown di chart lokasi/browser/device.
+const ANALYTICS_CHART_COLORS = ['#4EDEA3', '#38BDF8', '#F59E0B', '#F472B6', '#A78BFA', '#FB923C', '#2DD4BF', '#94A3B8'];
+
+// Horizontal bar chart generik berbasis count (bukan Rupiah) — dipakai untuk
+// breakdown lokasi/browser/device di tab Analytics. Terpisah dari
+// DonutChart.tsx yang center-label-nya di-hardcode formatRupiah, jadi tidak
+// cocok dipakai ulang langsung untuk data non-uang seperti ini.
+function AnalyticsBarChart({ title, data }: { title: string; data: AnalyticsBreakdownRow[] }) {
+  const total = data.reduce((sum, d) => sum + d.count, 0);
+  return (
+    <div className="glass-card rounded-xl p-4 border border-white/5 flex flex-col gap-3">
+      <h3 className="text-[11px] font-label-caps text-on-surface-variant uppercase tracking-wider">{title}</h3>
+      {total === 0 ? (
+        <p className="text-xs text-on-surface-variant/50 py-4 text-center">Belum ada data.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {data.map((d, idx) => {
+            const percent = Math.round((d.count / total) * 100);
+            return (
+              <div key={d.label} className="flex flex-col gap-1">
+                <div className="flex justify-between items-center text-[11px] gap-2">
+                  <span className="text-white/85 truncate">{d.label}</span>
+                  <span className="text-on-surface-variant font-mono-data shrink-0">{d.count} ({percent}%)</span>
+                </div>
+                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${percent}%`, backgroundColor: ANALYTICS_CHART_COLORS[idx % ANALYTICS_CHART_COLORS.length] }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface SupportMessage {
@@ -1095,6 +1143,15 @@ export default function AdminConsole() {
                     </div>
                     <p className="text-2xl font-bold text-white">{analytics.uniqueVisitors}</p>
                   </div>
+                </div>
+
+                {/* Breakdown lokasi/browser/device — bukan umur/kelamin: app ini
+                    login via Google OAuth dan tidak pernah meminta data itu ke
+                    user, jadi tidak ada sumber data untuk dua dimensi tersebut. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <AnalyticsBarChart title="Lokasi (Negara)" data={analytics.countryBreakdown} />
+                  <AnalyticsBarChart title="Browser" data={analytics.browserBreakdown} />
+                  <AnalyticsBarChart title="Device" data={analytics.deviceBreakdown} />
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-white/10">

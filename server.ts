@@ -1192,11 +1192,41 @@ app.get("/api/admin/analytics/pageviews", requireAdmin, async (req, res) => {
       params
     );
 
+    // Breakdown charts for the Analytics tab (location/browser/device) — each
+    // computed via SQL GROUP BY over the FULL filtered set (same whereSql/
+    // params as the summary counts above), not just the capped 300 rows the
+    // table shows. NULL country/browser/device_type (geo lookup failed, or a
+    // browser UA we don't recognize) is grouped under "Tidak diketahui"
+    // rather than dropped, so the breakdown total still matches totalViews.
+    const [countryBreakdown, browserBreakdown, deviceBreakdown] = await Promise.all([
+      pool.query(
+        `SELECT COALESCE(country, 'Tidak diketahui') AS label, COUNT(*) AS count
+         FROM page_views ${whereSql}
+         GROUP BY label ORDER BY count DESC LIMIT 8`,
+        params
+      ),
+      pool.query(
+        `SELECT COALESCE(browser, 'Tidak diketahui') AS label, COUNT(*) AS count
+         FROM page_views ${whereSql}
+         GROUP BY label ORDER BY count DESC LIMIT 8`,
+        params
+      ),
+      pool.query(
+        `SELECT COALESCE(device_type, 'Tidak diketahui') AS label, COUNT(*) AS count
+         FROM page_views ${whereSql}
+         GROUP BY label ORDER BY count DESC LIMIT 8`,
+        params
+      ),
+    ]);
+
     res.json({
       totalViews: Number(summaryResult.rows[0].total_views),
       uniqueVisitors: Number(summaryResult.rows[0].unique_visitors),
       rows: rowsResult.rows,
       rowsTruncated: rowsResult.rowCount === 300,
+      countryBreakdown: countryBreakdown.rows.map((r) => ({ label: r.label, count: Number(r.count) })),
+      browserBreakdown: browserBreakdown.rows.map((r) => ({ label: r.label, count: Number(r.count) })),
+      deviceBreakdown: deviceBreakdown.rows.map((r) => ({ label: r.label, count: Number(r.count) })),
     });
   } catch (error: any) {
     console.error("Gagal memuat analitik page view:", error);
