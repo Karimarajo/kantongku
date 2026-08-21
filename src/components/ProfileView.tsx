@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { UserProfile, Collaborator, CollaboratorOrder } from '../types';
 import CollaboratorPaymentModal from './CollaboratorPaymentModal';
+import { APP_VERSION } from '../version';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
   CreditCard, Moon, Sun, Volume2, VolumeX,
   Camera, Edit3, Save, X, Check,
   Wallet, Tag, Receipt, History, ChevronRight,
-  Users, UserPlus, ShieldOff, RotateCcw
+  Users, UserPlus, ShieldOff, RotateCcw, LifeBuoy
 } from 'lucide-react';
 
 export interface AppSettings {
@@ -315,6 +316,24 @@ export default function ProfileView({
             </span>
             <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
           </button>
+
+          {/* Bukan modal in-app — diarahkan ke halaman Bantuan & Saran di
+              situs utama (dibahas di Bab 16 panduan pengguna), yang punya
+              form kategori + kirim pesan sendiri dan dibalas lewat email.
+              target=_blank supaya sesi & state aplikasi (tab aktif dkk)
+              tidak hilang di tab yang sama. */}
+          <a
+            href="https://kantongku.site/support"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <LifeBuoy className="w-4 h-4 text-primary" />
+              Bantuan &amp; Dukungan
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </a>
         </div>
       </section>
 
@@ -436,6 +455,10 @@ export default function ProfileView({
           </button>
         </div>
       </section>
+
+      <p className="text-center text-[10px] text-on-surface-variant/40 font-mono-data pb-1">
+        KantongKu V{APP_VERSION}
+      </p>
 
       <CollaboratorPaymentModal
         order={paymentOrder}

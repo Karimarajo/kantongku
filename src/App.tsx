@@ -1697,8 +1697,13 @@ export default function App() {
         <div className="absolute bottom-0 right-[-10%] w-[350px] h-[350px] rounded-full bg-secondary/5 blur-[120px]" />
       </div>
 
-      {/* DESKTOP SIDEBAR NAVIGATION */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-[#0F172A]/40 backdrop-blur-2xl p-6 h-screen sticky top-0 shrink-0 z-40">
+      {/* DESKTOP SIDEBAR NAVIGATION — fixed (not sticky): a sticky element
+          only stays put as long as no ancestor's overflow/height computation
+          accidentally creates a nested scroll container; fixed pins it to
+          the viewport unconditionally, which is what "menu tidak boleh ikut
+          bergerak saat scroll" actually needs. Taken out of flow, so the
+          main content column below carries a matching md:ml-64 offset. */}
+      <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-[#0F172A]/40 backdrop-blur-2xl p-6 h-screen fixed left-0 top-0 shrink-0 z-40">
         {/* Brand / Logo */}
         <div className="mb-8 px-2 flex items-center gap-2">
           <BrandLogo className="w-8 h-8 text-primary shrink-0" glow={false} />
@@ -1706,6 +1711,18 @@ export default function App() {
             KantongKu
           </span>
         </div>
+
+        {/* Tambah Transaksi — desktop punya sidebar tetap (bukan bottom nav
+            seperti mobile), jadi FAB "+" mobile tidak pernah terlihat di
+            layar ini; tombol ini adalah satu-satunya cara desktop untuk
+            memicu Tambah Transaksi. */}
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-[0_4px_16px_rgba(78,222,163,0.25)] hover:opacity-90 active:scale-[0.98] transition-all"
+        >
+          <PlusCircle className="w-5 h-5 shrink-0" />
+          Tambah Transaksi
+        </button>
 
         {/* Navigation Menu */}
         <nav className="flex flex-col gap-2 flex-grow">
@@ -1774,8 +1791,9 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main View Container */}
-      <div className="flex-grow min-h-screen pb-28 md:pb-8 flex flex-col relative z-10 w-full min-w-0">
+      {/* Main View Container — md:ml-64 makes up for the sidebar now being
+          `fixed` (out of normal flow) instead of an in-flow flex sibling. */}
+      <div className="flex-grow min-h-screen pb-28 md:pb-8 flex flex-col relative z-10 w-full min-w-0 md:ml-64">
         <div className="max-w-md md:max-w-5xl w-full mx-auto pt-4 md:pt-10 px-4 md:px-8">
           {/* Mobile persistent header */}
           <div className="w-full flex justify-center items-center gap-2 pb-3 md:hidden border-b border-white/5 mb-3">
