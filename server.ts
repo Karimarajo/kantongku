@@ -1680,8 +1680,10 @@ app.post("/api/admin/users/:id/send-login-link", requireAdmin, async (req, res) 
       `<p>Halo${user.name ? ` ${user.name}` : ""},</p>
        <p>Berikut tautan resmi untuk masuk ke akun KantongKu Anda:</p>
        <p><a href="${loginUrl}">${loginUrl}</a></p>
-       <p>Gunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.</p>`,
-      `Berikut tautan resmi untuk masuk ke akun KantongKu Anda: ${loginUrl}\n\nGunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.`
+       <p>Gunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.</p>
+       <p>Kami lampirkan juga panduan penggunaan KantongKu di email ini — kalau ada yang masih bingung soal fitur mana pun, cek dulu di situ.</p>`,
+      `Berikut tautan resmi untuk masuk ke akun KantongKu Anda: ${loginUrl}\n\nGunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.\n\nPanduan penggunaan terlampir di email ini.`,
+      getGuidePdfAttachment()
     );
 
     res.json({ success: true });
