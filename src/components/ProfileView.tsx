@@ -7,7 +7,7 @@ import {
   CreditCard, Moon, Sun, Volume2, VolumeX,
   Camera, Edit3, Save, X, Check,
   Wallet, Tag, Receipt, History, ChevronRight,
-  Users, UserPlus, ShieldOff, RotateCcw, LifeBuoy
+  Users, UserPlus, ShieldOff, RotateCcw, LifeBuoy, BookOpen
 } from 'lucide-react';
 
 export interface AppSettings {
@@ -28,6 +28,8 @@ interface ProfileViewProps {
   onNavigateHistory: () => void;
   onNavigateActivityLog: () => void;
   onNavigateDebtManager: () => void;
+  onNavigateGuide: () => void;
+  hasUnseenGuideUpdate: boolean;
   // Collaboration (Task 2, revised — real manual-payment order flow, not a
   // free stub) — hidden entirely when this account is itself viewing as a
   // collaborator (see isCollaborator): managing WHO else has access stays
@@ -53,6 +55,8 @@ export default function ProfileView({
   onNavigateHistory,
   onNavigateActivityLog,
   onNavigateDebtManager,
+  onNavigateGuide,
+  hasUnseenGuideUpdate,
   isCollaborator,
   collaborators,
   onInviteCollaborator,
@@ -262,6 +266,20 @@ export default function ProfileView({
         <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Pengaturan</span>
 
         <div className="flex flex-col gap-2.5">
+          <button
+            onClick={onNavigateGuide}
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" />
+              Panduan Pengguna
+              {hasUnseenGuideUpdate && (
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" title="Ada pembaruan baru" />
+              )}
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </button>
+
           <button
             onClick={onOpenPocketManager}
             className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"

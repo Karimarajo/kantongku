@@ -29,6 +29,8 @@ import TransactionHistoryView from './components/TransactionHistoryView';
 import TransactionHistoryPage from './components/TransactionHistoryPage';
 import ReminderModal from './components/ReminderModal';
 import ActivityLogView from './components/ActivityLogView';
+import GuideView from './components/GuideView';
+import { APP_VERSION } from './version';
 import DebtManagerView from './components/DebtManagerView';
 import MonthlyExpenseView from './components/MonthlyExpenseView';
 
@@ -92,6 +94,35 @@ export default function App() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   const [activeTab, setActiveTab] = useState<string>('home');
+
+  // Badge "ada update baru" di menu Panduan Pengguna — device-local by
+  // design (localStorage, bukan disinkron ke server): membandingkan
+  // APP_VERSION saat ini terhadap versi terakhir yang pernah dibuka user DI
+  // BROWSER INI. Sengaja tidak nge-poll server untuk cek versi baru — commit
+  // yang menaikkan APP_VERSION sudah otomatis membuat setiap sesi baru
+  // (setelah reload pasca-deploy) melihat versi yang berbeda dari yang
+  // tersimpan, itulah "otomatis terdeteksi ada push baru" yang dimaksud.
+  const GUIDE_VERSION_STORAGE_KEY = 'kantongku_last_seen_guide_version';
+  const [hasUnseenGuideUpdate, setHasUnseenGuideUpdate] = useState<boolean>(false);
+  useEffect(() => {
+    try {
+      const lastSeen = window.localStorage.getItem(GUIDE_VERSION_STORAGE_KEY);
+      setHasUnseenGuideUpdate(lastSeen !== APP_VERSION);
+    } catch {
+      // localStorage bisa saja diblokir (mode privat dsb) — badge cukup
+      // default ke "tidak ada update", bukan hal yang layak mem-block UI.
+    }
+  }, []);
+  const handleNavigateGuide = () => {
+    setActiveTab('guide');
+    try {
+      window.localStorage.setItem(GUIDE_VERSION_STORAGE_KEY, APP_VERSION);
+    } catch {
+      // Sama seperti di atas — best-effort, gagal simpan bukan hal fatal.
+    }
+    setHasUnseenGuideUpdate(false);
+  };
+
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isPocketManagerOpen, setIsPocketManagerOpen] = useState<boolean>(false);
@@ -1896,6 +1927,8 @@ export default function App() {
               onNavigateHistory={() => setActiveTab('history')}
               onNavigateActivityLog={() => setActiveTab('activity-log')}
               onNavigateDebtManager={() => setActiveTab('debts')}
+              onNavigateGuide={handleNavigateGuide}
+              hasUnseenGuideUpdate={hasUnseenGuideUpdate}
               isCollaborator={!!collaboratorOwnerEmail}
               collaborators={collaborators}
               onInviteCollaborator={handleInviteCollaborator}
@@ -1912,6 +1945,10 @@ export default function App() {
               onBack={() => setActiveTab('profile')}
               onClearLog={handleClearActivityLog}
             />
+          )}
+
+          {activeTab === 'guide' && (
+            <GuideView onBack={() => setActiveTab('profile')} />
           )}
 
           {activeTab === 'debts' && (
