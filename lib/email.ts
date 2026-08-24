@@ -23,6 +23,8 @@ function getTransporter() {
 export interface EmailAttachment {
   filename: string;
   path: string; // absolute filesystem path — nodemailer reads it itself, no need to preload the buffer
+  cid?: string; // set to reference this attachment inline in the HTML body via <img src="cid:...">
+  contentDisposition?: "attachment" | "inline"; // defaults to "attachment" in nodemailer even when cid is set — pass "inline" explicitly for images meant to render in the body, not show as a download
 }
 
 // Reusable low-level sender — any feature that needs to email a user goes
