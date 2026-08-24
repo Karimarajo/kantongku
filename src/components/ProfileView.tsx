@@ -36,7 +36,7 @@ interface ProfileViewProps {
   // exclusive to the real owner, mirrored server-side.
   isCollaborator: boolean;
   collaborators: Collaborator[];
-  onInviteCollaborator: (email: string, channel: 'qris_shopee' | 'transfer_bca') => Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }>;
+  onInviteCollaborator: (email: string) => Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }>;
   onGetPendingCollaboratorOrder: (collaboratorId: string) => Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }>;
   onReconnectCollaborator: (id: string) => void;
   onDisconnectCollaborator: (id: string) => void;
@@ -67,11 +67,6 @@ export default function ProfileView({
 }: ProfileViewProps) {
   // Collaboration invite form state
   const [inviteEmail, setInviteEmail] = useState('');
-  // Task 2: satu-satunya metode pembayaran adalah QRIS statis — tidak ada
-  // lagi pilihan channel di UI. Nilai ini hanya dikirim diam-diam supaya
-  // kontrak API onInviteCollaborator (dan createOrderRecord di server.ts)
-  // tidak perlu diubah.
-  const inviteChannel: 'qris_shopee' | 'transfer_bca' = 'qris_shopee';
   const [inviteError, setInviteError] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [pendingOrderLoadingId, setPendingOrderLoadingId] = useState<string | null>(null);
@@ -86,7 +81,7 @@ export default function ProfileView({
     if (!inviteEmail.trim()) return;
     setInviteError('');
     setInviteLoading(true);
-    const result = await onInviteCollaborator(inviteEmail.trim(), inviteChannel);
+    const result = await onInviteCollaborator(inviteEmail.trim());
     setInviteLoading(false);
     if (result.ok === true) {
       setPaymentEmail(inviteEmail.trim());

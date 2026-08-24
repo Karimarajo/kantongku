@@ -11,6 +11,7 @@ import { OAuth2Client } from "google-auth-library";
 import { sendEmail } from "./lib/email";
 import { sendMetaCapiEvent } from "./lib/metaCapi";
 import { parseUserAgent } from "./lib/userAgent";
+import { createCheckoutPayment, verifyDokuNotificationSignature } from "./lib/doku";
 import { isPushConfigured, sendPushToSubscriptions } from "./lib/push";
 
 dotenv.config();
@@ -18,7 +19,18 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: "50mb" }));
+// `verify` captures the exact raw request bytes into req.rawBody for every
+// JSON request — needed by the Doku webhook (POST /api/payment/doku/notification)
+// to recompute its signature digest, since Doku's digest is sensitive to the
+// exact bytes received (re-serializing req.body after JSON.parse can reorder
+// keys/whitespace and produce a different digest). Cheap for every other
+// route — just an extra Buffer reference, no added parsing work.
+app.use(express.json({
+  limit: "50mb",
+  verify: (req, _res, buf) => {
+    (req as any).rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser(process.env.SESSION_COOKIE_SECRET));
 
@@ -661,7 +673,7 @@ app.post("/api/analysis/financial-health", requireSession, requireActiveStatus, 
 });
 
 // ==========================================
-// Payment Routes (manual: QRIS statis, Task 2)
+// Payment Routes (Doku Checkout/Invoice — automatic payment link)
 // ==========================================
 
 // Price for a collaborator seat order (Task 2 revision) — deliberately NOT
@@ -679,13 +691,9 @@ app.get("/api/payment/config", (req, res) => {
   });
 });
 
-// Task 2: single static QRIS image served from public/ (works with any
-// QRIS-compatible scanner — GoPay, OVO, DANA, mobile banking, etc, not just
-// ShopeePay) — the only payment method now shown to customers, matched by
-// hand against the unique-code total via the Admin Console.
-const STATIC_QRIS_IMAGE_PATH = "/qris-statis.png";
-
-// Short, human-readable order reference, e.g. "KK-20260809-4F2A".
+// Short, human-readable order reference, e.g. "KK-20260809-4F2A". Sent to
+// Doku as order.invoice_number (the external reference we match the
+// webhook notification back against), not just a display code.
 function generateOrderCode(): string {
   const now = new Date();
   const y = now.getFullYear();
@@ -698,7 +706,6 @@ function generateOrderCode(): string {
 interface CreateOrderParams {
   name: string;
   email: string;
-  channel: "qris_shopee" | "transfer_bca";
   baseAmount: number;
   orderType: "license" | "collaborator";
   collaboratorOwnerUserId?: string | null;
@@ -715,67 +722,54 @@ interface CreateOrderParams {
 
 interface CreateOrderResult {
   order_code: string;
-  channel: "qris_shopee" | "transfer_bca";
   total_amount: number;
-  qrImage?: string;
-  bankAccountNumber?: string;
-  bankAccountName?: string;
+  paymentUrl: string;
 }
 
 // Shared by POST /api/payment/create (license) and POST /api/collaborators/invite
-// (collaborator seat, Task 2 revision) — SAME manual-payment infrastructure
-// for both: unique-code generator, order_code generator, orders row insert,
-// admin notification email. Meta CAPI ("Lead") is fired ONLY for license
-// orders — a collaborator invite isn't part of the ad-funnel being tracked.
+// (collaborator seat) — order_code generator, orders row insert, Doku
+// Checkout payment link, admin notification email, customer pending-payment
+// email. Meta CAPI ("Lead") is fired ONLY for license orders — a
+// collaborator invite isn't part of the ad-funnel being tracked.
+//
+// Full-replace of the old manual QRIS-statis + admin-confirm flow: channel
+// is always 'doku', unique_code is always 0 (no more manual-matching
+// trick — Doku's own transaction reference does that job now), and there
+// is NO fallback if Doku is unreachable/misconfigured — createCheckoutPayment
+// throwing here fails order creation itself (the route handler's catch
+// turns it into a normal error response), rather than silently handing the
+// customer a pending order with no way to actually pay.
 async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrderResult> {
-  const { name, email, channel, baseAmount, orderType } = params;
-  if (!["qris_shopee", "transfer_bca"].includes(channel)) {
-    throw Object.assign(new Error("Metode pembayaran tidak dikenali"), { statusCode: 400 });
-  }
+  const { name, email, baseAmount, orderType } = params;
   if (!baseAmount || baseAmount <= 0) {
     throw Object.assign(new Error("Konfigurasi harga belum diatur di server"), { statusCode: 500 });
   }
 
-  // Find a unique_code not currently used by another still-pending,
-  // not-yet-expired order. Retry on collision (low odds, cheap to retry).
-  let uniqueCode: number | null = null;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const candidate = crypto.randomInt(0, 1000);
-    const clash = await pool.query(
-      `SELECT 1 FROM orders WHERE unique_code = $1 AND status = 'pending' AND expires_at > now()`,
-      [candidate]
-    );
-    if (clash.rowCount === 0) {
-      uniqueCode = candidate;
-      break;
-    }
-  }
-  if (uniqueCode === null) {
-    throw Object.assign(new Error("Sistem sedang sibuk, coba lagi sebentar lagi"), { statusCode: 503 });
-  }
-
-  const totalAmount = baseAmount + uniqueCode;
+  const totalAmount = baseAmount;
   const utm = params.utm || {};
 
   let orderCode = "";
+  let orderId = "";
   let inserted = false;
   for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
     orderCode = generateOrderCode();
     try {
-      await pool.query(
+      const insertResult = await pool.query(
         `INSERT INTO orders (
            order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at,
            utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbclid, fbp, fbc,
            order_type, collaborator_owner_user_id, collaborator_email
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '24 hours', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+         VALUES ($1, $2, $3, 'doku', $4, 0, $5, 'pending', now() + interval '24 hours', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         RETURNING id`,
         [
-          orderCode, name, email, channel, baseAmount, uniqueCode, totalAmount,
+          orderCode, name, email, baseAmount, totalAmount,
           utm.source || null, utm.medium || null, utm.campaign || null, utm.content || null,
           utm.term || null, utm.fbclid || null, utm.fbp || null, utm.fbc || null,
           orderType, params.collaboratorOwnerUserId || null, params.collaboratorEmail || null,
         ]
       );
+      orderId = insertResult.rows[0].id;
       inserted = true;
     } catch (err: any) {
       if (err.code !== "23505") throw err; // not a unique_violation on order_code, rethrow
@@ -785,10 +779,34 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
     throw Object.assign(new Error("Gagal membuat kode order, coba lagi"), { statusCode: 503 });
   }
 
+  // Doku Checkout — AWAITED (unlike the fire-and-forget side effects below)
+  // because its result (the payment URL) IS the response the customer
+  // needs; there's no fallback payment method to hand back if this fails,
+  // so a failure here propagates up and fails the whole order-create
+  // request. The order row above stays as an orphaned 'pending' row with
+  // doku_reference/doku_payment_url left null — harmless, it just expires
+  // in 24h like any other unpaid order, and is a fine audit trail of the
+  // failed attempt.
+  let paymentUrl: string;
+  try {
+    const doku = await createCheckoutPayment({ orderCode, amount: totalAmount });
+    paymentUrl = doku.paymentUrl;
+    await pool.query(
+      `UPDATE orders SET doku_reference = $2, doku_payment_url = $3 WHERE id = $1`,
+      [orderId, doku.tokenId, doku.paymentUrl]
+    );
+    console.log(`[Doku] Payment link dibuat untuk order ${orderCode} (token ${doku.tokenId}).`);
+  } catch (err: any) {
+    console.error(`[Doku] Gagal membuat payment link untuk order ${orderCode}:`, err.message);
+    throw Object.assign(new Error("Gagal membuat link pembayaran, silakan coba lagi"), { statusCode: 502 });
+  }
+
   // --- Best-effort side effects below: Meta CAPI event + admin notification
-  // email. Fired-and-forgotten on purpose — NOT awaited — so a slow/failed
-  // network call to Meta or a hanging SMTP connection can never add latency
-  // to (let alone fail) the order response the customer is waiting on.
+  // email + customer pending-payment email. Fired-and-forgotten on purpose —
+  // NOT awaited — so a slow/failed network call to Meta or a hanging SMTP
+  // connection can never add latency to (let alone fail) the order response
+  // the customer is waiting on. Unlike the Doku call above, these are pure
+  // notifications, not something the customer's response depends on.
   if (orderType === "license") {
     sendMetaCapiEvent("Lead", orderCode, {
       value: totalAmount,
@@ -808,9 +826,6 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
 
   const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || process.env.EMAIL_FROM;
   if (adminEmail) {
-    // Semua channel pembayaran sekarang dibayar lewat QRIS statis yang sama —
-    // tidak ada lagi pembedaan Transfer BCA vs ShopeePay.
-    const channelLabel = "QRIS";
     const sourceLine = utm.source
       ? `<p><b>Sumber:</b> ${utm.source}${utm.campaign ? ` / ${utm.campaign}` : ""}</p>`
       : "";
@@ -824,11 +839,11 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
        <p><b>Nama:</b> ${name}</p>
        <p><b>Email:</b> ${email}</p>
        ${typeLine}
-       <p><b>Metode Pembayaran:</b> ${channelLabel}</p>
-       <p><b>Total Tagihan:</b> Rp${totalAmount.toLocaleString("id-ID")} (harga Rp${baseAmount.toLocaleString("id-ID")} + kode unik ${uniqueCode})</p>
+       <p><b>Metode Pembayaran:</b> Doku (otomatis) — akun akan aktif otomatis begitu Doku mengonfirmasi pembayaran, tidak perlu konfirmasi manual.</p>
+       <p><b>Total Tagihan:</b> Rp${totalAmount.toLocaleString("id-ID")}</p>
        ${sourceLine}
        <p><a href="${process.env.APP_URL}/admin">Buka Admin Console</a></p>`,
-      `Order baru${orderType === "collaborator" ? " (Kolaborator)" : ""}: ${orderCode}\nNama: ${name}\nEmail: ${email}\nMetode: ${channelLabel}\nTotal: Rp${totalAmount.toLocaleString("id-ID")}\nAdmin Console: ${process.env.APP_URL}/admin`
+      `Order baru${orderType === "collaborator" ? " (Kolaborator)" : ""}: ${orderCode}\nNama: ${name}\nEmail: ${email}\nMetode: Doku (otomatis)\nTotal: Rp${totalAmount.toLocaleString("id-ID")}\nAdmin Console: ${process.env.APP_URL}/admin`
     ).catch((err: any) => {
       console.error("Gagal mengirim email notifikasi order baru:", err.message);
     });
@@ -837,28 +852,25 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
   }
 
   // Customer-facing counterpart to the admin notification above — order
-  // confirmation + how much to pay + the QRIS to scan + the 1x24 jam
-  // confirmation SLA. See sendOrderPendingPaymentEmail for details.
-  sendOrderPendingPaymentEmail({ name, email, orderType, orderCode, totalAmount });
+  // confirmation + how much to pay + the Doku payment link. See
+  // sendOrderPendingPaymentEmail for details.
+  sendOrderPendingPaymentEmail({ name, email, orderType, orderCode, totalAmount, paymentUrl });
 
   return {
     order_code: orderCode,
-    channel,
     total_amount: totalAmount,
-    qrImage: STATIC_QRIS_IMAGE_PATH,
+    paymentUrl,
   };
 }
 
-// Create a pending manual-payment order for the MAIN LICENSE. A random 0-999
-// "kode unik" is added to the base price so the exact total_amount can be
-// matched by hand against a QRIS mutation later — no payment gateway
-// involved.
+// Create a pending order for the MAIN LICENSE, paid via a Doku Checkout
+// payment link (createOrderRecord awaits Doku and fails the request if it
+// can't get a link — no manual-payment fallback anymore).
 app.post("/api/payment/create", async (req, res) => {
   try {
     const {
       name,
       email,
-      channel,
       utm_source,
       utm_medium,
       utm_campaign,
@@ -868,8 +880,8 @@ app.post("/api/payment/create", async (req, res) => {
       fbp,
       fbc,
     } = req.body;
-    if (!name || !email || !channel) {
-      return res.status(400).json({ error: "Nama, email, dan metode pembayaran wajib diisi" });
+    if (!name || !email) {
+      return res.status(400).json({ error: "Nama dan email wajib diisi" });
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -883,7 +895,7 @@ app.post("/api/payment/create", async (req, res) => {
 
     const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
     const result = await createOrderRecord({
-      name, email, channel, baseAmount, orderType: "license",
+      name, email, baseAmount, orderType: "license",
       utm: { source: utm_source, medium: utm_medium, campaign: utm_campaign, content: utm_content, term: utm_term, fbclid, fbp, fbc },
       requestIp: forwardedFor || req.socket.remoteAddress || undefined,
       requestUserAgent: req.headers["user-agent"] as string | undefined,
@@ -924,6 +936,76 @@ app.get("/api/payment/status/:order_code", async (req, res) => {
   } catch (error: any) {
     console.error("Gagal mengambil status order:", error);
     res.status(500).json({ error: error.message || "Gagal mengambil status order" });
+  }
+});
+
+// ==========================================
+// Doku Checkout (Non-SNAP) — automatic payment webhook
+// ==========================================
+// Doku POSTs here after a customer completes payment on their hosted
+// checkout page (VA/QRIS/e-wallet/card — whatever method the customer
+// picked there). This is what makes activation automatic now — there is NO
+// manual admin-confirm fallback anymore (full-replace), so this webhook
+// (or the customer/admin re-checking status after paying, which just polls
+// the same order row this updates) is the only way an order ever reaches
+// 'settlement'.
+//
+// PUBLIC endpoint (no auth) — signature verification below is therefore
+// load-bearing, not defense-in-depth: anyone who could POST an unsigned/
+// forged "SUCCESS" notification here would be able to activate any order
+// (i.e. any account) for free. Reject BEFORE touching req.body for
+// anything beyond what verification itself needs.
+app.post("/api/payment/doku/notification", async (req, res) => {
+  const requestTarget = "/api/payment/doku/notification";
+  try {
+    // Needs the EXACT raw bytes Doku sent (see the express.json `verify`
+    // callback near the top of this file) — re-serializing req.body after
+    // JSON.parse can reorder keys/change whitespace and produce a different
+    // (wrong) digest than what Doku signed.
+    const rawBody: Buffer | undefined = (req as any).rawBody;
+    if (!rawBody) {
+      console.error("[Doku webhook] raw body tidak tersedia (express.json verify callback tidak terpasang?).");
+      return res.status(500).json({ responseCode: "5000000", responseMessage: "Internal error" });
+    }
+
+    const isValid = verifyDokuNotificationSignature(req.headers as any, rawBody, requestTarget);
+    if (!isValid) {
+      // Deliberately no detail in the log about WHY it failed (no header/key
+      // dump) — just enough to know a bad notification arrived.
+      console.warn("[Doku webhook] Signature tidak valid, request ditolak (401).");
+      return res.status(401).json({ responseCode: "4010000", responseMessage: "Invalid signature" });
+    }
+
+    const invoiceNumber: string | undefined = req.body?.order?.invoice_number;
+    const transactionStatus: string | undefined = req.body?.transaction?.status;
+    if (!invoiceNumber) {
+      console.warn("[Doku webhook] Payload valid signature tapi tanpa order.invoice_number, ditolak (400).");
+      return res.status(400).json({ responseCode: "4000000", responseMessage: "Missing order.invoice_number" });
+    }
+
+    console.log(`[Doku webhook] Notifikasi diterima untuk order ${invoiceNumber}, status=${transactionStatus}.`);
+
+    if (transactionStatus === "SUCCESS") {
+      // confirmOrderRecord is the SAME function the (now-removed) admin
+      // manual button used to call, and is itself atomically idempotent —
+      // a retried/duplicate notification for an already-settlement order
+      // just observes alreadyConfirmed:true and does nothing more (no
+      // double email, no double activation).
+      const outcome = await confirmOrderRecord(invoiceNumber);
+      if (outcome.ok === false) {
+        // Order genuinely doesn't exist — nothing a retry will fix either,
+        // but still ack 200 so Doku doesn't keep hammering us over it.
+        console.error(`[Doku webhook] Order ${invoiceNumber} tidak ditemukan saat konfirmasi.`);
+      } else {
+        console.log(`[Doku webhook] Order ${invoiceNumber} dikonfirmasi (alreadyConfirmed=${outcome.alreadyConfirmed}).`);
+      }
+    }
+    // Any other status (PENDING/EXPIRED/FAILED/…) — no action, just ack.
+
+    res.status(200).json({ responseCode: "2000700", responseMessage: "Successful" });
+  } catch (error: any) {
+    console.error("[Doku webhook] Gagal memproses notifikasi:", error.message);
+    res.status(500).json({ responseCode: "5000000", responseMessage: "Internal error" });
   }
 });
 
@@ -1430,11 +1512,10 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   }
 });
 
-// Manually confirm a pending order after checking the QRIS mutation by hand.
-// Atomically idempotent: the UPDATE's `WHERE status != 'settlement'` guard
-// means a double-click (or any other concurrent caller) never double-
-// activates/double-emails — the loser just observes `alreadyConfirmed: true`
-// and does nothing more.
+// confirmOrderRecord below is idempotent (its UPDATE's `WHERE status !=
+// 'settlement'` guard) — a retried Doku webhook notification for an
+// already-settlement order just observes `alreadyConfirmed: true` and does
+// nothing more, no double email/activation.
 // Guide PDF (cicilan-ai-notifikasi Task 6) — lives in public/, NOT a bare
 // assets/ folder as the prompt's own suggested path assumed: Task 0
 // verification of the Dockerfile showed only `dist/` and `public/` get
@@ -1452,38 +1533,24 @@ function getGuidePdfAttachment(): { filename: string; path: string }[] | undefin
   return [{ filename: "Panduan-Penggunaan-KantongKu.pdf", path: GUIDE_PDF_PATH }];
 }
 
-// Same public/ asset the frontend shows at STATIC_QRIS_IMAGE_PATH — reused
-// here as an inline (cid) attachment so the QRIS code renders directly in
-// the pending-payment email body, not just as a download.
-const QRIS_ABS_PATH = path.join(process.cwd(), "public", "qris-statis.png");
-const QRIS_CID = "kantongku-qris";
-
-function getQrisAttachment(): { filename: string; path: string; cid: string; contentDisposition: "inline" }[] | undefined {
-  if (!fs.existsSync(QRIS_ABS_PATH)) {
-    console.warn(`Gambar QRIS tidak ditemukan di ${QRIS_ABS_PATH} — email order dikirim tanpa gambar QRIS.`);
-    return undefined;
-  }
-  return [{ filename: "qris-kantongku.png", path: QRIS_ABS_PATH, cid: QRIS_CID, contentDisposition: "inline" }];
-}
-
 // Fired right after a new order is created (both license and collaborator
 // orders) — the customer-facing counterpart to the admin "Order baru masuk"
-// notification above. Tells the payer exactly how much to pay (the unique-
-// coded total, not the round base price — paying the wrong amount is the
-// #1 cause of manual-match confusion), shows the QRIS to scan, and sets the
-// expectation that confirmation is manual (up to 1x24 jam), so they don't
-// panic when the account doesn't activate instantly. Best-effort/fire-and-
-// forget, same footing as the admin email and Meta CAPI calls right above
-// this function's call site — a failed send here must never fail order
-// creation itself.
+// notification above. Tells the payer exactly how much to pay and hands
+// them the Doku payment link — the SAME link every time (Doku Checkout
+// links stay valid/reusable until the order is paid or expires), so it's
+// safe to just re-click this email's button again if they got interrupted
+// partway through paying. Best-effort/fire-and-forget, same footing as the
+// admin email and Meta CAPI calls right above this function's call site —
+// a failed send here must never fail order creation itself.
 function sendOrderPendingPaymentEmail(order: {
   name: string;
   email: string;
   orderType: "license" | "collaborator";
   orderCode: string;
   totalAmount: number;
+  paymentUrl: string;
 }) {
-  const { name, email, orderType, orderCode, totalAmount } = order;
+  const { name, email, orderType, orderCode, totalAmount, paymentUrl } = order;
   const totalFormatted = `Rp${totalAmount.toLocaleString("id-ID")}`;
   const productLabel = orderType === "collaborator" ? "akses kolaborator KantongKu" : "akses KantongKu";
   const greetingName = orderType === "collaborator" ? "" : name ? ` ${name}` : "";
@@ -1493,15 +1560,14 @@ function sendOrderPendingPaymentEmail(order: {
     `[KantongKu] Selesaikan Pembayaran Kamu — ${orderCode}`,
     `<p>Halo${greetingName},</p>
      <p>Terima kasih! Order kamu untuk <b>${productLabel}</b> sudah kami terima dengan kode <b>${orderCode}</b>.</p>
-     <p>Silakan selesaikan pembayaran sejumlah:</p>
+     <p>Total yang harus dibayar:</p>
      <p style="font-size:22px;font-weight:bold;margin:8px 0;">${totalFormatted}</p>
-     <p><b>Penting:</b> transfer harus PERSIS sejumlah nominal di atas (termasuk 3 digit kode unik di belakang) — jangan dibulatkan, supaya pembayaran kamu bisa langsung cocok saat kami verifikasi.</p>
-     <p>Scan QRIS di bawah ini pakai GoPay, OVO, DANA, ShopeePay, atau m-banking apa pun yang mendukung QRIS:</p>
-     <p><img src="cid:${QRIS_CID}" alt="QRIS KantongKu" style="max-width:280px;width:100%;height:auto;display:block;" /></p>
-     <p>Setelah kami terima pembayarannya, verifikasi &amp; konfirmasi akan diproses maksimal <b>1x24 jam</b> — begitu dikonfirmasi, akun kamu otomatis aktif dan kamu akan menerima email terpisah untuk login.</p>
-     <p>Order ini berlaku 24 jam sejak dibuat. Kalau ada kendala pembayaran, balas email ini saja.</p>`,
-    `Halo${greetingName},\n\nTerima kasih! Order kamu untuk ${productLabel} sudah kami terima dengan kode ${orderCode}.\n\nSilakan selesaikan pembayaran sejumlah ${totalFormatted} (transfer PERSIS nominal ini, termasuk kode unik di belakang) via QRIS — lihat gambar QRIS terlampir di email ini.\n\nSetelah pembayaran kami terima, konfirmasi diproses maksimal 1x24 jam. Akun kamu otomatis aktif setelah dikonfirmasi, dan kamu akan menerima email terpisah untuk login.\n\nOrder ini berlaku 24 jam sejak dibuat.`,
-    getQrisAttachment()
+     <p>Klik tombol di bawah untuk membayar — kamu bisa pilih QRIS, VA bank, e-wallet, atau kartu, apa pun yang paling nyaman:</p>
+     <p><a href="${paymentUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;">Bayar Sekarang</a></p>
+     <p style="font-size:12px;color:#666;">Kalau tombolnya tidak bisa diklik, salin link ini: <a href="${paymentUrl}">${paymentUrl}</a></p>
+     <p>Begitu pembayaran berhasil, akun kamu otomatis aktif dalam hitungan detik — tidak perlu menunggu konfirmasi manual — dan kamu akan menerima email terpisah untuk login.</p>
+     <p>Link ini tetap berlaku dan bisa dipakai berkali-kali sampai order lunas atau kedaluwarsa (24 jam sejak dibuat). Kalau ada kendala pembayaran, balas email ini saja.</p>`,
+    `Halo${greetingName},\n\nTerima kasih! Order kamu untuk ${productLabel} sudah kami terima dengan kode ${orderCode}.\n\nTotal yang harus dibayar: ${totalFormatted}\n\nBayar sekarang di: ${paymentUrl}\n\nBegitu pembayaran berhasil, akun kamu otomatis aktif dalam hitungan detik dan kamu akan menerima email terpisah untuk login.\n\nLink ini tetap berlaku sampai order lunas atau kedaluwarsa (24 jam sejak dibuat).`
   ).catch((err: any) => {
     console.error(`Gagal mengirim email pending-payment untuk order ${orderCode}:`, err.message);
   });
@@ -2144,20 +2210,17 @@ app.get("/api/collaborators", requireSession, requireActiveStatus, async (req, r
   }
 });
 
-// Body: { email, channel }. Creates a 'collaborator'-type order (SAME
-// manual-payment infrastructure as the main license) and a `collaborators`
-// row in 'pending_payment'. No limit on how many collaborators one owner can
+// Body: { email }. Creates a 'collaborator'-type order (SAME Doku Checkout
+// infrastructure as the main license) and a `collaborators` row in
+// 'pending_payment'. No limit on how many collaborators one owner can
 // have — nothing here caps it.
 app.post("/api/collaborators/invite", requireSession, requireActiveStatus, async (req, res) => {
   try {
     const ownerId = (req as any).user.id;
     const ownerEmail = (req as any).user.email;
-    const { email, channel } = req.body || {};
+    const { email } = req.body || {};
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "Email wajib diisi" });
-    }
-    if (!["qris_shopee", "transfer_bca"].includes(channel)) {
-      return res.status(400).json({ error: "Metode pembayaran tidak dikenali" });
     }
     const cleanEmail = email.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -2186,7 +2249,6 @@ app.post("/api/collaborators/invite", requireSession, requireActiveStatus, async
     const order = await createOrderRecord({
       name: `Kolaborator untuk ${ownerEmail}`,
       email: cleanEmail,
-      channel,
       baseAmount: COLLABORATOR_PRICE_AMOUNT,
       orderType: "collaborator",
       collaboratorOwnerUserId: ownerId,
@@ -2226,7 +2288,7 @@ app.get("/api/collaborators/:id/pending-order", requireSession, requireActiveSta
       return res.status(403).json({ error: "Anda bukan pemilik akun ini" });
     }
     const orderResult = await pool.query(
-      `SELECT order_code, channel, total_amount FROM orders
+      `SELECT order_code, channel, total_amount, doku_payment_url FROM orders
        WHERE order_type = 'collaborator' AND collaborator_owner_user_id = $1 AND collaborator_email = $2 AND status = 'pending'
        ORDER BY created_at DESC LIMIT 1`,
       [ownerId, collab.email]
@@ -2235,11 +2297,15 @@ app.get("/api/collaborators/:id/pending-order", requireSession, requireActiveSta
     if (!order) {
       return res.status(404).json({ error: "Tidak ada order pending untuk kolaborator ini — undang ulang untuk membuat order baru" });
     }
+    if (!order.doku_payment_url) {
+      // The Doku call at order-creation time failed (see createOrderRecord) —
+      // there's no link to hand back. Re-inviting creates a fresh order/link.
+      return res.status(404).json({ error: "Order ini tidak punya link pembayaran (pembuatan link sempat gagal) — undang ulang untuk membuat order baru" });
+    }
     res.json({
       order_code: order.order_code,
-      channel: order.channel,
       total_amount: Number(order.total_amount),
-      qrImage: STATIC_QRIS_IMAGE_PATH,
+      paymentUrl: order.doku_payment_url,
     });
   } catch (error: any) {
     console.error("Gagal memuat order pending kolaborator:", error);

@@ -8,10 +8,18 @@
 -- real order rows yet, drop it first: `DROP TABLE IF EXISTS orders;` — then
 -- re-run this file.
 --
--- Task 2 (this revision): the brief v9 Doku Checkout (Non-SNAP) integration
--- has been fully removed — back to 100% manual QRIS-statis payment, admin-
--- confirmed. If this database ever ran the v9 shape, run
--- db/migrate_drop_doku_columns.sql once.
+-- Task 2 (v9, since reverted): the brief Doku Checkout (Non-SNAP) integration
+-- was removed for one revision — back to 100% manual QRIS-statis payment,
+-- admin-confirmed. If this database ran that v9 shape, db/migrate_drop_doku_columns.sql
+-- was the (now historical) migration for it.
+--
+-- v10 (this revision): manual QRIS-statis + admin confirmation is REMOVED
+-- again, full-replaced by Doku Checkout/Invoice (automatic payment link,
+-- confirmed via webhook — see POST /api/payment/doku/notification in
+-- server.ts). `channel` is now always 'doku' for new orders; the unique-code
+-- trick (`unique_code`) is retired too (stored 0) since Doku carries its own
+-- transaction reference for matching, not needed for manual reconciliation
+-- anymore.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -38,13 +46,14 @@ CREATE TABLE IF NOT EXISTS users (
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 
--- Manual payment orders (no payment gateway): QRIS statis ShopeePay or BCA bank
--- transfer, matched by hand against a "kode unik" added to the base price.
+-- Orders — Doku Checkout/Invoice (automatic payment link), admin/manual
+-- confirmation retired.
 --
--- v5 (utm_* / fbclid / fbp / fbc), v8 (order_type / collaborator_*), v9
--- (doku_* / confirmed_via) all added columns to this table after it already
--- existed in production — `CREATE TABLE IF NOT EXISTS` alone can't add them
--- to a database that already has an `orders` table. The real ALTER
+-- v5 (utm_* / fbclid / fbp / fbc), v8 (order_type / collaborator_*), v9/v10
+-- (doku_* — reintroduced in v10 with different column names than the
+-- original v9 attempt, see below) all added columns to this table after it
+-- already existed in production — `CREATE TABLE IF NOT EXISTS` alone can't
+-- add them to a database that already has an `orders` table. The real ALTER
 -- statements right after CREATE TABLE below apply them for real, every time
 -- this file runs, on any deployment (fresh or existing) — ADD COLUMN IF NOT
 -- EXISTS is always a safe no-op once a column is already there.
@@ -53,8 +62,13 @@ CREATE TABLE IF NOT EXISTS orders (
   order_code TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
-  channel TEXT NOT NULL CHECK (channel IN ('qris_shopee', 'transfer_bca')),
+  channel TEXT NOT NULL CHECK (channel = 'doku'),
   base_amount NUMERIC NOT NULL,
+  -- Retired along with the manual-matching flow (always 0 now — Doku
+  -- carries its own transaction reference, see doku_reference below) but
+  -- kept NOT NULL rather than dropped: dropping it would need backfilling/
+  -- rewriting every historical row's total_amount, for zero benefit over
+  -- just always writing 0 here going forward.
   unique_code SMALLINT NOT NULL,
   total_amount NUMERIC NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'settlement', 'expired', 'cancelled')),
@@ -78,13 +92,18 @@ CREATE TABLE IF NOT EXISTS orders (
   -- data — see the `collaborators` table below. Only set for 'collaborator'.
   order_type TEXT NOT NULL DEFAULT 'license' CHECK (order_type IN ('license', 'collaborator')),
   collaborator_owner_user_id UUID REFERENCES users(id),
-  collaborator_email TEXT
-  -- v9 briefly added doku_payment_url/doku_token_id/doku_expired_at/
-  -- confirmed_via here for a Doku Checkout (Non-SNAP) integration — fully
-  -- removed (Task 2: back to manual-only QRIS payment). A database that
-  -- already has those columns needs db/migrate_drop_doku_columns.sql run
-  -- once (schema.sql, like the rest of this file, never drops columns on
-  -- its own).
+  collaborator_email TEXT,
+  -- Doku's own transaction/invoice reference for this order — audit trail
+  -- only (KantongKu's own order_code is what's actually sent to Doku as the
+  -- external reference and matched back on webhook). Nullable: null until
+  -- the create-payment call succeeds, stays null forever if it never does.
+  doku_reference TEXT,
+  -- The actual Doku Checkout payment URL, persisted (not just returned
+  -- once) so a customer/collaborator who left the page can still be shown
+  -- the SAME link again later (e.g. GET /api/collaborators/:id/pending-order)
+  -- without a second call to Doku — the link is reusable until the order is
+  -- paid or expires, so there's no need to regenerate it.
+  doku_payment_url TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
@@ -99,8 +118,10 @@ CREATE INDEX IF NOT EXISTS idx_orders_pending_unique_code ON orders (unique_code
 -- which is what earlier versions of this file had here, never runs on its
 -- own — that gap is what let production drift out of sync with the code
 -- across several releases until orders.order_type finally hard 500'd on
--- every new order). v9's doku_*/confirmed_via columns are handled by
--- db/migrate_drop_doku_columns.sql instead (Task 2 removed them again).
+-- every new order). The original v9 doku_*/confirmed_via columns were
+-- removed via db/migrate_drop_doku_columns.sql; v10's doku_reference/
+-- doku_payment_url below are a fresh, differently-named pair, not a revival
+-- of those dropped columns.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_source TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_medium TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
@@ -116,6 +137,21 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_owner_user_id UUID REFERENCES users(id);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS collaborator_email TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_reference TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS doku_payment_url TEXT;
+
+-- Full-replace of the channel CHECK constraint (was 'qris_shopee' /
+-- 'transfer_bca', now only 'doku' for anything written going forward). A
+-- plain `ADD CONSTRAINT` here would hard-fail this entire migration on any
+-- database that already has historical qris_shopee/transfer_bca rows (Postgres
+-- validates ALL existing rows against a new CHECK by default) — exactly the
+-- "must not error, must not drop data" requirement for old orders. NOT VALID
+-- opts out of that existing-row validation: old rows keep whatever channel
+-- they already have (untouched, still readable, a legitimate audit trail of
+-- how they were actually paid), while every INSERT/UPDATE from this point on
+-- is fully restricted to 'doku' only.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_channel_check;
+ALTER TABLE orders ADD CONSTRAINT orders_channel_check CHECK (channel = 'doku') NOT VALID;
 
 -- Per-account application state (pockets, transactions, budgets, categories,
 -- notifications, reminders, profile, settings) stored as a single JSON blob so

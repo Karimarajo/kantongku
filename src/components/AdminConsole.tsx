@@ -33,7 +33,9 @@ interface Order {
   order_code: string;
   name: string;
   email: string;
-  channel: 'qris_shopee' | 'transfer_bca';
+  // 'doku' for every new order; 'qris_shopee'/'transfer_bca' only appear on
+  // historical orders from before that migration (see db/schema.sql).
+  channel: 'doku' | 'qris_shopee' | 'transfer_bca';
   base_amount: string;
   unique_code: number;
   total_amount: string;
@@ -185,10 +187,15 @@ const formatDateTime = (iso: string | null) => {
   return new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-// Semua channel pembayaran (lama & baru) sekarang dibayar lewat QRIS statis
-// yang sama — tidak ada lagi pembedaan Transfer BCA vs ShopeePay, jadi
-// labelnya disamakan jadi "QRIS" saja apa pun nilai channel di data lama.
-const channelLabel = (_channel: string) => 'QRIS';
+// Every NEW order is 'doku' (Doku Checkout, automatic). Historical orders
+// can still carry 'qris_shopee'/'transfer_bca' from before that migration —
+// those rows are never rewritten (see db/schema.sql's NOT VALID channel
+// constraint), so this label needs to keep telling them apart for the
+// order history table below.
+const channelLabel = (channel: string) => {
+  if (channel === 'doku') return 'Doku (Otomatis)';
+  return 'QRIS (arsip)';
+};
 
 export default function AdminConsole() {
   const [checkingAuth, setCheckingAuth] = useState(true);
