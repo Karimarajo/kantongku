@@ -234,7 +234,15 @@ export default function Landing() {
       // (= order_code) exactly, so Meta dedups the two into a single event
       // instead of double-counting it. Fires only if the Pixel was actually
       // initialized (VITE_META_PIXEL_ID set) — see src/main.tsx.
-      window.fbq?.('track', 'Lead', { value: createData.total_amount, currency: 'IDR' }, { eventID: createData.order_code });
+      if (window.fbq) {
+        window.fbq('track', 'Lead', { value: createData.total_amount, currency: 'IDR' }, { eventID: createData.order_code });
+      } else {
+        // Silently no-op-ing here (via `window.fbq?.(...)`) is exactly how a
+        // missing/unbuilt VITE_META_PIXEL_ID goes unnoticed — the only symptom
+        // is Meta Events Manager showing an auto-detected "Lead" (cs_est: true,
+        // no order data) instead of this explicit one. Log it loudly instead.
+        console.error('[Meta Pixel] window.fbq belum siap — event "Lead" TIDAK terkirim. Cek VITE_META_PIXEL_ID sudah di-set saat build.');
+      }
 
       setOrder(createData);
       setStep('paying');

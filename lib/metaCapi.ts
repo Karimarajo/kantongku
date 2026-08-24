@@ -23,26 +23,33 @@ interface MetaCapiOptions {
   userData?: MetaCapiUserData;
 }
 
-// Only warn once per server lifetime if config is missing — this gets called
-// on every order/confirmation, and we don't want to spam the log.
-let warnedMissingConfig = false;
-
-// Server-side Meta Conversions API call. Deliberately silent (not throwing) when
-// META_PIXEL_ID/META_CAPI_ACCESS_TOKEN aren't configured — tracking is optional,
-// order creation/confirmation must never depend on it. When it DOES throw (a
-// real network/API failure), every caller wraps the call in its own try/catch
-// so that failure can never block the response to the customer/admin.
+// Server-side Meta Conversions API call. Deliberately non-throwing (not
+// rejecting) when META_PIXEL_ID/META_CAPI_ACCESS_TOKEN aren't configured —
+// tracking is optional, order creation/confirmation must never depend on it.
+// When it DOES throw (a real network/API failure), every caller wraps the
+// call in its own try/catch so that failure can never block the response to
+// the customer/admin.
+//
+// Every attempt — skipped, succeeded, or failed — is logged unconditionally
+// (not just once per process) so a misconfiguration never goes silent in
+// `docker compose logs app`. A prior version of this function only warned
+// once per server lifetime, which meant the very next event type (e.g.
+// "OrderConfirmed" right after "Lead" already tripped the warning) would be
+// dropped with ZERO log output — don't reintroduce that.
 export async function sendMetaCapiEvent(eventName: string, eventId: string, opts: MetaCapiOptions = {}): Promise<void> {
   const pixelId = process.env.META_PIXEL_ID;
   const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
 
   if (!pixelId || !accessToken) {
-    if (!warnedMissingConfig) {
-      console.warn("[Meta CAPI] META_PIXEL_ID / META_CAPI_ACCESS_TOKEN belum diset — event tracking Meta dilewati.");
-      warnedMissingConfig = true;
-    }
+    const missing = [!pixelId && "META_PIXEL_ID", !accessToken && "META_CAPI_ACCESS_TOKEN"].filter(Boolean).join(", ");
+    console.error(
+      `[Meta CAPI] "${eventName}" (event_id=${eventId}) DILEWATI — ${missing} belum diset di environment. ` +
+      `Event ini TIDAK terkirim ke Meta. Set kedua env var ini (lihat .env.example) lalu restart app.`
+    );
     return;
   }
+
+  console.log(`[Meta CAPI] Mengirim event "${eventName}" (event_id=${eventId})...`);
 
   const userData: Record<string, string> = {};
   if (opts.userData?.email) userData.em = hashForMeta(opts.userData.email);
@@ -81,4 +88,10 @@ export async function sendMetaCapiEvent(eventName: string, eventId: string, opts
     const errText = await res.text().catch(() => "");
     throw new Error(`Meta CAPI "${eventName}" gagal (HTTP ${res.status}): ${errText}`);
   }
+
+  const resJson: any = await res.json().catch(() => null);
+  console.log(
+    `[Meta CAPI] "${eventName}" (event_id=${eventId}) terkirim OK — ` +
+    `events_received=${resJson?.events_received ?? "?"} fbtrace_id=${resJson?.fbtrace_id ?? "?"}`
+  );
 }
