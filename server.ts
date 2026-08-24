@@ -836,6 +836,11 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
     console.warn("ADMIN_NOTIFY_EMAIL (dan EMAIL_FROM) belum diset — notifikasi order baru dilewati.");
   }
 
+  // Customer-facing counterpart to the admin notification above — order
+  // confirmation + how much to pay + the QRIS to scan + the 1x24 jam
+  // confirmation SLA. See sendOrderPendingPaymentEmail for details.
+  sendOrderPendingPaymentEmail({ name, email, orderType, orderCode, totalAmount });
+
   return {
     order_code: orderCode,
     channel,
@@ -1445,6 +1450,61 @@ function getGuidePdfAttachment(): { filename: string; path: string }[] | undefin
     return undefined;
   }
   return [{ filename: "Panduan-Penggunaan-KantongKu.pdf", path: GUIDE_PDF_PATH }];
+}
+
+// Same public/ asset the frontend shows at STATIC_QRIS_IMAGE_PATH — reused
+// here as an inline (cid) attachment so the QRIS code renders directly in
+// the pending-payment email body, not just as a download.
+const QRIS_ABS_PATH = path.join(process.cwd(), "public", "qris-statis.png");
+const QRIS_CID = "kantongku-qris";
+
+function getQrisAttachment(): { filename: string; path: string; cid: string; contentDisposition: "inline" }[] | undefined {
+  if (!fs.existsSync(QRIS_ABS_PATH)) {
+    console.warn(`Gambar QRIS tidak ditemukan di ${QRIS_ABS_PATH} — email order dikirim tanpa gambar QRIS.`);
+    return undefined;
+  }
+  return [{ filename: "qris-kantongku.png", path: QRIS_ABS_PATH, cid: QRIS_CID, contentDisposition: "inline" }];
+}
+
+// Fired right after a new order is created (both license and collaborator
+// orders) — the customer-facing counterpart to the admin "Order baru masuk"
+// notification above. Tells the payer exactly how much to pay (the unique-
+// coded total, not the round base price — paying the wrong amount is the
+// #1 cause of manual-match confusion), shows the QRIS to scan, and sets the
+// expectation that confirmation is manual (up to 1x24 jam), so they don't
+// panic when the account doesn't activate instantly. Best-effort/fire-and-
+// forget, same footing as the admin email and Meta CAPI calls right above
+// this function's call site — a failed send here must never fail order
+// creation itself.
+function sendOrderPendingPaymentEmail(order: {
+  name: string;
+  email: string;
+  orderType: "license" | "collaborator";
+  orderCode: string;
+  totalAmount: number;
+}) {
+  const { name, email, orderType, orderCode, totalAmount } = order;
+  const totalFormatted = `Rp${totalAmount.toLocaleString("id-ID")}`;
+  const productLabel = orderType === "collaborator" ? "akses kolaborator KantongKu" : "akses KantongKu";
+  const greetingName = orderType === "collaborator" ? "" : name ? ` ${name}` : "";
+
+  sendEmail(
+    email,
+    `[KantongKu] Selesaikan Pembayaran Kamu — ${orderCode}`,
+    `<p>Halo${greetingName},</p>
+     <p>Terima kasih! Order kamu untuk <b>${productLabel}</b> sudah kami terima dengan kode <b>${orderCode}</b>.</p>
+     <p>Silakan selesaikan pembayaran sejumlah:</p>
+     <p style="font-size:22px;font-weight:bold;margin:8px 0;">${totalFormatted}</p>
+     <p><b>Penting:</b> transfer harus PERSIS sejumlah nominal di atas (termasuk 3 digit kode unik di belakang) — jangan dibulatkan, supaya pembayaran kamu bisa langsung cocok saat kami verifikasi.</p>
+     <p>Scan QRIS di bawah ini pakai GoPay, OVO, DANA, ShopeePay, atau m-banking apa pun yang mendukung QRIS:</p>
+     <p><img src="cid:${QRIS_CID}" alt="QRIS KantongKu" style="max-width:280px;width:100%;height:auto;display:block;" /></p>
+     <p>Setelah kami terima pembayarannya, verifikasi &amp; konfirmasi akan diproses maksimal <b>1x24 jam</b> — begitu dikonfirmasi, akun kamu otomatis aktif dan kamu akan menerima email terpisah untuk login.</p>
+     <p>Order ini berlaku 24 jam sejak dibuat. Kalau ada kendala pembayaran, balas email ini saja.</p>`,
+    `Halo${greetingName},\n\nTerima kasih! Order kamu untuk ${productLabel} sudah kami terima dengan kode ${orderCode}.\n\nSilakan selesaikan pembayaran sejumlah ${totalFormatted} (transfer PERSIS nominal ini, termasuk kode unik di belakang) via QRIS — lihat gambar QRIS terlampir di email ini.\n\nSetelah pembayaran kami terima, konfirmasi diproses maksimal 1x24 jam. Akun kamu otomatis aktif setelah dikonfirmasi, dan kamu akan menerima email terpisah untuk login.\n\nOrder ini berlaku 24 jam sejak dibuat.`,
+    getQrisAttachment()
+  ).catch((err: any) => {
+    console.error(`Gagal mengirim email pending-payment untuk order ${orderCode}:`, err.message);
+  });
 }
 
 // Task 6 — the actual "here's your login info" email to the paying customer.
