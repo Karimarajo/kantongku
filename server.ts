@@ -1516,21 +1516,23 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
 // 'settlement'` guard) — a retried Doku webhook notification for an
 // already-settlement order just observes `alreadyConfirmed: true` and does
 // nothing more, no double email/activation.
-// Guide PDF (cicilan-ai-notifikasi Task 6) — lives in public/, NOT a bare
-// assets/ folder as the prompt's own suggested path assumed: Task 0
+// Guide attachment (cicilan-ai-notifikasi Task 6) — lives in public/, NOT a
+// bare assets/ folder as the prompt's own suggested path assumed: Task 0
 // verification of the Dockerfile showed only `dist/` and `public/` get
 // copied into the production image's final stage, so anything outside
 // those two would silently never exist on the live server. Read lazily
 // (not cached) and existence-checked every send — constraint requires a
 // missing file to degrade the email gracefully, never fail it.
-const GUIDE_PDF_PATH = path.join(process.cwd(), "public", "Panduan-Penggunaan-KantongKu.pdf");
+// Switched from a PDF to a single-page PNG (one-pager, easier to skim on a
+// phone than a multi-page PDF) — same filename convention.
+const GUIDE_ATTACHMENT_PATH = path.join(process.cwd(), "public", "Panduan-Instalasi-KantongKu-1Halaman.png");
 
-function getGuidePdfAttachment(): { filename: string; path: string }[] | undefined {
-  if (!fs.existsSync(GUIDE_PDF_PATH)) {
-    console.warn(`Panduan PDF tidak ditemukan di ${GUIDE_PDF_PATH} — email dikirim tanpa lampiran.`);
+function getGuideAttachment(): { filename: string; path: string }[] | undefined {
+  if (!fs.existsSync(GUIDE_ATTACHMENT_PATH)) {
+    console.warn(`Panduan instalasi tidak ditemukan di ${GUIDE_ATTACHMENT_PATH} — email dikirim tanpa lampiran.`);
     return undefined;
   }
-  return [{ filename: "Panduan-Penggunaan-KantongKu.pdf", path: GUIDE_PDF_PATH }];
+  return [{ filename: "Panduan-Instalasi-KantongKu-1Halaman.png", path: GUIDE_ATTACHMENT_PATH }];
 }
 
 // Fired right after a new order is created (both license and collaborator
@@ -1609,7 +1611,7 @@ function sendOrderConfirmationEmail(order: any) {
      <p>Masuk pakai akun Google dengan email yang sama saat memesan (<b>${order.email}</b>) di: <a href="${loginUrl}">${loginUrl}</a></p>
      <p>Kami lampirkan juga panduan penggunaan KantongKu di email ini — kalau ada yang masih bingung soal fitur mana pun, cek dulu di situ.</p>`,
     `Halo${order.name ? ` ${order.name}` : ""},\n\nPembayaran kamu sudah dikonfirmasi. Akun KantongKu kamu sudah aktif.\nMasuk pakai akun Google dengan email yang sama saat memesan (${order.email}) di: ${loginUrl}\n\nPanduan penggunaan terlampir di email ini.`,
-    getGuidePdfAttachment()
+    getGuideAttachment()
   ).catch((err: any) => {
     console.error("Gagal mengirim email konfirmasi order lisensi:", err.message);
   });
@@ -1839,7 +1841,7 @@ app.post("/api/admin/users/:id/send-login-link", requireAdmin, async (req, res) 
        <p>Gunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.</p>
        <p>Kami lampirkan juga panduan penggunaan KantongKu di email ini — kalau ada yang masih bingung soal fitur mana pun, cek dulu di situ.</p>`,
       `Berikut tautan resmi untuk masuk ke akun KantongKu Anda: ${loginUrl}\n\nGunakan akun Google yang sama dengan yang Anda daftarkan sebelumnya. Jika Anda tidak meminta email ini, abaikan pesan ini.\n\nPanduan penggunaan terlampir di email ini.`,
-      getGuidePdfAttachment()
+      getGuideAttachment()
     );
 
     res.json({ success: true });
