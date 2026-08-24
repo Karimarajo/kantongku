@@ -341,7 +341,7 @@ async function main() {
   // script executes) but leaves the DB in the identical end state.
   const collabOrderResult = await pool.query(
     `INSERT INTO orders (order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at, confirmed_at, confirmed_by, order_type, collaborator_owner_user_id, collaborator_email)
-     VALUES ($1, $2, $3, 'qris_shopee', 17900, 42, 17942, 'settlement', now() + interval '24 hours', now(), 'admin (seed script)', 'collaborator', $4, $3)
+     VALUES ($1, $2, $3, 'doku', 17900, 0, 17900, 'settlement', now() + interval '24 hours', now(), 'admin (seed script)', 'collaborator', $4, $3)
      ON CONFLICT (order_code) DO UPDATE SET status = 'settlement'
      RETURNING id`,
     [`KK-SEED-${COLLABORATOR_EMAIL.split("@")[0].toUpperCase()}`, `Kolaborator untuk ${USER_A.email}`, COLLABORATOR_EMAIL, userAId]

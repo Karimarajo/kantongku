@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CollaboratorOrder } from '../types';
-import { Loader2, Copy, Check, X, CreditCard } from 'lucide-react';
-import QrisImage from './QrisImage';
+import { Loader2, Copy, Check, X, CreditCard, ExternalLink } from 'lucide-react';
 
 interface CollaboratorPaymentModalProps {
   order: CollaboratorOrder | null;
@@ -13,15 +12,31 @@ interface CollaboratorPaymentModalProps {
 }
 
 // Payment instructions for a collaborator-seat order — visually mirrors
-// Landing.tsx's "paying" step (same static-QRIS CTA / polling pattern) but
-// as an in-app modal, since Landing.tsx itself is the public unauthenticated
-// page and isn't set up to be embedded inside the logged-in app. Backend
-// infra (order, polling endpoint, admin confirm) is fully shared — this is
-// just the UI shell.
+// Landing.tsx's "paying" step (same Doku payment link CTA / polling
+// pattern) but as an in-app modal, since Landing.tsx itself is the public
+// unauthenticated page and isn't set up to be embedded inside the logged-in
+// app. Backend infra (order, polling endpoint, Doku webhook) is fully
+// shared — this is just the UI shell.
 export default function CollaboratorPaymentModal({ order, collaboratorEmail, onClose, onConfirmed }: CollaboratorPaymentModalProps) {
   const [status, setStatus] = useState<'pending' | 'settlement' | 'expired' | 'error'>('pending');
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Only auto-open once per order — the effect below reruns on remount/HMR,
+  // and re-popping a tab the owner already has open (or already closed on
+  // purpose) would just be annoying, not helpful.
+  const autoOpenedOrderRef = useRef<string | null>(null);
+
+  // Auto-open the Doku payment link in a new tab as soon as this order is
+  // shown — the "Bayar Sekarang" button below stays as the manual fallback
+  // (popup blocked, tab closed too early, etc). Deliberately a NEW tab, not
+  // a same-tab redirect: this modal's own polling below must keep running
+  // uninterrupted so it detects settlement and closes itself the moment
+  // payment completes, same as Landing.tsx.
+  useEffect(() => {
+    if (!order || autoOpenedOrderRef.current === order.order_code) return;
+    autoOpenedOrderRef.current = order.order_code;
+    window.open(order.paymentUrl, '_blank', 'noopener,noreferrer');
+  }, [order?.order_code, order?.paymentUrl]);
 
   useEffect(() => {
     if (!order) return;
@@ -109,20 +124,26 @@ export default function CollaboratorPaymentModal({ order, collaboratorEmail, onC
               </div>
             </div>
 
-            {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
-                unik, dikonfirmasi manual oleh admin. Fixed after live prod
-                test: a small fixed-size QR was too small for a phone camera
-                to focus/scan reliably — QrisImage renders it bigger inline
-                AND offers a genuine full-screen view (no container ceiling
-                at all) via tap or the button underneath. */}
-            <QrisImage src={order.qrImage} boxClassName="max-w-[320px]" />
+            {/* Doku Checkout — sudah auto-dibuka di tab baru begitu modal ini
+                tampil (lihat effect di atas); tombol ini adalah fallback
+                manual kalau tab-nya diblokir popup blocker atau kebetulan
+                tertutup. Link yang sama bisa diklik berkali-kali (Doku
+                Checkout tetap valid sampai lunas/kedaluwarsa). */}
+            <a
+              href={order.paymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+            >
+              Bayar Sekarang <ExternalLink className="w-4 h-4" />
+            </a>
             <p className="text-[11px] text-on-surface-variant/60 text-center -mt-1">
-              Scan pakai aplikasi apa saja yang mendukung QRIS — pastikan nominalnya persis sama sampai 3 digit terakhir.
+              Halaman pembayaran sudah terbuka di tab baru — pilih QRIS, VA bank, e-wallet, atau kartu.
             </p>
 
             <div className="flex items-center justify-center gap-2 text-on-surface-variant">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <p className="text-xs">Menunggu konfirmasi admin ({order.order_code})...</p>
+              <p className="text-xs">Menunggu pembayaran ({order.order_code})...</p>
             </div>
           </>
         )}

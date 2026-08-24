@@ -1459,19 +1459,18 @@ export default function App() {
     }
   };
 
-  // Task 2 revision: invite now creates a real manual-payment order (same
+  // Task 2 revision: invite now creates a real Doku Checkout order (same
   // infra as the main license) instead of a free stub — returns the order's
-  // payment instructions so ProfileView can open the payment modal directly.
+  // payment link so ProfileView can open the payment modal directly.
   const handleInviteCollaborator = async (
-    email: string,
-    channel: 'qris_shopee' | 'transfer_bca'
+    email: string
   ): Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }> => {
     try {
       const res = await fetch('/api/collaborators/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email, channel }),
+        body: JSON.stringify({ email }),
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.error || 'Gagal mengundang kolaborator' };

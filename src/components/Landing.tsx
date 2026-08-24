@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Mail, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, QrCode } from 'lucide-react';
+import { User, Mail, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, CreditCard, ExternalLink } from 'lucide-react';
 import Hero from './landing/Hero';
 import SocialProofStrip from './landing/SocialProofStrip';
 import BeforeAfter from './landing/BeforeAfter';
@@ -11,7 +11,6 @@ import ValueStack from './landing/ValueStack';
 import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
-import QrisImage from './QrisImage';
 
 // Anchoring price shown on marketing sections (Hero, Pricing badge). Change
 // here to update everywhere it's displayed. This is separate from the actual
@@ -26,13 +25,10 @@ interface PriceConfig {
   label: string;
 }
 
-type Channel = 'qris_shopee' | 'transfer_bca';
-
 interface OrderDetails {
   order_code: string;
-  channel: Channel;
   total_amount: number;
-  qrImage?: string;
+  paymentUrl: string;
 }
 
 type Step = 'form' | 'paying' | 'success' | 'expired' | 'error';
@@ -92,13 +88,6 @@ const PRICING_CHECKLIST = [
   'Update fitur baru selamanya',
   'Support respon cepat via WhatsApp',
 ];
-
-// Task 2: satu-satunya metode pembayaran sekarang adalah QRIS statis —
-// tidak ada lagi pilihan channel di UI (Doku dan Transfer BCA manual sudah
-// dihapus total). Backend (createOrderRecord di server.ts) masih menerima
-// `channel` sebagai parameter wajib untuk data order — nilai ini dikirim
-// diam-diam, bukan pilihan user.
-const DEFAULT_CHANNEL: Channel = 'qris_shopee';
 
 export default function Landing() {
   const [name, setName] = useState('');
@@ -206,7 +195,6 @@ export default function Landing() {
         body: JSON.stringify({
           name,
           email,
-          channel: DEFAULT_CHANNEL,
           utm_source: utm.utm_source,
           utm_medium: utm.utm_medium,
           utm_campaign: utm.utm_campaign,
@@ -239,6 +227,14 @@ export default function Landing() {
       setOrder(createData);
       setStep('paying');
       startPolling(createData.order_code);
+
+      // Auto-open Doku's payment page in a NEW tab (not a same-tab redirect)
+      // — this tab's polling above must keep running uninterrupted so it
+      // detects settlement and moves to the success step the moment payment
+      // completes, exactly like before. The "Bayar Sekarang" button in the
+      // 'paying' step below is the manual fallback for a blocked popup or a
+      // tab closed too early — same reusable link either way.
+      window.open(createData.paymentUrl, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan. Silakan coba lagi.');
     } finally {
@@ -364,8 +360,8 @@ export default function Landing() {
               </div>
 
               <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                <QrCode className="w-4 h-4 text-primary shrink-0" />
-                <span>Bayar pakai QRIS — scan pakai aplikasi apa saja (GoPay, OVO, DANA, m-banking, dll), langsung muncul di halaman berikutnya.</span>
+                <CreditCard className="w-4 h-4 text-primary shrink-0" />
+                <span>Bayar otomatis via Doku — pilih QRIS, VA bank, e-wallet, atau kartu di halaman berikutnya, akun langsung aktif begitu pembayaran berhasil.</span>
               </div>
 
               {error && (
@@ -404,26 +400,31 @@ export default function Landing() {
                 </div>
               </div>
 
-              {/* Task 2: satu-satunya jalur pembayaran — QRIS statis + kode
-                  unik, dikonfirmasi manual oleh admin lewat Admin Console
-                  setelah mencocokkan mutasi. Fixed after live prod test: a
-                  small fixed-size QR was too small for a phone camera to
-                  focus/scan reliably — QrisImage renders it bigger inline
-                  AND offers a genuine full-screen view via tap or the
-                  button underneath. */}
-              <QrisImage src={order.qrImage} boxClassName="max-w-[340px]" />
+              {/* Doku Checkout — sudah auto-dibuka di tab baru begitu order
+                  ini dibuat (lihat handleSubmit); tombol ini adalah
+                  fallback manual kalau tab-nya diblokir popup blocker atau
+                  kebetulan tertutup. Link yang sama bisa diklik berkali-kali
+                  (Doku Checkout tetap valid sampai lunas/kedaluwarsa). */}
+              <a
+                href={order.paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+              >
+                Bayar Sekarang <ExternalLink className="w-5 h-5" />
+              </a>
               <div className="w-full flex flex-col items-center gap-3">
                 <p className="text-xs text-on-surface-variant/60 text-center max-w-xs">
-                  Scan pakai aplikasi apa saja yang mendukung QRIS (GoPay, OVO, DANA, ShopeePay, m-banking, dll) — pastikan nominalnya <b>persis sama</b> sampai 3 digit terakhir (kode unik), lalu tunggu konfirmasi.
+                  Halaman pembayaran sudah terbuka di tab baru — pilih QRIS, VA bank, e-wallet, atau kartu apa pun yang paling nyaman.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <p className="text-sm">Menunggu konfirmasi admin (order {order.order_code})...</p>
+                <p className="text-sm">Menunggu pembayaran (order {order.order_code})...</p>
               </div>
               <p className="text-xs text-on-surface-variant/50">
-                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran dikonfirmasi admin.
+                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran berhasil — akun langsung aktif, tanpa perlu menunggu konfirmasi admin.
               </p>
 
               <a
@@ -482,7 +483,7 @@ export default function Landing() {
             <span className="text-xs">Garansi 3 Hari — Uang kembali 100% kalau nggak cocok</span>
           </div>
           <p className="text-[10px] text-on-surface-variant/40 text-center uppercase tracking-wider">
-            Pembayaran dikonfirmasi manual oleh admin — biasanya dalam hitungan menit.
+            Pembayaran diverifikasi otomatis oleh Doku — akun aktif dalam hitungan detik.
           </p>
         </div>
       </section>
