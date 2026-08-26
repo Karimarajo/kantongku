@@ -74,18 +74,18 @@ export default function ReminderModal({
 
   return (
     <div className="fixed inset-0 bg-[#060A13]/85 backdrop-blur-md flex items-center justify-center z-[9999] p-4 overflow-y-auto">
-      <div className="glass-card rounded-2xl w-full max-w-lg border border-white/10 relative overflow-hidden flex flex-col my-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-white" onClick={(e) => e.stopPropagation()}>
+      <div className="glass-card rounded-2xl w-full max-w-lg border border-overlay/10 relative overflow-hidden flex flex-col my-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-on-surface" onClick={(e) => e.stopPropagation()}>
         <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-white/5 shrink-0 bg-surface-variant/20">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-overlay/5 shrink-0 bg-surface-variant/20">
           <div className="flex items-center gap-2">
             <AlarmClock className="w-5 h-5 text-primary" />
-            <h3 className="font-headline-sm text-lg text-white font-bold">
+            <h3 className="font-headline-sm text-lg text-on-surface font-bold">
               Pengingat & Alarm Agenda
             </h3>
           </div>
-          <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant hover:text-white hover:bg-white/10 transition-all">
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-all">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -94,7 +94,7 @@ export default function ReminderModal({
         <div className="p-6 flex flex-col gap-6 max-h-[70vh] overflow-y-auto no-scrollbar">
           
           {/* Create Reminder Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 bg-overlay/5 p-4 rounded-xl border border-overlay/5">
             <h4 className="text-xs font-label-caps text-primary uppercase font-semibold tracking-wider">Buat Pengingat Baru</h4>
             
             <div className="flex flex-col gap-1.5">
@@ -105,7 +105,7 @@ export default function ReminderModal({
                 placeholder="Contoh: Bayar cicilan atau iuran kas..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="h-10 bg-slate-900/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+                className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
                 required
               />
             </div>
@@ -119,7 +119,7 @@ export default function ReminderModal({
                   type="datetime-local"
                   value={targetDateTime}
                   onChange={(e) => setTargetDateTime(e.target.value)}
-                  className="h-10 bg-slate-900/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-mono-data"
+                  className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-mono-data"
                   required
                 />
               </div>
@@ -131,12 +131,12 @@ export default function ReminderModal({
                 <select
                   value={repeatType}
                   onChange={(e) => setRepeatType(e.target.value as any)}
-                  className="h-10 bg-slate-900/40 border border-white/10 rounded-lg px-2 text-sm text-white focus:outline-none focus:border-primary/60 cursor-pointer"
+                  className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-sm text-on-surface focus:outline-none focus:border-primary/60 cursor-pointer"
                 >
-                  <option value="once" className="bg-[#0f172a] text-white">Sekali Saja</option>
-                  <option value="every_day" className="bg-[#0f172a] text-white">Setiap Hari</option>
-                  <option value="every_week" className="bg-[#0f172a] text-white">Setiap Minggu</option>
-                  <option value="every_month" className="bg-[#0f172a] text-white">Setiap Bulan</option>
+                  <option value="once" className="bg-surface text-on-surface">Sekali Saja</option>
+                  <option value="every_day" className="bg-surface text-on-surface">Setiap Hari</option>
+                  <option value="every_week" className="bg-surface text-on-surface">Setiap Minggu</option>
+                  <option value="every_month" className="bg-surface text-on-surface">Setiap Bulan</option>
                 </select>
               </div>
             </div>
@@ -154,7 +154,7 @@ export default function ReminderModal({
             <h4 className="text-xs font-label-caps text-primary uppercase font-semibold tracking-wider">Daftar Pengingat Aktif ({reminders.length})</h4>
             
             {reminders.length === 0 ? (
-              <div className="text-center py-8 text-on-surface-variant/30 text-xs border border-dashed border-white/5 rounded-xl flex flex-col items-center gap-2">
+              <div className="text-center py-8 text-on-surface-variant/30 text-xs border border-dashed border-overlay/5 rounded-xl flex flex-col items-center gap-2">
                 <Bell className="w-8 h-8 opacity-25 animate-pulse" />
                 <span>Belum ada rencana pengingat yang dibuat.</span>
               </div>
@@ -175,21 +175,21 @@ export default function ReminderModal({
                   return (
                     <div
                       key={reminder.id}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border border-white/5 transition-all bg-white/5 ${
+                      className={`flex items-center justify-between p-3.5 rounded-xl border border-overlay/5 transition-all bg-overlay/5 ${
                         reminder.isActive ? 'opacity-100' : 'opacity-40'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                          reminder.isActive ? 'bg-primary/10 border border-primary/20 text-primary' : 'bg-white/5 border border-white/5 text-on-surface-variant/40'
+                          reminder.isActive ? 'bg-primary/10 border border-primary/20 text-primary' : 'bg-overlay/5 border border-overlay/5 text-on-surface-variant/40'
                         }`}>
                           <Bell className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">{reminder.title}</p>
+                          <p className="text-sm font-semibold text-on-surface truncate">{reminder.title}</p>
                           <p className="text-[10px] text-on-surface-variant/70 font-mono-data mt-0.5 flex items-center gap-1.5">
                             <Clock className="w-3 h-3 text-primary/70" /> {tampilanWaktuLokal}
-                            <span className="text-white/20">•</span>
+                            <span className="text-on-surface/20">•</span>
                             <RefreshCw className="w-3 h-3 text-primary/70" /> {getRepeatLabel(reminder.repeatType)}
                           </p>
                         </div>
@@ -201,7 +201,7 @@ export default function ReminderModal({
                           type="button"
                           onClick={() => onToggleReminder(reminder.id)}
                           className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative flex items-center ${
-                            reminder.isActive ? 'bg-primary' : 'bg-white/10'
+                            reminder.isActive ? 'bg-primary' : 'bg-overlay/10'
                           }`}
                         >
                           <div

@@ -2150,11 +2150,20 @@ app.post("/api/auth/logout", async (req, res) => {
 app.get("/api/data", requireSession, requireActiveStatus, async (req, res) => {
   try {
     // effectiveUserId = the OWNER's id when the caller is an active
-    // collaborator (see requireSession) — this is what makes a collaborator
-    // see the exact same data as the account owner, not their own empty row.
+    // (legacy, whole-account) collaborator (see requireSession) — this is
+    // what makes a collaborator see the exact same data as the account
+    // owner, not their own empty row.
     const effectiveUserId = (req as any).effectiveUserId;
-    const result = await pool.query(`SELECT data FROM user_app_data WHERE user_id = $1`, [effectiveUserId]);
-    res.json(result.rows[0]?.data || {});
+    const email = (req as any).user.email;
+    const data = await loadOwnerBlob(effectiveUserId);
+    // v11: per-pocket sharing (separate from the legacy collaborator system
+    // above) — pockets OTHER people shared with the literal logged-in
+    // email, returned alongside (never merged into) the caller's own data.
+    // Keyed by req.user.email, not effectiveUserId, so this works
+    // independently of whether the caller also happens to be a legacy
+    // collaborator on some other account.
+    const sharedPockets = await loadSharedPocketsFor(email);
+    res.json({ ...data, sharedPockets });
   } catch (error: any) {
     console.error("Gagal memuat data pengguna:", error);
     res.status(500).json({ error: error.message || "Gagal memuat data" });
@@ -2470,6 +2479,495 @@ app.delete("/api/admin/collaborators/:id", requireAdmin, async (req, res) => {
   } catch (error: any) {
     console.error("Gagal menghapus permanen kolaborator (admin):", error);
     res.status(500).json({ error: error.message || "Gagal menghapus permanen kolaborator" });
+  }
+});
+
+// ==========================================
+// Pocket Sharing (v11) — REPLACES the whole-account collaborator system
+// above for all NEW sharing. An owner shares ONE pocket (not their whole
+// account) with another email that must already be a registered+active
+// KantongKu user — free, no orders/Doku involved. The old collaborator
+// system above is left fully intact/untouched (dormant for new invites,
+// still functional for anyone already active on it) rather than removed,
+// so no already-paid relationship silently breaks.
+// ==========================================
+
+async function loadOwnerBlob(userId: string): Promise<any> {
+  const result = await pool.query(`SELECT data FROM user_app_data WHERE user_id = $1`, [userId]);
+  return result.rows[0]?.data || {};
+}
+
+async function saveOwnerBlob(userId: string, data: any): Promise<void> {
+  await pool.query(
+    `INSERT INTO user_app_data (user_id, data, updated_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = now()`,
+    [userId, JSON.stringify(data)]
+  );
+}
+
+// Mirrors getBudgetCategories/calculateBudgetSpent in src/App.tsx exactly —
+// keep these two in sync if that client-side logic ever changes, since a
+// shared-pocket transaction updates budget.spent server-side instead of
+// going through the client's normal handleAddTransaction path.
+function budgetCategoriesOf(b: any): string[] {
+  if (b.categories && Array.isArray(b.categories)) return b.categories;
+  if (Array.isArray(b.category)) return b.category;
+  return b.category ? [b.category] : [];
+}
+
+function recomputeBudgetSpent(b: any, transactionsList: any[]): number {
+  if (!b.startDate || !b.endDate) return b.spent || 0;
+  const sDate = new Date(b.startDate);
+  sDate.setHours(0, 0, 0, 0);
+  const eDate = new Date(b.endDate);
+  eDate.setHours(23, 59, 59, 999);
+  const cats = budgetCategoriesOf(b);
+  return transactionsList
+    .filter((t: any) => cats.includes(t.category) && new Date(t.date) >= sDate && new Date(t.date) <= eDate)
+    .reduce((sum: number, t: any) => sum + t.amount, 0);
+}
+
+// For an invitee: every pocket ANY owner has actively shared with their
+// email, each bundled with only the slice of that owner's data the shared
+// pocket actually touches (never the owner's other pockets/wallets).
+async function loadSharedPocketsFor(email: string): Promise<any[]> {
+  const sharesResult = await pool.query(
+    `SELECT ps.*, o.name AS owner_name FROM pocket_shares ps
+     JOIN users o ON o.id = ps.owner_user_id
+     WHERE ps.invited_email = $1 AND ps.status = 'active'
+     ORDER BY ps.activated_at ASC`,
+    [email]
+  );
+  const bundles: any[] = [];
+  const ownerBlobCache = new Map<string, any>();
+  for (const share of sharesResult.rows) {
+    let ownerData = ownerBlobCache.get(share.owner_user_id);
+    if (!ownerData) {
+      ownerData = await loadOwnerBlob(share.owner_user_id);
+      ownerBlobCache.set(share.owner_user_id, ownerData);
+    }
+    const pocket = (ownerData.pockets || []).find((p: any) => p.id === share.pocket_id);
+    if (!pocket) continue; // owner deleted this pocket after sharing it — skip silently, nothing to show
+    const transactions = (ownerData.transactions || []).filter((t: any) => t.pocketId === share.pocket_id);
+    // ALL of the owner's wallets/categories, not just ones already used in
+    // this pocket's transactions — a freshly-shared pocket has zero
+    // transactions yet, so deriving the pick-list from them would leave the
+    // invitee with nothing to choose when adding their very first one. Safe
+    // to expose every wallet regardless: the pocketId a shared-pocket
+    // transaction lands in is always forced to share.pocket_id server-side
+    // (see POST /api/pocket-shares/:id/transactions below), so picking any
+    // wallet here can never move money into/out of a DIFFERENT pocket.
+    const accounts = ownerData.accounts || [];
+    const categories = ownerData.categories || [];
+    bundles.push({
+      shareId: share.id,
+      ownerUserId: share.owner_user_id,
+      ownerName: share.owner_name || "",
+      pocket,
+      transactions,
+      accounts,
+      categories,
+    });
+  }
+  return bundles;
+}
+
+async function getActivePocketShare(shareId: string, inviteeEmail: string): Promise<any | null> {
+  const result = await pool.query(
+    `SELECT * FROM pocket_shares WHERE id = $1 AND invited_email = $2 AND status = 'active'`,
+    [shareId, inviteeEmail]
+  );
+  return result.rows[0] || null;
+}
+
+// Body: { pocketId, email }. Owner-only (req.user.id, the LITERAL logged-in
+// account — same "never effectiveUserId" rule the old collaborator routes
+// use, at server.ts:2191-2198 above, for the same reason: managing WHO has
+// access must stay exclusive to the real owner).
+app.post("/api/pocket-shares/invite", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const ownerId = (req as any).user.id;
+    const ownerEmail = (req as any).user.email;
+    const { pocketId, email } = req.body || {};
+    if (!pocketId || typeof pocketId !== "string") {
+      return res.status(400).json({ error: "Kantong wajib dipilih" });
+    }
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ error: "Email wajib diisi" });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: "Format email tidak valid" });
+    }
+    if (cleanEmail === ownerEmail.toLowerCase()) {
+      return res.status(400).json({ error: "Tidak bisa membagikan kantong ke email sendiri" });
+    }
+
+    // Per product decision: sharing is free, but only to someone who
+    // ALREADY has their own paid+active KantongKu account — not just any
+    // email. Reject early with a clear, actionable message.
+    const targetUserResult = await pool.query(`SELECT id, status FROM users WHERE email = $1`, [cleanEmail]);
+    const targetUser = targetUserResult.rows[0];
+    if (!targetUser || targetUser.status !== "active") {
+      return res.status(400).json({
+        error: "Email ini belum terdaftar/aktif sebagai pengguna KantongKu. Orang tersebut perlu daftar & aktifkan akunnya sendiri dulu sebelum bisa diundang.",
+      });
+    }
+
+    const ownerData = await loadOwnerBlob(ownerId);
+    const pocket = (ownerData.pockets || []).find((p: any) => p.id === pocketId);
+    if (!pocket) {
+      return res.status(404).json({ error: "Kantong tidak ditemukan" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO pocket_shares (owner_user_id, pocket_id, invited_email, status)
+       VALUES ($1, $2, $3, 'pending')
+       ON CONFLICT (owner_user_id, pocket_id, invited_email)
+       DO UPDATE SET status = 'pending', invited_at = now(), activated_at = NULL, disconnected_at = NULL, disconnected_by = NULL
+       RETURNING *`,
+      [ownerId, pocketId, cleanEmail]
+    );
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error("Gagal membagikan kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal membagikan kantong" });
+  }
+});
+
+// Everything the caller (as OWNER) has ever shared, across all their pockets.
+app.get("/api/pocket-shares/owned", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const ownerId = (req as any).user.id;
+    const result = await pool.query(
+      `SELECT * FROM pocket_shares WHERE owner_user_id = $1 ORDER BY invited_at DESC`,
+      [ownerId]
+    );
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error("Gagal memuat daftar berbagi kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat daftar berbagi kantong" });
+  }
+});
+
+// Pending invitations addressed to the caller (as INVITEE), across any
+// owner/pocket — the "terima ajakan bergabung" list.
+app.get("/api/pocket-shares/invitations", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const result = await pool.query(
+      `SELECT ps.*, o.name AS owner_name FROM pocket_shares ps
+       JOIN users o ON o.id = ps.owner_user_id
+       WHERE ps.invited_email = $1 AND ps.status = 'pending'
+       ORDER BY ps.invited_at DESC`,
+      [email]
+    );
+    const invitations = await Promise.all(
+      result.rows.map(async (row) => {
+        const ownerData = await loadOwnerBlob(row.owner_user_id);
+        const pocket = (ownerData.pockets || []).find((p: any) => p.id === row.pocket_id);
+        return { ...row, pocket_name: pocket?.name || "(kantong sudah dihapus)" };
+      })
+    );
+    res.json(invitations);
+  } catch (error: any) {
+    console.error("Gagal memuat undangan kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat undangan kantong" });
+  }
+});
+
+app.post("/api/pocket-shares/:id/accept", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const { id } = req.params;
+    const result = await pool.query(
+      `UPDATE pocket_shares SET status = 'active', activated_at = now(), disconnected_at = NULL, disconnected_by = NULL
+       WHERE id = $1 AND invited_email = $2 AND status = 'pending'
+       RETURNING *`,
+      [id, email]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Undangan tidak ditemukan" });
+    }
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error("Gagal menerima undangan kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal menerima undangan kantong" });
+  }
+});
+
+app.post("/api/pocket-shares/:id/decline", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const { id } = req.params;
+    const result = await pool.query(
+      `UPDATE pocket_shares SET status = 'revoked', disconnected_at = now(), disconnected_by = 'invitee'
+       WHERE id = $1 AND invited_email = $2 AND status = 'pending'
+       RETURNING *`,
+      [id, email]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Undangan tidak ditemukan" });
+    }
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error("Gagal menolak undangan kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal menolak undangan kantong" });
+  }
+});
+
+// Either side can end an ACTIVE share: the owner disconnecting the invitee,
+// or the invitee leaving on their own — same status transition either way,
+// just tagged with who did it.
+app.post("/api/pocket-shares/:id/disconnect", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const email = (req as any).user.email;
+    const { id } = req.params;
+    const shareResult = await pool.query(`SELECT * FROM pocket_shares WHERE id = $1`, [id]);
+    const share = shareResult.rows[0];
+    if (!share) {
+      return res.status(404).json({ error: "Berbagi kantong tidak ditemukan" });
+    }
+    const isOwner = share.owner_user_id === userId;
+    const isInvitee = share.invited_email === email;
+    if (!isOwner && !isInvitee) {
+      return res.status(403).json({ error: "Anda tidak punya akses ke berbagi kantong ini" });
+    }
+    const result = await pool.query(
+      `UPDATE pocket_shares SET status = 'revoked', disconnected_at = now(), disconnected_by = $2 WHERE id = $1 RETURNING *`,
+      [id, isOwner ? "owner" : "invitee"]
+    );
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error("Gagal memutus berbagi kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal memutus berbagi kantong" });
+  }
+});
+
+// Add a transaction INTO a pocket shared to the caller. This is the ONLY
+// path (besides the read in loadSharedPocketsFor above) that ever touches
+// another user's user_app_data row — always server-computed from a fresh
+// read of the OWNER's full blob, never a client-sent full document (unlike
+// PUT /api/data, which stays exactly as before for a user's own data).
+// Stamps `inputBy` so the owner can later see who actually entered it (see
+// the Riwayat Transaksi export's "Siapa yang input" column).
+app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const { id } = req.params;
+    const share = await getActivePocketShare(id, email);
+    if (!share) {
+      return res.status(404).json({ error: "Kantong bersama tidak ditemukan atau akses sudah dicabut" });
+    }
+
+    const { title, amount, type, accountId, category, date, notes } = req.body || {};
+    if (!title || !amount || !type || !accountId || !category) {
+      return res.status(400).json({ error: "Data transaksi tidak lengkap" });
+    }
+    if (!["incoming", "outgoing"].includes(type)) {
+      return res.status(400).json({ error: "Tipe transaksi tidak valid" });
+    }
+
+    const ownerData = await loadOwnerBlob(share.owner_user_id);
+    const accounts = ownerData.accounts || [];
+    const account = accounts.find((a: any) => a.id === accountId);
+    if (!account) {
+      return res.status(400).json({ error: "Wallet tidak ditemukan" });
+    }
+
+    const newTransaction = {
+      id: `t-${Date.now()}`,
+      title,
+      amount,
+      type,
+      accountId,
+      category,
+      pocketId: share.pocket_id,
+      date: date || new Date().toISOString(),
+      notes: notes || undefined,
+      inputBy: email,
+    };
+    const transactions = ownerData.transactions || [];
+    const nextTransactions = [newTransaction, ...transactions].sort(
+      (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    const delta = type === "incoming" ? amount : -amount;
+    const nextPockets = (ownerData.pockets || []).map((p: any) =>
+      p.id === share.pocket_id ? { ...p, balance: Math.max(0, p.balance + delta) } : p
+    );
+    const nextAccounts = accounts.map((a: any) => {
+      if (a.id !== accountId) return a;
+      const currentAllocations = a.allocations || {};
+      const pocketAlloc = currentAllocations[share.pocket_id] || 0;
+      return {
+        ...a,
+        balance: Math.max(0, a.balance + delta),
+        allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + delta) },
+      };
+    });
+    const nextBudgets = (ownerData.budgets || []).map((b: any) => {
+      if (!budgetCategoriesOf(b).includes(category)) return b;
+      const nextSpent = recomputeBudgetSpent(b, nextTransactions);
+      const remaining = b.limit - nextSpent;
+      return { ...b, spent: nextSpent, sisaPercent: b.limit > 0 ? Math.max(0, Math.round((remaining / b.limit) * 100)) : 0 };
+    });
+    const pocketName = (ownerData.pockets || []).find((p: any) => p.id === share.pocket_id)?.name || share.pocket_id;
+    const nextActivityLog = [
+      {
+        id: `log-share-${Date.now()}`,
+        message: `${email} mencatat transaksi '${title}' di kantong bersama '${pocketName}'`,
+        timestamp: new Date().toISOString(),
+        category: "shared-pocket",
+        icon: "users",
+      },
+      ...(ownerData.activityLog || []),
+    ];
+
+    await saveOwnerBlob(share.owner_user_id, {
+      ...ownerData,
+      pockets: nextPockets,
+      accounts: nextAccounts,
+      transactions: nextTransactions,
+      budgets: nextBudgets,
+      activityLog: nextActivityLog,
+    });
+    res.json(newTransaction);
+  } catch (error: any) {
+    console.error("Gagal menambah transaksi kantong bersama:", error);
+    res.status(500).json({ error: error.message || "Gagal menambah transaksi" });
+  }
+});
+
+app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const { id, txId } = req.params;
+    const share = await getActivePocketShare(id, email);
+    if (!share) {
+      return res.status(404).json({ error: "Kantong bersama tidak ditemukan atau akses sudah dicabut" });
+    }
+
+    const { title, amount, type, accountId, category, date, notes } = req.body || {};
+    if (!title || !amount || !type || !accountId || !category) {
+      return res.status(400).json({ error: "Data transaksi tidak lengkap" });
+    }
+
+    const ownerData = await loadOwnerBlob(share.owner_user_id);
+    const transactions = ownerData.transactions || [];
+    const oldTx = transactions.find((t: any) => t.id === txId && t.pocketId === share.pocket_id);
+    if (!oldTx) {
+      return res.status(404).json({ error: "Transaksi tidak ditemukan" });
+    }
+
+    // Reverse the old delta on its original account, then apply the new
+    // delta on its (possibly different) account — correct even if the edit
+    // moves the transaction to another wallet.
+    const oldDelta = oldTx.type === "incoming" ? -oldTx.amount : oldTx.amount;
+    let nextAccounts = (ownerData.accounts || []).map((a: any) => {
+      if (a.id !== oldTx.accountId) return a;
+      const currentAllocations = a.allocations || {};
+      const pocketAlloc = currentAllocations[share.pocket_id] || 0;
+      return {
+        ...a,
+        balance: Math.max(0, a.balance + oldDelta),
+        allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + oldDelta) },
+      };
+    });
+    const newDelta = type === "incoming" ? amount : -amount;
+    nextAccounts = nextAccounts.map((a: any) => {
+      if (a.id !== accountId) return a;
+      const currentAllocations = a.allocations || {};
+      const pocketAlloc = currentAllocations[share.pocket_id] || 0;
+      return {
+        ...a,
+        balance: Math.max(0, a.balance + newDelta),
+        allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + newDelta) },
+      };
+    });
+
+    const netPocketDelta = (oldTx.type === "incoming" ? -oldTx.amount : oldTx.amount) + newDelta;
+    const nextPockets = (ownerData.pockets || []).map((p: any) =>
+      p.id === share.pocket_id ? { ...p, balance: Math.max(0, p.balance + netPocketDelta) } : p
+    );
+
+    const updatedTx = { ...oldTx, title, amount, type, accountId, category, date: date || oldTx.date, notes: notes || undefined };
+    const nextTransactions = transactions.map((t: any) => (t.id === txId ? updatedTx : t));
+
+    const affectedCategories = new Set([oldTx.category, category]);
+    const nextBudgets = (ownerData.budgets || []).map((b: any) => {
+      if (!budgetCategoriesOf(b).some((c: string) => affectedCategories.has(c))) return b;
+      const nextSpent = recomputeBudgetSpent(b, nextTransactions);
+      const remaining = b.limit - nextSpent;
+      return { ...b, spent: nextSpent, sisaPercent: b.limit > 0 ? Math.max(0, Math.round((remaining / b.limit) * 100)) : 0 };
+    });
+
+    await saveOwnerBlob(share.owner_user_id, {
+      ...ownerData,
+      transactions: nextTransactions,
+      pockets: nextPockets,
+      accounts: nextAccounts,
+      budgets: nextBudgets,
+    });
+    res.json(updatedTx);
+  } catch (error: any) {
+    console.error("Gagal mengubah transaksi kantong bersama:", error);
+    res.status(500).json({ error: error.message || "Gagal mengubah transaksi" });
+  }
+});
+
+app.delete("/api/pocket-shares/:id/transactions/:txId", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const { id, txId } = req.params;
+    const share = await getActivePocketShare(id, email);
+    if (!share) {
+      return res.status(404).json({ error: "Kantong bersama tidak ditemukan atau akses sudah dicabut" });
+    }
+
+    const ownerData = await loadOwnerBlob(share.owner_user_id);
+    const transactions = ownerData.transactions || [];
+    const target = transactions.find((t: any) => t.id === txId && t.pocketId === share.pocket_id);
+    if (!target) {
+      return res.status(404).json({ error: "Transaksi tidak ditemukan" });
+    }
+
+    const nextTransactions = transactions.filter((t: any) => t.id !== txId);
+    const delta = target.type === "incoming" ? -target.amount : target.amount; // reverse
+    const nextPockets = (ownerData.pockets || []).map((p: any) =>
+      p.id === share.pocket_id ? { ...p, balance: Math.max(0, p.balance + delta) } : p
+    );
+    const nextAccounts = (ownerData.accounts || []).map((a: any) => {
+      if (a.id !== target.accountId) return a;
+      const currentAllocations = a.allocations || {};
+      const pocketAlloc = currentAllocations[share.pocket_id] || 0;
+      return {
+        ...a,
+        balance: Math.max(0, a.balance + delta),
+        allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + delta) },
+      };
+    });
+    const nextBudgets = (ownerData.budgets || []).map((b: any) => {
+      if (!budgetCategoriesOf(b).includes(target.category)) return b;
+      const nextSpent = recomputeBudgetSpent(b, nextTransactions);
+      const remaining = b.limit - nextSpent;
+      return { ...b, spent: nextSpent, sisaPercent: b.limit > 0 ? Math.max(0, Math.round((remaining / b.limit) * 100)) : 0 };
+    });
+
+    await saveOwnerBlob(share.owner_user_id, {
+      ...ownerData,
+      transactions: nextTransactions,
+      pockets: nextPockets,
+      accounts: nextAccounts,
+      budgets: nextBudgets,
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal menghapus transaksi kantong bersama:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus transaksi" });
   }
 });
 

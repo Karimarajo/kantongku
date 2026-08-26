@@ -1,13 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { UserProfile, Collaborator, CollaboratorOrder } from '../types';
-import CollaboratorPaymentModal from './CollaboratorPaymentModal';
+import { UserProfile } from '../types';
 import { APP_VERSION } from '../version';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
-  CreditCard, Moon, Sun, Volume2, VolumeX,
+  CreditCard, Moon, Sun,
   Camera, Edit3, Save, X, Check,
   Wallet, Tag, Receipt, History, ChevronRight,
-  Users, UserPlus, ShieldOff, RotateCcw, LifeBuoy, BookOpen
+  Users, LifeBuoy, BookOpen
 } from 'lucide-react';
 
 export interface AppSettings {
@@ -30,17 +29,12 @@ interface ProfileViewProps {
   onNavigateDebtManager: () => void;
   onNavigateGuide: () => void;
   hasUnseenGuideUpdate: boolean;
-  // Collaboration (Task 2, revised — real manual-payment order flow, not a
-  // free stub) — hidden entirely when this account is itself viewing as a
-  // collaborator (see isCollaborator): managing WHO else has access stays
-  // exclusive to the real owner, mirrored server-side.
-  isCollaborator: boolean;
-  collaborators: Collaborator[];
-  onInviteCollaborator: (email: string) => Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }>;
-  onGetPendingCollaboratorOrder: (collaboratorId: string) => Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }>;
-  onReconnectCollaborator: (id: string) => void;
-  onDisconnectCollaborator: (id: string) => void;
-  onRefreshCollaborators: () => void;
+  // Pocket Sharing (v11, replaces the old whole-account "Collaborator"
+  // section) — free, per-pocket, both directions (invitee accepting AND
+  // owner managing) now live on one dedicated screen instead of a form
+  // embedded here, since there's real per-pocket state to browse.
+  onNavigateSharedPockets: () => void;
+  pendingInvitationCount: number;
 }
 
 export default function ProfileView({
@@ -57,53 +51,9 @@ export default function ProfileView({
   onNavigateDebtManager,
   onNavigateGuide,
   hasUnseenGuideUpdate,
-  isCollaborator,
-  collaborators,
-  onInviteCollaborator,
-  onGetPendingCollaboratorOrder,
-  onReconnectCollaborator,
-  onDisconnectCollaborator,
-  onRefreshCollaborators
+  onNavigateSharedPockets,
+  pendingInvitationCount,
 }: ProfileViewProps) {
-  // Collaboration invite form state
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteError, setInviteError] = useState('');
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [pendingOrderLoadingId, setPendingOrderLoadingId] = useState<string | null>(null);
-
-  // Payment modal — shared by "Undang" (new order) and "Lanjutkan Pembayaran"
-  // (resume an existing pending order), just fed a different order object.
-  const [paymentOrder, setPaymentOrder] = useState<CollaboratorOrder | null>(null);
-  const [paymentEmail, setPaymentEmail] = useState('');
-
-  const handleInviteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    setInviteError('');
-    setInviteLoading(true);
-    const result = await onInviteCollaborator(inviteEmail.trim());
-    setInviteLoading(false);
-    if (result.ok === true) {
-      setPaymentEmail(inviteEmail.trim());
-      setPaymentOrder(result.order);
-      setInviteEmail('');
-    } else if (result.ok === false) {
-      setInviteError(result.error || 'Gagal mengundang kolaborator');
-    }
-  };
-
-  const handleContinuePayment = async (c: Collaborator) => {
-    setPendingOrderLoadingId(c.id);
-    const result = await onGetPendingCollaboratorOrder(c.id);
-    setPendingOrderLoadingId(null);
-    if (result.ok === true) {
-      setPaymentEmail(c.email);
-      setPaymentOrder(result.order);
-    } else if (result.ok === false) {
-      alert(result.error || 'Gagal memuat order pembayaran');
-    }
-  };
-
   // Profile edit state
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userProfile.name);
@@ -116,7 +66,7 @@ export default function ProfileView({
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onloadend = async () => {
       const img = new Image();
@@ -176,10 +126,10 @@ export default function ProfileView({
 
   return (
     <div className="flex flex-col gap-6 select-none font-body-md">
-      
+
       {/* Title Header */}
       <div>
-        <h1 className="font-headline-md text-2xl text-white font-bold leading-tight">Profil Pengguna</h1>
+        <h1 className="font-headline-md text-2xl text-on-surface font-bold leading-tight">Profil Pengguna</h1>
         <p className="text-sm text-on-surface-variant mt-1.5 leading-relaxed">
           Kelola detail akun, preferensi sistem, dan konfigurasi KantongKu.
         </p>
@@ -188,12 +138,12 @@ export default function ProfileView({
       {/* Profile Card */}
       <section className="glass-card rounded-xl p-card_padding flex flex-col items-center text-center gap-3 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
-        
+
         {/* Avatar with camera button */}
         <div className="relative group">
           <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary/30">
-            <img 
-              alt="User Profile" 
+            <img
+              alt="User Profile"
               className="w-full h-full object-cover"
               src={avatarUrl}
             />
@@ -221,23 +171,23 @@ export default function ProfileView({
               type="text"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
-              className="flex-1 h-9 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 text-center"
+              className="flex-1 h-9 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 text-center"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
             />
             <button onClick={handleSaveName} className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center hover:opacity-90 transition-opacity">
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => { setEditingName(false); setNameInput(userProfile.name); }} className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant flex items-center justify-center hover:text-white transition-colors">
+            <button onClick={() => { setEditingName(false); setNameInput(userProfile.name); }} className="w-8 h-8 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant flex items-center justify-center hover:text-on-surface transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <h2 className="font-headline-sm text-white font-bold text-lg">{userProfile.name}</h2>
+            <h2 className="font-headline-sm text-on-surface font-bold text-lg">{userProfile.name}</h2>
             <button
               onClick={() => { setEditingName(true); setNameInput(userProfile.name); }}
-              className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors"
+              className="p-1 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-on-surface transition-colors"
               title="Edit nama"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -250,9 +200,35 @@ export default function ProfileView({
           {userProfile.email}
         </span>
 
-        <div className="w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/70 border-t border-white/5 pt-3 mt-1">
+        <div className="w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/70 border-t border-overlay/5 pt-3 mt-1">
           <Calendar className="w-4 h-4 text-primary" />
           <span>Terdaftar Sejak: {new Date(userProfile.joinedAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
+        </div>
+      </section>
+
+      {/* Tampilan — dark/light toggle (default dark). Same pill-track +
+          sliding-knob switch visual as ReminderModal's active/inactive
+          toggle, reused here for consistency. */}
+      <section className="flex flex-col gap-2.5 mt-2">
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Tampilan</span>
+        <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4">
+          <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
+            {settings.theme === 'light' ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-primary" />}
+            Mode {settings.theme === 'light' ? 'Terang' : 'Gelap'}
+          </span>
+          <button
+            type="button"
+            onClick={() => updateSetting('theme', settings.theme === 'light' ? 'dark' : 'light')}
+            className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative flex items-center ${
+              settings.theme === 'light' ? 'bg-primary' : 'bg-overlay/10'
+            }`}
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-slate-900 shadow-md transform transition-transform duration-200 ${
+                settings.theme === 'light' ? 'translate-x-4.5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </section>
 
@@ -263,7 +239,7 @@ export default function ProfileView({
         <div className="flex flex-col gap-2.5">
           <button
             onClick={onNavigateGuide}
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-primary" />
@@ -277,7 +253,7 @@ export default function ProfileView({
 
           <button
             onClick={onOpenPocketManager}
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <Wallet className="w-4 h-4 text-primary" />
@@ -286,9 +262,26 @@ export default function ProfileView({
             <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
           </button>
 
+          {/* Pocket Sharing (v11) — replaces the old "Kelola Kolaborator"
+              form-in-place: covers both directions (invitations I received,
+              pockets I've shared out) on its own screen. */}
+          <button
+            onClick={onNavigateSharedPockets}
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              Kantong Bersama
+              {pendingInvitationCount > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-on-surface leading-none">{pendingInvitationCount}</span>
+              )}
+            </span>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/50" />
+          </button>
+
           <button
             onClick={onOpenCategoryManager}
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <Tag className="w-4 h-4 text-primary" />
@@ -299,7 +292,7 @@ export default function ProfileView({
 
           <button
             onClick={onNavigateHistory}
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <Receipt className="w-4 h-4 text-primary" />
@@ -310,7 +303,7 @@ export default function ProfileView({
 
           <button
             onClick={onNavigateActivityLog}
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <History className="w-4 h-4 text-primary" />
@@ -321,7 +314,7 @@ export default function ProfileView({
 
           <button
             onClick={onNavigateDebtManager}
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-primary" />
@@ -339,7 +332,7 @@ export default function ProfileView({
             href="https://kantongku.site/support"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-label-caps text-xs flex items-center justify-between px-4 hover:bg-white/10 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 text-on-surface font-label-caps text-xs flex items-center justify-between px-4 hover:bg-overlay/10 active:scale-[0.98] transition-all"
           >
             <span className="flex items-center gap-2">
               <LifeBuoy className="w-4 h-4 text-primary" />
@@ -350,103 +343,12 @@ export default function ProfileView({
         </div>
       </section>
 
-      {/* Kelola Kolaborator (Task 2, revised) — owner-only, hidden for a
-          collaborator account itself since managing invites stays exclusive
-          to the owner. Invite now goes through a real payment order (same
-          static-QRIS flow as the main license), not a free stub. */}
-      {!isCollaborator && (
-        <section className="flex flex-col gap-2.5 mt-2">
-          <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Kelola Kolaborator</span>
-          <p className="text-xs text-on-surface-variant/70 -mt-1 leading-relaxed">
-            Kolaborator dapat akses penuh (baca &amp; tulis) ke seluruh data KantongKu Anda — wallet, transaksi, kategori, dan lainnya. Tidak ada batas jumlah kolaborator.
-          </p>
-
-          <form onSubmit={handleInviteSubmit} className="flex flex-col gap-2">
-            <input
-              type="email"
-              placeholder="Email kolaborator"
-              value={inviteEmail}
-              onChange={(e) => { setInviteEmail(e.target.value); if (inviteError) setInviteError(''); }}
-              className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60"
-            />
-            <div className="flex items-center gap-2 text-[11px] text-on-surface-variant/60 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <CreditCard className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span>Bayar pakai QRIS statis, dikonfirmasi manual oleh admin.</span>
-            </div>
-            <button
-              type="submit"
-              disabled={inviteLoading}
-              className="h-11 px-4 rounded-lg bg-primary text-on-primary flex items-center justify-center gap-1.5 text-xs font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
-            >
-              <UserPlus className="w-4 h-4" /> {inviteLoading ? 'Membuat order...' : 'Undang & Bayar'}
-            </button>
-            {inviteError && (
-              <span className="text-xs text-rose-400 block px-1">{inviteError}</span>
-            )}
-          </form>
-
-          {collaborators.length > 0 && (
-            <div className="flex flex-col gap-2 mt-1">
-              {collaborators.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Users className="w-4 h-4 text-on-surface-variant shrink-0" />
-                    <div className="min-w-0 flex flex-col">
-                      <span className="text-sm text-white truncate">{c.email}</span>
-                      <span
-                        className={`text-[10px] font-semibold uppercase tracking-wider w-fit px-1.5 py-0.5 rounded-full mt-0.5 ${
-                          c.status === 'active'
-                            ? 'bg-primary/10 text-primary'
-                            : c.status === 'pending_payment'
-                            ? 'bg-amber-500/10 text-amber-400'
-                            : 'bg-rose-500/10 text-rose-400'
-                        }`}
-                      >
-                        {c.status === 'active' ? 'Aktif' : c.status === 'pending_payment' ? 'Menunggu Pembayaran' : 'Terputus'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="shrink-0">
-                    {c.status === 'pending_payment' && (
-                      <button
-                        onClick={() => handleContinuePayment(c)}
-                        disabled={pendingOrderLoadingId === c.id}
-                        className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-                      >
-                        <CreditCard className="w-3 h-3" /> {pendingOrderLoadingId === c.id ? 'Memuat...' : 'Lanjutkan Pembayaran'}
-                      </button>
-                    )}
-                    {c.status === 'active' && (
-                      <button
-                        onClick={() => onDisconnectCollaborator(c.id)}
-                        className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-colors"
-                      >
-                        <ShieldOff className="w-3 h-3" /> Putuskan Sambungan
-                      </button>
-                    )}
-                    {c.status === 'revoked' && (
-                      <button
-                        onClick={() => onReconnectCollaborator(c.id)}
-                        className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
-                        title="Gratis — tidak perlu bayar ulang"
-                      >
-                        <RotateCcw className="w-3 h-3" /> Sambungkan Lagi (Gratis)
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
       {/* Dangerous Actions */}
       <section className="flex flex-col gap-2.5 mt-2">
         <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Tindakan Keamanan</span>
-        
+
         <div className="flex flex-col gap-2.5">
-          <button 
+          <button
             onClick={() => {
               if (confirm('Apakah Anda yakin ingin melakukan RESET DATA? Seluruh transaksi yang ditambahkan akan dihapus dan kembali ke mock data awal.')) {
                 onResetData();
@@ -458,10 +360,10 @@ export default function ProfileView({
             Reset Data Ke Mockup Awal
           </button>
 
-          <button 
+          <button
             type="button"
             onClick={onLogout}
-            className="w-full h-12 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-[#EF4444]/20 active:scale-[0.98] transition-all"
+            className="w-full h-12 rounded-xl bg-danger/10 border border-danger/20 text-danger font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-danger/20 active:scale-[0.98] transition-all"
           >
             <LogOut className="w-4 h-4" />
             Keluar dari Aplikasi
@@ -472,16 +374,6 @@ export default function ProfileView({
       <p className="text-center text-[10px] text-on-surface-variant/40 font-mono-data pb-1">
         KantongKu V{APP_VERSION}
       </p>
-
-      <CollaboratorPaymentModal
-        order={paymentOrder}
-        collaboratorEmail={paymentEmail}
-        onClose={() => setPaymentOrder(null)}
-        onConfirmed={() => {
-          setPaymentOrder(null);
-          onRefreshCollaborators();
-        }}
-      />
     </div>
   );
 }

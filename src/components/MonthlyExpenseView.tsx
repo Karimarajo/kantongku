@@ -62,8 +62,8 @@ export default function MonthlyExpenseView({
   return (
     <div className="flex flex-col gap-4 w-full h-full text-left max-h-[calc(100vh-120px)] overflow-y-auto pb-12 no-scrollbar">
       {/* Header */}
-      <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-        <button onClick={onBack} className="p-2 bg-white/5 rounded-lg"><ChevronLeft className="w-5 h-5" /></button>
+      <div className="flex items-center gap-4 border-b border-overlay/5 pb-4">
+        <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg"><ChevronLeft className="w-5 h-5" /></button>
         <h1 className="text-xl font-bold">Detail Pengeluaran Bulanan</h1>
       </div>
 
@@ -71,18 +71,18 @@ export default function MonthlyExpenseView({
       <div className="flex items-center justify-center gap-4">
         <button
           onClick={goToPrevMonth}
-          className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant hover:text-white hover:bg-white/10 transition-all active:scale-95"
+          className="w-9 h-9 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-all active:scale-95"
           title="Bulan sebelumnya"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="font-headline-sm text-white text-base font-semibold min-w-[160px] text-center capitalize">
+        <span className="font-headline-sm text-on-surface text-base font-semibold min-w-[160px] text-center capitalize">
           {monthLabel}
         </span>
         <button
           onClick={goToNextMonth}
           disabled={isCurrentMonth}
-          className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant hover:text-white hover:bg-white/10 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-on-surface-variant"
+          className="w-9 h-9 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-overlay/5 disabled:hover:text-on-surface-variant"
           title={isCurrentMonth ? 'Belum bisa melihat bulan yang akan datang' : 'Bulan berikutnya'}
         >
           <ChevronRight className="w-4 h-4" />
@@ -91,13 +91,13 @@ export default function MonthlyExpenseView({
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-2 mt-1">
-        <div className="glass-card p-3 rounded-xl border border-white/5 bg-emerald-500/5 flex flex-col gap-0.5">
+        <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-emerald-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-emerald-400/70 uppercase tracking-wider flex items-center gap-1">
             <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Pemasukan
           </span>
           <span className="text-sm font-bold text-emerald-400 font-mono-data truncate">{formatRupiah(totalIncoming, false)}</span>
         </div>
-        <div className="glass-card p-3 rounded-xl border border-white/5 bg-rose-500/5 flex flex-col gap-0.5">
+        <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-rose-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-rose-400/70 uppercase tracking-wider flex items-center gap-1">
             <ArrowUpRight className="w-3.5 h-3.5 text-rose-400 shrink-0" /> Pengeluaran
           </span>
@@ -108,8 +108,8 @@ export default function MonthlyExpenseView({
       {/* Transaction list for the selected month */}
       <div className="flex flex-col gap-2 mt-2">
         {monthTransactions.length === 0 ? (
-          <div className="text-center py-10 text-white/30 text-xs flex flex-col items-center gap-2">
-            <Receipt className="w-8 h-8 text-white/20" />
+          <div className="text-center py-10 text-on-surface/30 text-xs flex flex-col items-center gap-2">
+            <Receipt className="w-8 h-8 text-on-surface/20" />
             Tidak ada transaksi di bulan ini.
           </div>
         ) : (
@@ -118,22 +118,22 @@ export default function MonthlyExpenseView({
             const cat = categories.find(c => c.id === t.category);
             const colorHex = getCategoryHexColor(t.category);
             return (
-              <div key={t.id} className="flex items-center p-3 gap-3 hover:bg-white/5 rounded-xl border border-white/5 glass-card transition-all">
+              <div key={t.id} className="flex items-center p-3 gap-3 hover:bg-overlay/5 rounded-xl border border-overlay/5 glass-card transition-all">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs shrink-0" style={{ backgroundColor: colorHex + '15', border: `1px solid ${colorHex}30` }}>
                   <CategoryIcon name={cat?.icon || 'receipt'} className="w-4 h-4" style={{ color: colorHex }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{t.title}</p>
-                  <p className="text-[10px] text-white/40 font-mono-data mt-0.5">{formatDate(t.date)}</p>
+                  <p className="text-sm font-medium text-on-surface truncate">{t.title}</p>
+                  <p className="text-[10px] text-on-surface/40 font-mono-data mt-0.5">{formatDate(t.date)}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={`text-sm font-bold font-mono-data ${isExpense ? 'text-rose-400' : 'text-primary'}`}>
                     {isExpense ? '-' : '+'}{formatRupiah(t.amount, false)}
                   </span>
-                  <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                  <div className="flex items-center gap-1 border-l border-overlay/10 pl-2">
                     <button
                       onClick={() => onEditTransactionSelect(t)}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-primary transition-all active:scale-95"
+                      className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-primary transition-all active:scale-95"
                       title="Edit Transaksi"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
@@ -144,7 +144,7 @@ export default function MonthlyExpenseView({
                           onDeleteTransaction(t.id);
                         }
                       }}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-on-surface-variant hover:text-rose-400 transition-all active:scale-95"
+                      className="p-1.5 rounded-lg bg-overlay/5 hover:bg-rose-500/20 text-on-surface-variant hover:text-rose-400 transition-all active:scale-95"
                       title="Hapus Transaksi"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

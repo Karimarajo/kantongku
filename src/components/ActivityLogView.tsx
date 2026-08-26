@@ -40,8 +40,8 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
   return (
     <div className="flex flex-col gap-4 w-full h-full text-left max-h-[calc(100vh-120px)] overflow-y-auto pb-12 no-scrollbar">
       {/* Header */}
-      <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-        <button onClick={onBack} className="p-2 bg-white/5 rounded-lg">
+      <div className="flex items-center gap-4 border-b border-overlay/5 pb-4">
+        <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg">
           <ChevronLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
@@ -57,7 +57,7 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
       <button
         onClick={handleClear}
         disabled={activityLog.length === 0}
-        className="w-full h-11 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-[#EF4444]/20 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+        className="w-full h-11 rounded-xl bg-danger/10 border border-danger/20 text-danger font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-danger/20 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
       >
         <Trash2 className="w-4 h-4" />
         Bersihkan Log
@@ -65,8 +65,8 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
 
       <div className="flex flex-col gap-2 mt-1">
         {sortedLog.length === 0 ? (
-          <div className="text-center py-12 text-white/30 flex flex-col items-center gap-2">
-            <History className="w-10 h-10 text-white/20" />
+          <div className="text-center py-12 text-on-surface/30 flex flex-col items-center gap-2">
+            <History className="w-10 h-10 text-on-surface/20" />
             <p className="text-xs">Belum ada aktivitas yang tercatat.</p>
           </div>
         ) : (
@@ -75,14 +75,14 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
             return (
               <div
                 key={entry.id}
-                className="flex items-start p-3 gap-3 rounded-xl border border-white/5 glass-card"
+                className="flex items-start p-3 gap-3 rounded-xl border border-overlay/5 glass-card"
               >
                 <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-primary/10 border border-primary/20 mt-0.5">
                   <IconComponent className="w-4 h-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white leading-snug">{entry.message}</p>
-                  <p className="text-[10px] text-white/40 font-mono-data mt-1">{formatDate(entry.timestamp)}</p>
+                  <p className="text-sm text-on-surface leading-snug">{entry.message}</p>
+                  <p className="text-[10px] text-on-surface/40 font-mono-data mt-1">{formatDate(entry.timestamp)}</p>
                 </div>
               </div>
             );
