@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budget } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budget, SharedPocketBundle } from '../types';
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
@@ -46,6 +46,10 @@ interface HomeDashboardProps {
   pockets: Pocket[];
   accounts: Account[];
   transactions: Transaction[];
+  // Pocket Sharing (v11) — pockets OTHER people shared to me, shown in the
+  // SAME carousel as my own pockets below (tagged "milik {owner}"), and
+  // folded into the activity feed so they behave like any other pocket.
+  sharedPockets?: SharedPocketBundle[];
   notifications: Notification[];
   userProfile: UserProfile;
   categories: Category[];
@@ -68,6 +72,7 @@ export default function HomeDashboard({
   pockets,
   accounts,
   transactions,
+  sharedPockets = [],
   notifications,
   userProfile,
   categories,
@@ -100,6 +105,36 @@ export default function HomeDashboard({
   const [topUpAmount, setTopUpAmount] = useState<number>(0);
   const [topUpAmountDisplay, setTopUpAmountDisplay] = useState<string>('');
   const [topUpNote, setTopUpNote] = useState<string>('');
+
+  // Pocket Sharing (v11): my own transactions + everything in pockets
+  // shared to me, merged into one feed so a shared pocket's activity shows
+  // up in "Aktivitas Terakhir"/pocket-filtered view exactly like any of my
+  // own pockets — not a separate, easy-to-miss section.
+  const combinedTransactions = useMemo(
+    () => [...transactions, ...sharedPockets.flatMap(sp => sp.transactions)]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [transactions, sharedPockets]
+  );
+
+  // Per-transaction-id lookup of {which Pocket to show as its label, which
+  // key to filter by when a card is selected} — built once here instead of
+  // scanning `pockets`/`sharedPockets` by raw pocketId at render time,
+  // because a shared pocket's raw pocket_id can collide with one of my own
+  // pocket ids (see the shareId-based selection above). Transaction ids
+  // themselves are effectively globally unique, so keying by transaction id
+  // sidesteps the collision entirely.
+  const txDisplayContext = useMemo(() => {
+    const map = new Map<string, { pocket?: Pocket; filterKey: string }>();
+    transactions.forEach(t => {
+      map.set(t.id, { pocket: pockets.find(p => p.id === t.pocketId), filterKey: t.pocketId });
+    });
+    sharedPockets.forEach(sp => {
+      sp.transactions.forEach(t => {
+        map.set(t.id, { pocket: sp.pocket, filterKey: sp.shareId });
+      });
+    });
+    return map;
+  }, [transactions, pockets, sharedPockets]);
 
   // Keep the transfer wallet selections valid as `accounts` changes — the
   // destination always excludes whichever wallet is currently the source.
@@ -421,6 +456,37 @@ export default function HomeDashboard({
                 </div>
               );
             })}
+
+            {/* Pocket Sharing (v11): pockets shared TO me by others, same
+                card style, tagged "milik {owner}" so it's never ambiguous
+                whose data this is — same carousel, same click-to-filter
+                activity behavior as my own pockets above. */}
+            {sharedPockets.map(sp => {
+              const p = sp.pocket;
+              const IconComponent = getPocketIconComponent(p.icon);
+              const { hex: colorHex, textClass: colorTextClass } = getPocketColorHexAndTextClass(p.color);
+              // Selected/keyed by shareId (globally unique), NOT p.id — the
+              // raw pocket_id could collide with one of my own pocket ids
+              // (e.g. mockData.ts's default "bisnis"/"pribadi" ids).
+              const isSelected = selectedPocketId === sp.shareId;
+              return (
+                <div
+                  key={sp.shareId}
+                  onClick={() => setSelectedPocketId(isSelected ? null : sp.shareId)}
+                  className={`glass-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-overlay/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? 'ring-2 ring-offset-2 ring-offset-[#0B111E] ring-indigo-400' : 'border-overlay/5'}`}
+                  style={{ borderLeftColor: colorHex }}
+                >
+                  <div className="absolute top-3.5 right-3.5" style={{ color: colorHex + 'd1' }}>
+                    <IconComponent className="w-4 h-4" />
+                  </div>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider truncate pr-6 ${colorTextClass}`}>
+                    {p.name}
+                  </p>
+                  <p className="text-md font-bold text-on-surface font-mono mt-0.5">{formatRupiah(p.balance)}</p>
+                  <span className="text-[9px] text-indigo-300/70 truncate mt-0.5 block">Milik {sp.ownerName || 'orang lain'}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Quick Action Matrix Grid - 4 KOLOM */}
@@ -533,13 +599,14 @@ export default function HomeDashboard({
                   {selectedPocketId ? 'Aktivitas Kantong' : 'Aktivitas Terakhir'}
                 </h3>
                 {selectedPocketId && (
-                  <button 
+                  <button
                     onClick={() => setSelectedPocketId(null)}
                     className="px-2 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10.5px] rounded-full flex items-center gap-1 hover:bg-primary/20 transition-all font-semibold font-sans active:scale-95 shrink-0"
                     title="Hapus filter"
                   >
                     <span className="truncate max-w-[80px]">
-                      {pockets.find(p => p.id === selectedPocketId)?.name}
+                      {pockets.find(p => p.id === selectedPocketId)?.name
+                        || sharedPockets.find(sp => sp.shareId === selectedPocketId)?.pocket.name}
                     </span>
                     <X className="w-3 h-3 text-primary shrink-0" />
                   </button>
@@ -555,9 +622,16 @@ export default function HomeDashboard({
 
             <div className="flex flex-col gap-3 select-none max-h-[360px] lg:max-h-[500px] overflow-y-auto no-scrollbar">
               {(() => {
-                const filteredTrans = selectedPocketId 
-                  ? transactions.filter(t => t.pocketId === selectedPocketId)
-                  : transactions;
+                // Pocket Sharing (v11): pockets shared to me behave like any
+                // other pocket in this feed — their transactions are folded
+                // in here too, not just my own.
+                const allTransactions = combinedTransactions;
+                // Filter by the collision-safe key (own pocket's raw id, or
+                // a shared pocket's shareId) — see txDisplayContext above,
+                // NOT the raw t.pocketId directly.
+                const filteredTrans = selectedPocketId
+                  ? allTransactions.filter(t => txDisplayContext.get(t.id)?.filterKey === selectedPocketId)
+                  : allTransactions;
                 const displayedTrans = filteredTrans.slice(0, 5);
 
                 if (filteredTrans.length === 0) {
@@ -572,7 +646,7 @@ export default function HomeDashboard({
                 return displayedTrans.map(t => {
                   const sign = t.type === 'incoming' ? '+' : '-';
                   const isExpense = t.type === 'outgoing';
-                  const pocket = pockets.find(p => p.id === t.pocketId);
+                  const pocket = txDisplayContext.get(t.id)?.pocket;
                   const pocketLabel = pocket ? pocket.name : 'Kantong Lainnya';
                   const catColorClass = isExpense ? 'text-danger' : 'text-primary';
 

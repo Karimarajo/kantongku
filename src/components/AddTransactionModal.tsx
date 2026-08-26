@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Camera, 
   Mic, 
@@ -34,7 +34,7 @@ import {
   Settings,
   Brain
 } from 'lucide-react';
-import { PocketType, CategoryType, Transaction, Pocket, Account, Category } from '../types';
+import { PocketType, CategoryType, Transaction, Pocket, Account, Category, SharedPocketBundle } from '../types';
 import { formatRupiah, getCategoryColorHex } from '../utils';
 import CategoryIcon from './CategoryIcon';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
@@ -49,20 +49,34 @@ interface AddTransactionModalProps {
   accounts: Account[];
   categories: Category[];
   onOpenCategoryManager: () => void;
+  // Pocket Sharing (v11) — pockets shared TO the current user by others show
+  // up here alongside `pockets` (own), so a transaction can be added to
+  // either from the SAME form. Each bundle carries its own restricted
+  // accounts/categories (only what that owner exposed for that pocket) —
+  // never the invitee's own wallets, and never the owner's OTHER pockets.
+  sharedPockets?: SharedPocketBundle[];
+  onAddSharedTransaction?: (
+    shareId: string,
+    tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string; date?: string; notes?: string }
+  ) => void;
+  onEditSharedTransaction?: (shareId: string, transaction: Transaction) => void;
 }
 
 type ModalViewType = 'options' | 'camera' | 'voice' | 'manual' | 'parser';
 
-export default function AddTransactionModal({ 
-  isOpen, 
-  onClose, 
-  onAddTransaction, 
+export default function AddTransactionModal({
+  isOpen,
+  onClose,
+  onAddTransaction,
   editingTransaction,
   onEditTransaction,
-  pockets, 
+  pockets,
   accounts,
   categories,
-  onOpenCategoryManager
+  onOpenCategoryManager,
+  sharedPockets = [],
+  onAddSharedTransaction,
+  onEditSharedTransaction
 }: AddTransactionModalProps) {
   const [currentView, setCurrentView] = useState<ModalViewType>('options');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -96,6 +110,42 @@ export default function AddTransactionModal({
     return `${year}-${month}-${day}`;
   });
 
+  // Pocket Sharing (v11): pockets shared to me appear in the SAME picker as
+  // my own, right below. `activeShare` tells the rest of this form (account/
+  // category choices, and the submit handler) whether the currently
+  // selected pocket is mine or someone else's shared pocket.
+  // IMPORTANT: a shared pocket's raw `pocket.id` (e.g. "bisnis") can
+  // perfectly well collide with one of MY OWN pocket ids — pockets are
+  // scoped per-owner server-side, so nothing stops two different people
+  // from both having a pocket literally called/id'd "bisnis" (in fact
+  // INITIAL_POCKETS in mockData.ts hands every brand-new account exactly
+  // that id by default). Selecting/matching shared pockets by shareId (a
+  // globally-unique UUID from pocket_shares) instead of the raw pocket id
+  // sidesteps that collision entirely — the picker below uses shareId as
+  // the option's `id` for shared entries, never the real pocket_id.
+  const allPocketChoices = useMemo(
+    () => [...pockets, ...sharedPockets.map(sp => ({ ...sp.pocket, id: sp.shareId }))],
+    [pockets, sharedPockets]
+  );
+  const activeShare = useMemo(() => sharedPockets.find(sp => sp.shareId === pocketId), [sharedPockets, pocketId]);
+  const effectiveAccounts = activeShare ? activeShare.accounts : accounts;
+  const effectiveCategories = activeShare ? activeShare.categories : categories;
+
+  // If switching TO or BETWEEN shared pockets leaves the current
+  // accountId/category pointing at something that isn't actually offered
+  // for the newly-selected pocket (e.g. was my own wallet, pocket is now
+  // someone else's), snap to the first valid choice instead of silently
+  // submitting a stale id that belongs to a different owner entirely.
+  useEffect(() => {
+    if (effectiveAccounts.length > 0 && !effectiveAccounts.some(a => a.id === accountId)) {
+      setAccountId(effectiveAccounts[0].id);
+    }
+    if (effectiveCategories.length > 0 && !effectiveCategories.some(c => c.id === category)) {
+      setCategory(effectiveCategories[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pocketId]);
+
   // Task 3: AddTransactionModal now stays mounted (isOpen=false just hides
   // it) while a nested manager (e.g. CategoryManagerModal) is opened on top
   // of it — see App.tsx. That means `pockets`/`accounts`/`categories` props
@@ -128,7 +178,11 @@ export default function AddTransactionModal({
         setAmount(editingTransaction.amount);
         setAmountExpr(editingTransaction.amount.toString());
         setShowCalc(false);
-        setPocketId(editingTransaction.pocketId);
+        // If this transaction lives in a pocket shared to me, select it by
+        // shareId (matching allPocketChoices' override above) — its raw
+        // pocketId could collide with one of my own pocket ids.
+        const owningShare = sharedPockets.find(sp => sp.transactions.some(t => t.id === editingTransaction.id));
+        setPocketId(owningShare ? owningShare.shareId : editingTransaction.pocketId);
         setAccountId(editingTransaction.accountId);
         setCategory(editingTransaction.category);
         setType(editingTransaction.type);
@@ -507,7 +561,7 @@ export default function AddTransactionModal({
     }
 
     if (editingTransaction && onEditTransaction) {
-      onEditTransaction({
+      const editedTransaction: Transaction = {
         ...editingTransaction,
         title,
         amount,
@@ -515,6 +569,25 @@ export default function AddTransactionModal({
         accountId,
         category,
         type,
+        notes: notes || undefined,
+        date: finalDate.toISOString()
+      };
+      // If this transaction lives in a pocket shared to me, route the edit
+      // to the OWNER's data via the shared-pocket endpoint instead — same
+      // "never trust a client-sent document for someone else's data" rule
+      // as adding one below.
+      if (activeShare && onEditSharedTransaction) {
+        onEditSharedTransaction(activeShare.shareId, editedTransaction);
+      } else {
+        onEditTransaction(editedTransaction);
+      }
+    } else if (activeShare && onAddSharedTransaction) {
+      onAddSharedTransaction(activeShare.shareId, {
+        title,
+        amount,
+        type,
+        accountId,
+        category,
         notes: notes || undefined,
         date: finalDate.toISOString()
       });
@@ -816,12 +889,14 @@ export default function AddTransactionModal({
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Sumber Dana / Kantong</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {pockets.map(p => {
+                  {allPocketChoices.map(p => {
                     const isSelected = pocketId === p.id;
+                    const isShared = sharedPockets.some(sp => sp.shareId === p.id);
                     let IconComponent = p.icon === 'group' ? Users : p.icon === 'storefront' ? Store : p.icon === 'food' ? Utensils : Wallet;
                     return (
                       <button key={p.id} type="button" onClick={() => setPocketId(p.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
                         <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{p.name}</span>
+                        {isShared && <span className="text-[9px] text-on-surface-variant/50 truncate w-full">Bersama</span>}
                       </button>
                     );
                   })}
@@ -832,7 +907,7 @@ export default function AddTransactionModal({
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Rekening / Dompet Fisik</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {accounts.map(acc => {
+                  {effectiveAccounts.map(acc => {
                     const isSelected = accountId === acc.id;
                     let IconComponent = acc.icon === 'bank' ? CreditCard : acc.icon === 'smartphone' ? Smartphone : Coins;
                     return (
@@ -851,7 +926,7 @@ export default function AddTransactionModal({
                   <button type="button" onClick={onOpenCategoryManager} className="text-[10px] text-primary hover:underline flex items-center gap-1.5 font-semibold"><Settings className="w-3.5 h-3.5" /> Kelola Kategori</button>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar whitespace-nowrap">
-                  {categories.map((cat) => {
+                  {effectiveCategories.map((cat) => {
                     const isSelected = category === cat.id;
                     const catHex = getCategoryColorHex(cat.color);
                     return (
