@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronDown, BookOpen, Sparkles, Rocket, Camera, Mic, Keyboard,
   Wallet, PiggyBank, Tag, AlarmClock, CreditCard, Users, LineChart, Receipt,
   BrainCircuit, History, Bell, LifeBuoy, HelpCircle, Share, MoreVertical,
+  Download, MoonStar,
 } from 'lucide-react';
 
 interface GuideViewProps {
@@ -186,22 +187,26 @@ const GUIDE_SECTIONS: GuideSection[] = [
     ),
   },
   {
-    id: 'kolaborasi',
+    id: 'kantong-bersama',
     icon: Users,
-    title: 'Kolaborasi — Atur Keuangan Bareng',
+    title: 'Kantong Bersama — Bagikan Satu Kantong ke Rekan',
     body: (
       <div className="flex flex-col gap-3">
-        <P>Fitur Kolaborasi memberi akses penuh (baca &amp; tulis) ke orang lain untuk melihat dan mengelola data yang sama, secara real-time — cocok untuk pasangan, keluarga, atau partner usaha.</P>
+        <P>Kantong Bersama membagikan <b className="text-on-surface">satu kantong tertentu saja</b> (misalnya Kantong Bisnis) ke rekan kerja/usaha — bukan seluruh data akun seperti fitur Kolaborator versi lama. Gratis, tanpa biaya tambahan.</P>
+        <H4>Cara Membagikan (sebagai pemilik kantong)</H4>
         <Steps
           items={[
-            <>Buka <b className="text-on-surface">Profil → Kelola Kolaborator</b>.</>,
-            'Masukkan alamat email orang yang diundang.',
-            'Selesaikan pembayaran biaya kolaborator (sekali bayar per kolaborator, berlaku selamanya selama tidak diputuskan).',
-            'Setelah dikonfirmasi, email yang diundang bisa langsung login dan melihat data yang sama persis.',
+            <>Buka <b className="text-on-surface">Profil → Kantong Bersama</b>, lalu isi form "Kantong Saya yang Dibagikan".</>,
+            'Pilih kantong yang mau dibagikan, masukkan email rekan.',
+            <>Rekan yang diundang <b className="text-on-surface">wajib sudah punya akun KantongKu aktif sendiri</b> — kalau belum, undangan ditolak dan diberi tahu.</>,
+            'Rekan menerima/menolak undangan dari sisi akun mereka sendiri. Setelah diterima, kantong itu langsung tampil di Dashboard mereka.',
           ]}
         />
-        <P>Bisa <b className="text-on-surface">Putuskan Sambungan</b> kapan saja, dan <b className="text-on-surface">Sambungkan Lagi</b> nanti gratis tanpa bayar ulang.</P>
-        <P className="text-amber-400">Kolaborator dapat akses penuh — pastikan hanya mengundang orang yang benar-benar dipercaya.</P>
+        <H4>Bagaimana Uangnya?</H4>
+        <P>Wallet yang dipakai tetap <b className="text-on-surface">wallet milik pemilik kantong</b>. Jadi kalau rekan mencatat transaksi di kantong bersama itu, saldo yang terpotong/bertambah adalah wallet Anda (pemilik), bukan wallet rekan — persis seperti kalau Anda sendiri yang mencatatnya.</P>
+        <H4>Pakai Seperti Kantong Biasa</H4>
+        <P>Setelah diterima, kantong bersama muncul di <b className="text-on-surface">Dashboard</b> (ditandai label "Milik ...") dan juga jadi pilihan kantong di menu <b className="text-on-surface">Tambah Transaksi</b> (ditandai badge "Bersama") — rekan tinggal pilih kantong itu dan mencatat transaksi seperti biasa.</P>
+        <P>Baik pemilik maupun rekan bisa <b className="text-on-surface">memutuskan berbagi</b> kapan saja lewat Profil → Kantong Bersama.</P>
       </div>
     ),
   },
@@ -224,6 +229,14 @@ const GUIDE_SECTIONS: GuideSection[] = [
       <div className="flex flex-col gap-3">
         <P>Semua transaksi bisa dilihat lengkap di menu <b className="text-on-surface">Riwayat</b>, dengan diagram interaktif di atasnya untuk memfilter cepat.</P>
         <P>Di Dashboard, kartu <b className="text-on-surface">Total Pengeluaran Bulan Ini</b> → tekan "Lihat Detail" untuk rekap bulanan lengkap, lalu gunakan panah kiri/kanan untuk menjelajahi bulan-bulan sebelumnya.</P>
+        <H4><Download className="w-3 h-3 inline mr-1 text-primary" />Export ke CSV/PDF</H4>
+        <Steps
+          items={[
+            'Atur dulu filter yang diinginkan (tanggal, kantong, kategori, dll) — export selalu mengikuti data yang sedang tampil di layar.',
+            <>Tekan tombol <b className="text-on-surface">Export</b> di atas daftar transaksi, lalu pilih <b className="text-on-surface">CSV</b> atau <b className="text-on-surface">PDF</b>.</>,
+          ]}
+        />
+        <P>Kedua format berisi tabel rapi dengan kolom No, Tanggal, Transaksi, Nominal, Pemasukan/Pengeluaran, Kantong, Wallet, Kategori, Catatan, dan Input Oleh — plus ringkasan Total Transaksi, Total Pemasukan, dan Total Pengeluaran di bagian atas.</P>
       </div>
     ),
   },
@@ -269,6 +282,17 @@ const GUIDE_SECTIONS: GuideSection[] = [
     ),
   },
   {
+    id: 'tampilan',
+    icon: MoonStar,
+    title: 'Mode Gelap/Terang',
+    body: (
+      <div className="flex flex-col gap-3">
+        <P>KantongKu bisa ditampilkan dalam mode <b className="text-on-surface">Gelap</b> (default) atau <b className="text-on-surface">Terang</b>, sesuai selera atau kondisi cahaya sekitar.</P>
+        <P>Gantinya lewat <b className="text-on-surface">Profil → Tampilan</b> — tinggal geser toggle-nya, seluruh aplikasi langsung berubah dan pilihannya diingat otomatis di perangkat yang sama.</P>
+      </div>
+    ),
+  },
+  {
     id: 'bantuan',
     icon: LifeBuoy,
     title: 'Bantuan & Dukungan',
@@ -295,11 +319,11 @@ const GUIDE_SECTIONS: GuideSection[] = [
       <div className="flex flex-col gap-3.5">
         <div>
           <H4>Apakah saya perlu bayar lagi setelah pembelian pertama?</H4>
-          <P>Tidak. KantongKu produk sekali bayar — pakai selamanya, termasuk update fitur baru tanpa biaya tambahan. Biaya tambahan hanya berlaku kalau menambahkan kolaborator.</P>
+          <P>Tidak. KantongKu produk sekali bayar — pakai selamanya, termasuk update fitur baru tanpa biaya tambahan. Membagikan kantong lewat Kantong Bersama juga gratis, tidak ada biaya tambahan apa pun.</P>
         </div>
         <div>
           <H4>Data saya aman tidak kalau disimpan di KantongKu?</H4>
-          <P>Data tersimpan di server KantongKu dan hanya bisa diakses lewat akun Google yang terverifikasi. Jangan bagikan akses akun ke orang yang tidak dipercaya sepenuhnya — fitur kolaborasi memberi akses penuh.</P>
+          <P>Data tersimpan di server KantongKu dan hanya bisa diakses lewat akun Google yang terverifikasi. Kantong Bersama hanya memberi akses ke satu kantong yang Anda pilih sendiri untuk dibagikan — kantong lain dan data pribadi lainnya tetap tidak terlihat oleh rekan tersebut.</P>
         </div>
         <div>
           <H4>Bagaimana kalau hasil baca AI dari foto struk/suara salah?</H4>
@@ -310,8 +334,8 @@ const GUIDE_SECTIONS: GuideSection[] = [
           <P>KantongKu memakai Login dengan Google — pastikan login memakai email Google yang sama dengan yang dipakai saat pembelian.</P>
         </div>
         <div>
-          <H4>Bisakah saya menghapus akun kolaborator saya sendiri?</H4>
-          <P>Penghapusan/pemutusan akses kolaborator dilakukan oleh pemilik akun (yang mengundang), bukan oleh kolaborator itu sendiri.</P>
+          <H4>Siapa saja yang bisa memutuskan Kantong Bersama?</H4>
+          <P>Baik pemilik kantong maupun rekan yang diundang bisa memutuskan berbagi kapan saja lewat Profil → Kantong Bersama — tidak harus menunggu pemilik akun.</P>
         </div>
       </div>
     ),
