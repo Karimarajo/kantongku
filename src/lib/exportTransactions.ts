@@ -54,6 +54,24 @@ export function buildExportRows(
 
 const EXPORT_HEADERS = ['No', 'Tanggal', 'Transaksi', 'Nominal', 'Tipe', 'Kantong', 'Wallet', 'Kategori', 'Catatan', 'Input Oleh'];
 
+export interface ExportSummary {
+  totalTransaksi: number;
+  totalPemasukan: number;
+  totalPengeluaran: number;
+  selisih: number;
+}
+
+export function computeExportSummary(rows: ExportRow[]): ExportSummary {
+  const totalPemasukan = rows.filter(r => r.tipe === 'Pemasukan').reduce((sum, r) => sum + r.nominal, 0);
+  const totalPengeluaran = rows.filter(r => r.tipe === 'Pengeluaran').reduce((sum, r) => sum + r.nominal, 0);
+  return {
+    totalTransaksi: rows.length,
+    totalPemasukan,
+    totalPengeluaran,
+    selisih: totalPemasukan - totalPengeluaran,
+  };
+}
+
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-z0-9-_ ]/gi, '').trim().replace(/\s+/g, '-').toLowerCase() || 'riwayat-transaksi';
 }
@@ -69,20 +87,35 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Delimiter is ";" not ",": Excel versi Indonesia (list separator lokal
+// koma-desimal) membaca CSV berdasarkan pemisah daftar Windows, yang di
+// locale ID adalah titik koma — kalau dipaksa koma, saat file di-double-klik
+// semua kolom nyatu jadi satu ("tidak rapi"). Titik koma bikin Excel ID
+// otomatis memecah ke kolom yang benar tanpa perlu wizard Text-to-Columns.
+const CSV_DELIMITER = ';';
+
 function csvEscape(value: string | number): string {
   const str = String(value);
-  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  return /[;",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function csvRow(values: (string | number)[]): string {
+  return values.map(csvEscape).join(CSV_DELIMITER);
 }
 
 export function exportTransactionsToCsv(rows: ExportRow[], title: string) {
+  const summary = computeExportSummary(rows);
   const lines = [
     csvEscape(title),
     '',
-    EXPORT_HEADERS.join(','),
+    csvRow(['Total Transaksi', summary.totalTransaksi]),
+    csvRow(['Total Pemasukan', summary.totalPemasukan]),
+    csvRow(['Total Pengeluaran', summary.totalPengeluaran]),
+    csvRow(['Selisih', summary.selisih]),
+    '',
+    csvRow(EXPORT_HEADERS),
     ...rows.map(r =>
-      [r.no, r.tanggal, r.transaksi, r.nominal, r.tipe, r.kantong, r.wallet, r.kategori, r.catatan, r.inputOleh]
-        .map(csvEscape)
-        .join(',')
+      csvRow([r.no, r.tanggal, r.transaksi, r.nominal, r.tipe, r.kantong, r.wallet, r.kategori, r.catatan, r.inputOleh])
     ),
   ];
   // Leading BOM so Excel (still the most common opener for a .csv on
@@ -96,11 +129,19 @@ export function exportTransactionsToCsv(rows: ExportRow[], title: string) {
 export async function exportTransactionsToPdf(rows: ExportRow[], title: string) {
   const { jsPDF } = await import('jspdf');
   const { default: autoTable } = await import('jspdf-autotable');
+  const summary = computeExportSummary(rows);
   const doc = new jsPDF({ orientation: 'landscape' });
   doc.setFontSize(14);
   doc.text(title, 14, 15);
+
+  doc.setFontSize(9);
+  doc.setTextColor(90, 90, 90);
+  const summaryLine = `Total Transaksi: ${summary.totalTransaksi}   |   Total Pemasukan: ${formatRupiah(summary.totalPemasukan)}   |   Total Pengeluaran: ${formatRupiah(summary.totalPengeluaran)}   |   Selisih: ${formatRupiah(summary.selisih)}`;
+  doc.text(summaryLine, 14, 21);
+  doc.setTextColor(0, 0, 0);
+
   autoTable(doc, {
-    startY: 22,
+    startY: 26,
     head: [EXPORT_HEADERS],
     body: rows.map(r => [r.no, r.tanggal, r.transaksi, formatRupiah(r.nominal), r.tipe, r.kantong, r.wallet, r.kategori, r.catatan, r.inputOleh]),
     styles: { fontSize: 8, cellPadding: 2 },

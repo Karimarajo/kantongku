@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '6.0';
+export const APP_VERSION = '6.1';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,16 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '6.1',
+    date: '26 Agustus 2026',
+    changes: [
+      'Perbaikan: "Kantong Bersama" sekarang tampil langsung di Dashboard seperti kantong lain (label "Milik ..."), dan jadi pilihan kantong biasa (badge "Bersama") saat rekan menambah transaksi — sebelumnya cuma bisa diakses lewat menu terpisah di Profil.',
+      'Baru: Export PDF Riwayat Transaksi kini menampilkan ringkasan Total Transaksi, Total Pemasukan, dan Total Pengeluaran di bagian atas.',
+      'Perbaikan: Export CSV sekarang terbuka rapi sebagai tabel di Excel (kolom tidak lagi menyatu jadi satu), lengkap dengan ringkasan total yang sama seperti PDF.',
+      'Panduan Pengguna diperbarui menyesuaikan fitur Kantong Bersama, Export CSV/PDF, dan Mode Gelap/Terang.',
+    ],
+  },
   {
     version: '6.0',
     date: '26 Agustus 2026',
