@@ -838,7 +838,14 @@ export default function App() {
   // Delete transaction operation
   const handleDeleteTransaction = (id: string) => {
     const target = transactions.find(t => t.id === id);
-    if (!target) return;
+    if (!target) {
+      // Not one of my own transactions — check whether it belongs to a
+      // pocket someone shared to me before giving up (see
+      // findSharedPocketTransactionContext above).
+      const shared = findSharedPocketTransactionContext(id);
+      if (shared) handleDeleteSharedPocketTransaction(shared.shareId, id);
+      return;
+    }
 
     const nextTransactions = transactions.filter(t => t.id !== id);
 
@@ -898,7 +905,11 @@ export default function App() {
 
   const handleEditTransaction = (editedTrans: Transaction) => {
     const originalTrans = transactions.find(t => t.id === editedTrans.id);
-    if (!originalTrans) return;
+    if (!originalTrans) {
+      const shared = findSharedPocketTransactionContext(editedTrans.id);
+      if (shared) handleEditSharedPocketTransaction(shared.shareId, editedTrans);
+      return;
+    }
 
     // 1. Revert original transaction balance changes
     let nextPockets = pockets.map(p => {
@@ -1568,7 +1579,7 @@ export default function App() {
   // reflect the owner's freshly-updated wallet.
   const handleAddSharedPocketTransaction = async (
     shareId: string,
-    tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string }
+    tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string; date?: string; notes?: string }
   ): Promise<{ ok: true } | { ok: false; error: string }> => {
     try {
       const res = await fetch(`/api/pocket-shares/${shareId}/transactions`, {
@@ -1586,6 +1597,21 @@ export default function App() {
     }
   };
 
+  const handleEditSharedPocketTransaction = async (shareId: string, transaction: Transaction) => {
+    try {
+      const res = await fetch(`/api/pocket-shares/${shareId}/transactions/${transaction.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(transaction),
+      });
+      if (res.ok) await loadSessionAndData();
+      else console.error('Gagal mengubah transaksi kantong bersama:', (await res.json().catch(() => ({}))).error);
+    } catch (err) {
+      console.error('Gagal mengubah transaksi kantong bersama:', err);
+    }
+  };
+
   const handleDeleteSharedPocketTransaction = async (shareId: string, txId: string) => {
     try {
       const res = await fetch(`/api/pocket-shares/${shareId}/transactions/${txId}`, {
@@ -1596,6 +1622,16 @@ export default function App() {
     } catch (err) {
       console.error('Gagal menghapus transaksi kantong bersama:', err);
     }
+  };
+
+  // Both handleDeleteTransaction and handleEditTransaction below are "mine
+  // first, shared second": an id that isn't in MY OWN transactions[] might
+  // still be a transaction inside a pocket someone else shared to me — this
+  // helper finds which share (if any) owns it, so those two handlers can
+  // route there instead of silently no-op-ing (the pre-Pocket-Sharing
+  // behavior, back when every transaction id was necessarily mine).
+  const findSharedPocketTransactionContext = (transactionId: string) => {
+    return sharedPockets.find(sp => sp.transactions.some(t => t.id === transactionId)) || null;
   };
 
   const handleAddReminder = (newReminder: Reminder) => {
@@ -1934,6 +1970,7 @@ export default function App() {
               pockets={pockets}
               accounts={accounts}
               transactions={transactions}
+              sharedPockets={sharedPockets}
               notifications={notifications}
               userProfile={currentUser}
               categories={categories}
@@ -2027,14 +2064,11 @@ export default function App() {
               sharedPockets={sharedPockets}
               pendingInvitations={pendingInvitations}
               myShares={myShares}
-              currentUserEmail={currentUser?.email || ''}
               onBack={() => setActiveTab('profile')}
               onInvite={handleInvitePocketShare}
               onAcceptInvitation={handleAcceptPocketInvitation}
               onDeclineInvitation={handleDeclinePocketInvitation}
               onDisconnectShare={handleDisconnectPocketShare}
-              onAddSharedTransaction={handleAddSharedPocketTransaction}
-              onDeleteSharedTransaction={handleDeleteSharedPocketTransaction}
             />
           )}
 
@@ -2076,6 +2110,9 @@ export default function App() {
         pockets={pockets}
         accounts={accounts}
         categories={categories}
+        sharedPockets={sharedPockets}
+        onAddSharedTransaction={handleAddSharedPocketTransaction}
+        onEditSharedTransaction={handleEditSharedPocketTransaction}
         // Task 3: keep AddTransactionModal mounted (don't close/clear it)
         // while CategoryManagerModal opens on top (it already renders at a
         // higher z-index, z-[70] vs z-[60] — designed to stack, not

@@ -1,115 +1,37 @@
 import React, { useState } from 'react';
 import { Pocket, PocketShare, SharedPocketBundle } from '../types';
-import { formatRupiah, formatDate } from '../utils';
-import {
-  ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2, Plus, ArrowUpCircle, ArrowDownCircle, Trash2
-} from 'lucide-react';
+import { formatRupiah } from '../utils';
+import { ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2 } from 'lucide-react';
 
 interface SharedPocketsViewProps {
   pockets: Pocket[]; // my own pockets, to share OUT and to resolve names for myShares
   sharedPockets: SharedPocketBundle[]; // pockets shared TO me
   pendingInvitations: any[]; // invitations addressed to me (server-joined with pocket_name/owner_name)
   myShares: PocketShare[]; // shares I've created, across all my pockets
-  currentUserEmail: string;
   onBack: () => void;
   onInvite: (pocketId: string, email: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   onAcceptInvitation: (id: string) => void;
   onDeclineInvitation: (id: string) => void;
   onDisconnectShare: (id: string) => void;
-  onAddSharedTransaction: (
-    shareId: string,
-    tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string }
-  ) => Promise<{ ok: true } | { ok: false; error: string }>;
-  onDeleteSharedTransaction: (shareId: string, txId: string) => void;
 }
 
-// Per-shared-pocket inline "tambah transaksi" form — deliberately a small,
-// dedicated form (not the full AddTransactionModal, which also drives
-// camera/voice AI parsing wired to a global window bridge tied to the
-// OWNER's own handleAddTransaction — reusing it here for a shared pocket
-// would silently misroute those AI paths). Manual entry only, scoped to
-// exactly the wallets/categories the owner's share actually exposed.
-function AddSharedTransactionForm({
-  bundle,
-  onSubmit,
-  onCancel,
-}: {
-  bundle: SharedPocketBundle;
-  onSubmit: (tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string }) => Promise<{ ok: true } | { ok: false; error: string }>;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'incoming' | 'outgoing'>('outgoing');
-  const [accountId, setAccountId] = useState(bundle.accounts[0]?.id || '');
-  const [category, setCategory] = useState(bundle.categories[0]?.id || '');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const numAmount = Number(amount);
-    if (!title.trim() || !numAmount || numAmount <= 0 || !accountId || !category) {
-      setError('Lengkapi semua field dengan nominal lebih dari 0.');
-      return;
-    }
-    setError('');
-    setLoading(true);
-    const result = await onSubmit({ title: title.trim(), amount: numAmount, type, accountId, category });
-    setLoading(false);
-    if (!result.ok) {
-      setError((result as { ok: false; error: string }).error);
-      return;
-    }
-    setTitle('');
-    setAmount('');
-    onCancel();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 p-3 rounded-xl bg-overlay/5 border border-overlay/10 mt-2">
-      <div className="flex gap-2">
-        <button type="button" onClick={() => setType('outgoing')} className={`flex-1 h-9 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${type === 'outgoing' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-overlay/5 text-on-surface-variant border border-overlay/10'}`}>
-          <ArrowUpCircle className="w-3.5 h-3.5" /> Pengeluaran
-        </button>
-        <button type="button" onClick={() => setType('incoming')} className={`flex-1 h-9 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${type === 'incoming' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-overlay/5 text-on-surface-variant border border-overlay/10'}`}>
-          <ArrowDownCircle className="w-3.5 h-3.5" /> Pemasukan
-        </button>
-      </div>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Judul transaksi" className="h-10 bg-overlay/5 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface placeholder:text-on-surface-variant/40" />
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="Nominal" className="h-10 bg-overlay/5 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface placeholder:text-on-surface-variant/40" />
-      <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-10 bg-overlay/5 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface">
-        {bundle.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
-      <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 bg-overlay/5 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface">
-        {bundle.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      {error && <span className="text-xs text-rose-400">{error}</span>}
-      <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 h-10 rounded-lg bg-overlay/5 border border-overlay/10 text-xs text-on-surface-variant">Batal</button>
-        <button type="submit" disabled={loading} className="flex-1 h-10 rounded-lg bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Simpan'}
-        </button>
-      </div>
-    </form>
-  );
-}
-
+// Pure management screen: accept/decline invitations, and share/manage my
+// own pockets. Actually USING a shared pocket (viewing its transactions,
+// adding a new one) lives on the Home dashboard now, right alongside my
+// own pockets — this screen used to duplicate that with its own inline
+// transaction list/add-form, which just meant two different places to do
+// the same thing.
 export default function SharedPocketsView({
   pockets,
   sharedPockets,
   pendingInvitations,
   myShares,
-  currentUserEmail,
   onBack,
   onInvite,
   onAcceptInvitation,
   onDeclineInvitation,
   onDisconnectShare,
-  onAddSharedTransaction,
-  onDeleteSharedTransaction,
 }: SharedPocketsViewProps) {
-  const [addingTxForShareId, setAddingTxForShareId] = useState<string | null>(null);
   const [invitePocketId, setInvitePocketId] = useState(pockets[0]?.id || '');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteError, setInviteError] = useState('');
@@ -162,15 +84,17 @@ export default function SharedPocketsView({
         </section>
       )}
 
-      {/* Kantong yang dibagikan ke saya */}
+      {/* Kantong yang dibagikan ke saya — ringkasan saja; buka lewat Home
+          untuk lihat/tambah transaksinya, sama seperti kantong sendiri. */}
       <section className="flex flex-col gap-2">
         <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">Dibagikan ke Saya</h2>
         {sharedPockets.length === 0 ? (
           <p className="text-xs text-on-surface-variant/60">Belum ada kantong yang dibagikan ke Anda.</p>
         ) : (
-          sharedPockets.map((bundle) => (
-            <div key={bundle.shareId} className="flex flex-col gap-2 p-3 rounded-xl glass-card border border-overlay/5">
-              <div className="flex items-center justify-between">
+          <>
+            <p className="text-[11px] text-on-surface-variant/60 -mt-1">Buka tab Home untuk lihat transaksi dan mencatat transaksi baru — kantong ini muncul di sana bersama kantong Anda sendiri.</p>
+            {sharedPockets.map((bundle) => (
+              <div key={bundle.shareId} className="flex items-center justify-between p-3 rounded-xl glass-card border border-overlay/5">
                 <div>
                   <p className="text-sm font-semibold text-on-surface">{bundle.pocket.name}</p>
                   <p className="text-[11px] text-on-surface-variant/60">milik {bundle.ownerName}</p>
@@ -182,46 +106,8 @@ export default function SharedPocketsView({
                   </button>
                 </div>
               </div>
-
-              <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto no-scrollbar">
-                {bundle.transactions.length === 0 ? (
-                  <p className="text-[11px] text-on-surface-variant/50 py-2">Belum ada transaksi.</p>
-                ) : (
-                  bundle.transactions.slice(0, 20).map((t) => (
-                    <div key={t.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg bg-overlay/[0.03]">
-                      <div className="min-w-0">
-                        <p className="text-on-surface truncate">{t.title}</p>
-                        <p className="text-[10px] text-on-surface-variant/50">{formatDate(t.date)} · {t.inputBy || bundle.ownerName}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <span className={t.type === 'incoming' ? 'text-emerald-400' : 'text-rose-400'}>
-                          {t.type === 'incoming' ? '+' : '-'}{formatRupiah(t.amount)}
-                        </span>
-                        <button onClick={() => onDeleteSharedTransaction(bundle.shareId, t.id)} className="text-on-surface-variant/40 hover:text-rose-400">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {addingTxForShareId === bundle.shareId ? (
-                <AddSharedTransactionForm
-                  bundle={bundle}
-                  onSubmit={(tx) => onAddSharedTransaction(bundle.shareId, tx)}
-                  onCancel={() => setAddingTxForShareId(null)}
-                />
-              ) : (
-                <button
-                  onClick={() => setAddingTxForShareId(bundle.shareId)}
-                  className="h-9 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Tambah Transaksi
-                </button>
-              )}
-            </div>
-          ))
+            ))}
+          </>
         )}
       </section>
 
