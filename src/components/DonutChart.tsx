@@ -78,7 +78,7 @@ export default function DonutChart({ title, data, emptyLabel, selectedId, onSele
               })}
             </svg>
             <div className="absolute inset-0 flex items-center justify-center px-2 pointer-events-none">
-              <span className="font-mono-data text-[9px] font-bold text-white text-center leading-tight break-words">
+              <span className="font-mono-data text-[9px] font-bold text-on-surface text-center leading-tight break-words">
                 {formatRupiah(total)}
               </span>
             </div>
@@ -92,10 +92,10 @@ export default function DonutChart({ title, data, emptyLabel, selectedId, onSele
                 <div
                   key={idx}
                   onClick={onSelect ? () => onSelect(d) : undefined}
-                  className={`flex items-center gap-1.5 text-[10px] min-w-0 rounded-md px-1 -mx-1 py-0.5 transition-colors ${onSelect ? 'cursor-pointer hover:bg-white/5' : ''} ${isSelected ? 'bg-white/5' : ''}`}
+                  className={`flex items-center gap-1.5 text-[10px] min-w-0 rounded-md px-1 -mx-1 py-0.5 transition-colors ${onSelect ? 'cursor-pointer hover:bg-overlay/5' : ''} ${isSelected ? 'bg-overlay/5' : ''}`}
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                  <span className={`truncate flex-grow min-w-0 ${isSelected ? 'text-white font-semibold' : 'text-white/80'}`}>{d.category}</span>
+                  <span className={`truncate flex-grow min-w-0 ${isSelected ? 'text-on-surface font-semibold' : 'text-on-surface/80'}`}>{d.category}</span>
                   <span className="text-on-surface-variant font-mono-data shrink-0">{percent}%</span>
                 </div>
               );

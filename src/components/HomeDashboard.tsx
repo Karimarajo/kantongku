@@ -248,7 +248,7 @@ export default function HomeDashboard({
       {/* HEADER BAR */}
       <header className="flex justify-between items-center w-full bg-transparent z-40 relative pt-1 pb-1 md:justify-end md:pt-0">
         <div className="flex items-center gap-3 md:hidden">
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 flex-shrink-0">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-overlay/10 flex-shrink-0">
             <img 
               alt="User Avatar" 
               className="w-full h-full object-cover" 
@@ -259,7 +259,7 @@ export default function HomeDashboard({
             <p className="font-label-caps text-[10px] text-on-surface-variant/60 uppercase tracking-widest">
               Welcome back,
             </p>
-            <h1 className="font-headline-sm text-white text-base font-semibold leading-tight">
+            <h1 className="font-headline-sm text-on-surface text-base font-semibold leading-tight">
               Halo, {userProfile.name}
             </h1>
           </div>
@@ -275,7 +275,7 @@ export default function HomeDashboard({
                 onMarkAllNotificationsRead();
               }
             }}
-            className="w-10 h-10 rounded-full bg-surface-variant border border-white/10 flex items-center justify-center text-primary hover:bg-white/5 transition-colors relative"
+            className="w-10 h-10 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary hover:bg-overlay/5 transition-colors relative"
           >
             <Bell className="w-5 h-5" />
             {unreadNotifCount > 0 && (
@@ -285,8 +285,8 @@ export default function HomeDashboard({
 
           {/* NOTIFICATION PANEL DRAWER */}
           {isNotifOpen && (
-            <div className="absolute right-0 mt-3 w-80 glass-card rounded-xl p-4 z-50 border border-white/10 shadow-2xl flex flex-col gap-3">
-              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+            <div className="absolute right-0 mt-3 w-80 glass-card rounded-xl p-4 z-50 border border-overlay/10 shadow-2xl flex flex-col gap-3">
+              <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
                 <span className="font-label-caps text-xs text-primary uppercase">Notifikasi</span>
                 <span className="text-[10px] text-on-surface-variant font-mono-data">{unreadNotifCount} baru</span>
               </div>
@@ -298,10 +298,10 @@ export default function HomeDashboard({
                   notifications.map(notif => (
                     <div 
                       key={notif.id} 
-                      className={`p-2.5 rounded-lg text-xs flex flex-col gap-1 ${notif.type === 'warning' ? 'bg-[#EF4444]/10 border-l-2 border-l-[#EF4444]' : 'bg-primary/5 border-l-2 border-l-primary'}`}
+                      className={`p-2.5 rounded-lg text-xs flex flex-col gap-1 ${notif.type === 'warning' ? 'bg-danger/10 border-l-2 border-l-[#EF4444]' : 'bg-primary/5 border-l-2 border-l-primary'}`}
                     >
                       <div className="flex justify-between items-center">
-                        <span className="font-bold text-white flex items-center gap-1">
+                        <span className="font-bold text-on-surface flex items-center gap-1">
                           {notif.type === 'warning' && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
                           {notif.title}
                         </span>
@@ -321,7 +321,7 @@ export default function HomeDashboard({
       <div className="flex justify-end w-full">
         <button
           onClick={onOpenPocketManager}
-          className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:border-primary/40 hover:bg-white/10 text-xs font-bold font-label-caps text-on-surface-variant hover:text-white rounded-xl transition-all active:scale-95"
+          className="flex items-center gap-2 px-4 py-2 bg-overlay/5 border border-overlay/10 hover:border-primary/40 hover:bg-overlay/10 text-xs font-bold font-label-caps text-on-surface-variant hover:text-on-surface rounded-xl transition-all active:scale-95"
         >
           <Sliders className="w-3.5 h-3.5 text-primary" />
           Kelola Kantong
@@ -356,7 +356,7 @@ export default function HomeDashboard({
                 </span>
               )}
               {trendPercent === 0 && (
-                <span className="px-2 py-0.5 bg-white/5 text-on-surface-variant rounded font-mono-data text-xs flex items-center gap-1 border border-white/10">
+                <span className="px-2 py-0.5 bg-overlay/5 text-on-surface-variant rounded font-mono-data text-xs flex items-center gap-1 border border-overlay/10">
                   0.0%
                 </span>
               )}
@@ -367,7 +367,7 @@ export default function HomeDashboard({
           {/* Total Pengeluaran Bulan Ini — entry point ke drill-down bulanan (Task 6) */}
           <button
             onClick={onOpenMonthlyDetail}
-            className="glass-card rounded-xl p-4 flex items-center justify-between gap-3 text-left hover:bg-white/5 transition-all border border-white/5 group"
+            className="glass-card rounded-xl p-4 flex items-center justify-between gap-3 text-left hover:bg-overlay/5 transition-all border border-overlay/5 group"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
@@ -375,7 +375,7 @@ export default function HomeDashboard({
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">Total Pengeluaran Bulan Ini</p>
-                <p className="font-mono-data text-white font-bold text-base truncate">{formatRupiah(monthlyExpenseTotal)}</p>
+                <p className="font-mono-data text-on-surface font-bold text-base truncate">{formatRupiah(monthlyExpenseTotal)}</p>
               </div>
             </div>
             <span className="flex items-center gap-0.5 text-[11px] text-primary font-label-caps shrink-0 group-hover:underline">
@@ -407,7 +407,7 @@ export default function HomeDashboard({
                 <div 
                   key={p.id} 
                   onClick={() => setSelectedPocketId(isSelected ? null : p.id)}
-                  className={`glass-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-white/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? activeRingClass : 'border-white/5'}`}
+                  className={`glass-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-overlay/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? activeRingClass : 'border-overlay/5'}`}
                   style={{ borderLeftColor: colorHex }}
                 >
                   <div className="absolute top-3.5 right-3.5" style={{ color: colorHex + 'd1' }}>
@@ -416,7 +416,7 @@ export default function HomeDashboard({
                   <p className={`text-[10px] font-bold uppercase tracking-wider truncate pr-6 ${colorTextClass}`}>
                     {p.name}
                   </p>
-                  <p className="text-md font-bold text-white font-mono mt-0.5">{formatRupiah(p.balance)}</p>
+                  <p className="text-md font-bold text-on-surface font-mono mt-0.5">{formatRupiah(p.balance)}</p>
                   <span className="text-[9px] text-on-surface-variant/50 italic truncate mt-0.5 block">{p.tag}</span>
                 </div>
               );
@@ -430,7 +430,7 @@ export default function HomeDashboard({
                 onClick={() => setTopUpModalOpen(true)}
                 className="flex flex-col items-center gap-2 group w-full"
               >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/20 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
+                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/20 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
                   <Plus className="w-6 h-6" />
                 </div>
                 <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Add Dana</span>
@@ -440,7 +440,7 @@ export default function HomeDashboard({
                 onClick={() => setTransferModalOpen(true)}
                 className="flex flex-col items-center gap-2 group w-full"
               >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
+                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
                   <Send className="w-5 h-5" />
                 </div>
                 <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Transfer</span>
@@ -450,7 +450,7 @@ export default function HomeDashboard({
                 onClick={onOpenBudgetModal}
                 className="flex flex-col items-center gap-2 group w-full"
               >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
+                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
                   <Receipt className="w-5 h-5" />
                 </div>
                 <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Target & Limit</span>
@@ -460,7 +460,7 @@ export default function HomeDashboard({
                 onClick={onOpenReminderModal}
                 className="flex flex-col items-center gap-2 group w-full"
               >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
+                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
                   <AlarmClock className="w-5 h-5" />
                 </div>
                 <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Pengingat</span>
@@ -474,8 +474,8 @@ export default function HomeDashboard({
               bukan dihitung ulang di sini. */}
           {budgets.length > 0 && (
             <section className="flex flex-col gap-3">
-              <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                <h3 className="font-headline-sm text-lg text-white flex items-center gap-1.5">
+              <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
+                <h3 className="font-headline-sm text-lg text-on-surface flex items-center gap-1.5">
                   <Target className="w-4 h-4 text-primary" /> Target &amp; Limit
                 </h3>
                 <button
@@ -499,15 +499,15 @@ export default function HomeDashboard({
                     <button
                       key={budget.id}
                       onClick={onOpenBudgetModal}
-                      className="glass-card rounded-xl p-3.5 flex flex-col gap-2 border border-white/5 hover:bg-white/5 transition-all text-left"
+                      className="glass-card rounded-xl p-3.5 flex flex-col gap-2 border border-overlay/5 hover:bg-overlay/5 transition-all text-left"
                     >
                       <div className="flex justify-between items-center gap-2">
-                        <span className="text-xs font-semibold text-white truncate">{budget.title}</span>
+                        <span className="text-xs font-semibold text-on-surface truncate">{budget.title}</span>
                         <span className="text-[10px] font-mono-data text-on-surface-variant shrink-0">
                           {formatRupiah(budget.spent, false)} / {formatRupiah(budget.limit, false)}
                         </span>
                       </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-overlay/5 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${percentage}%` }} />
                       </div>
                       <span className="text-[10px] text-on-surface-variant/70">
@@ -527,9 +527,9 @@ export default function HomeDashboard({
         {/* RIGHT COLUMN: Recent Transactions */}
         <div className="lg:col-span-5 flex flex-col gap-6 w-full min-w-0">
           <section className="flex flex-col gap-3">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+            <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
               <div className="flex items-center gap-2 max-w-[70%]">
-                <h3 className="font-headline-sm text-lg text-white truncate">
+                <h3 className="font-headline-sm text-lg text-on-surface truncate">
                   {selectedPocketId ? 'Aktivitas Kantong' : 'Aktivitas Terakhir'}
                 </h3>
                 {selectedPocketId && (
@@ -574,21 +574,21 @@ export default function HomeDashboard({
                   const isExpense = t.type === 'outgoing';
                   const pocket = pockets.find(p => p.id === t.pocketId);
                   const pocketLabel = pocket ? pocket.name : 'Kantong Lainnya';
-                  const catColorClass = isExpense ? 'text-[#EF4444]' : 'text-primary';
+                  const catColorClass = isExpense ? 'text-danger' : 'text-primary';
 
                   return (
                     <div 
                       key={t.id}
                       id={`transaksi-${t.id}`}
                       onClick={() => onEditTransactionSelect(t)}
-                      className="glass-card rounded-xl p-3 flex justify-between items-center hover:bg-white/5 transition-all group relative cursor-pointer border border-white/5"
+                      className="glass-card rounded-xl p-3 flex justify-between items-center hover:bg-overlay/5 transition-all group relative cursor-pointer border border-overlay/5"
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-on-surface-variant group-hover:scale-105 transition-transform shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-overlay/10 flex items-center justify-center text-on-surface-variant group-hover:scale-105 transition-transform shrink-0">
                           {getCategoryIcon(t.category)}
                         </div>
                         <div>
-                          <p className="font-body-md text-white font-medium">{t.title}</p>
+                          <p className="font-body-md text-on-surface font-medium">{t.title}</p>
                           <p className="text-[11px] text-on-surface-variant">
                             {pocketLabel} • <span className="font-mono-data text-[10px]">{formatDate(t.date)}</span>
                           </p>
@@ -610,7 +610,7 @@ export default function HomeDashboard({
                               }
                             }
                           }}
-                          className="p-1 text-on-surface-variant/50 hover:text-[#EF4444] transition-all"
+                          className="p-1 text-on-surface-variant/50 hover:text-danger transition-all"
                           title="Hapus transaksi"
                         >
                           <Trash2 className="w-[18px] h-[18px]" />
@@ -630,8 +630,8 @@ export default function HomeDashboard({
       {transferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTransferModalOpen(false)} />
-          <div className="relative glass-card rounded-xl p-card_padding w-full max-w-sm border border-white/10 z-10">
-            <h3 className="font-headline-sm text-white mb-4 flex items-center gap-2">
+          <div className="relative glass-card rounded-xl p-card_padding w-full max-w-sm border border-overlay/10 z-10">
+            <h3 className="font-headline-sm text-on-surface mb-4 flex items-center gap-2">
               <Send className="w-5 h-5 text-primary" />
               Transfer Antar Wallet
             </h3>
@@ -643,7 +643,7 @@ export default function HomeDashboard({
                   <select
                     value={transferFromAcc}
                     onChange={(e) => setTransferFromAcc(e.target.value)}
-                    className="h-10 bg-[#0B111E] rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-2"
+                    className="h-10 bg-body-bg rounded-lg text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary px-2"
                   >
                     {accounts.map(a => (
                       <option key={a.id} value={a.id}>{a.name}</option>
@@ -658,7 +658,7 @@ export default function HomeDashboard({
                   <select
                     value={transferToAcc}
                     onChange={(e) => setTransferToAcc(e.target.value)}
-                    className="h-10 bg-[#0B111E] rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-2"
+                    className="h-10 bg-body-bg rounded-lg text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary px-2"
                   >
                     {accounts.filter(a => a.id !== transferFromAcc).map(a => (
                       <option key={a.id} value={a.id}>{a.name}</option>
@@ -682,7 +682,7 @@ export default function HomeDashboard({
                       setTransferAmount(raw ? Number(raw) : 0);
                       setTransferAmountDisplay(raw ? new Intl.NumberFormat('id-ID').format(Number(raw)) : '');
                     }}
-                    className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary pl-9 pr-2 font-mono-data"
+                    className="h-10 bg-surface rounded-lg w-full text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary pl-9 pr-2 font-mono-data"
                   />
                 </div>
               </div>
@@ -694,7 +694,7 @@ export default function HomeDashboard({
                   placeholder="Contoh: Isi ulang GoPay"
                   value={transferNote}
                   onChange={(e) => setTransferNote(e.target.value)}
-                  className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-3"
+                  className="h-10 bg-surface rounded-lg w-full text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary px-3"
                 />
               </div>
 
@@ -702,7 +702,7 @@ export default function HomeDashboard({
                 <button
                   type="button"
                   onClick={() => setTransferModalOpen(false)}
-                  className="w-full h-10 rounded-lg text-xs font-label-caps bg-white/5 border border-white/10 text-on-surface-variant hover:text-white"
+                  className="w-full h-10 rounded-lg text-xs font-label-caps bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface"
                 >
                   Batal
                 </button>
@@ -722,8 +722,8 @@ export default function HomeDashboard({
       {topUpModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTopUpModalOpen(false)} />
-          <div className="relative glass-card rounded-xl p-card_padding w-full max-w-sm border border-white/10 z-10">
-            <h3 className="font-headline-sm text-white mb-4 flex items-center gap-2">
+          <div className="relative glass-card rounded-xl p-card_padding w-full max-w-sm border border-overlay/10 z-10">
+            <h3 className="font-headline-sm text-on-surface mb-4 flex items-center gap-2">
               <PiggyBank className="w-5 h-5 text-primary" />
               Top Up Wallet
             </h3>
@@ -734,7 +734,7 @@ export default function HomeDashboard({
                 <select
                   value={topUpAccountId}
                   onChange={(e) => setTopUpAccountId(e.target.value)}
-                  className="h-10 bg-[#0B111E] rounded-lg text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-2"
+                  className="h-10 bg-body-bg rounded-lg text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary px-2"
                 >
                   {accounts.map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
@@ -757,7 +757,7 @@ export default function HomeDashboard({
                       setTopUpAmount(raw ? Number(raw) : 0);
                       setTopUpAmountDisplay(raw ? new Intl.NumberFormat('id-ID').format(Number(raw)) : '');
                     }}
-                    className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary pl-9 pr-2 font-mono-data"
+                    className="h-10 bg-surface rounded-lg w-full text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary pl-9 pr-2 font-mono-data"
                   />
                 </div>
               </div>
@@ -769,7 +769,7 @@ export default function HomeDashboard({
                   placeholder="Contoh: Setor tunai dari ATM"
                   value={topUpNote}
                   onChange={(e) => setTopUpNote(e.target.value)}
-                  className="h-10 bg-surface rounded-lg w-full text-xs text-white border border-white/10 focus:outline-none focus:border-primary px-3"
+                  className="h-10 bg-surface rounded-lg w-full text-xs text-on-surface border border-overlay/10 focus:outline-none focus:border-primary px-3"
                 />
               </div>
 
@@ -777,7 +777,7 @@ export default function HomeDashboard({
                 <button
                   type="button"
                   onClick={() => setTopUpModalOpen(false)}
-                  className="w-full h-10 rounded-lg text-xs font-label-caps bg-white/5 border border-white/10 text-on-surface-variant hover:text-white"
+                  className="w-full h-10 rounded-lg text-xs font-label-caps bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface"
                 >
                   Batal
                 </button>

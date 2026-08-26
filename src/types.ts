@@ -39,6 +39,14 @@ export interface Transaction {
   category: CategoryType;
   date: string; // ISO String or Date representation
   notes?: string;
+  // Email of whoever actually entered this transaction. Only meaningfully
+  // populated for transactions made through a SHARED pocket (see
+  // PocketShare below) — someone other than the pocket's owner, editing the
+  // owner's own wallet balance. Undefined for historical transactions from
+  // before this field existed, and for an owner's own normal transactions
+  // (where "me" is implicit) — the export feature falls back to the
+  // current user's own email in that case, never leaves the column blank.
+  inputBy?: string;
 }
 
 export interface Budget {
@@ -146,35 +154,40 @@ export interface DebtPayment {
   paidAt: string; // ISO string
 }
 
-// A collaborator has FULL read/write access to the owner's user_app_data —
-// the server resolves this at the session layer (requireSession's
-// effectiveUserId in server.ts), the frontend just needs to display/manage
-// the invite list. Field names match the raw Postgres columns returned by
-// /api/collaborators (snake_case), same convention AdminConsole.tsx already
-// uses for Order/AdminUser rather than introducing a transform layer for it.
-export interface Collaborator {
+// v11: per-pocket sharing, REPLACES the old whole-account "Collaborator"
+// concept — an owner shares ONE pocket (not their whole account) with
+// another already-registered-and-active KantongKu user, for free (no
+// order/payment involved, unlike the old collaborator flow). Field names
+// match the raw Postgres `pocket_shares` columns (snake_case), same
+// convention the old `Collaborator`/AdminConsole.tsx's Order/AdminUser
+// interfaces already used rather than introducing a transform layer.
+export interface PocketShare {
   id: string;
-  email: string;
-  // 'pending_payment' = order created, waiting for admin confirmation (Task
-  // 2 revision — no more free/stub activation, same manual-payment flow as
-  // the main license).
-  status: 'pending_payment' | 'active' | 'revoked';
+  owner_user_id: string;
+  pocket_id: string;
+  invited_email: string;
+  // 'pending' = invited, awaiting the invitee's explicit accept/decline.
+  // 'active' = invitee accepted, can see/transact in the shared pocket.
+  // 'revoked' = declined by the invitee, or disconnected by the owner.
+  status: 'pending' | 'active' | 'revoked';
   invited_at: string;
   activated_at: string | null;
   disconnected_at: string | null;
-  disconnected_by: 'owner' | 'admin' | null;
-  // Set once this row has ever been paid for — a non-null order_id is what
-  // makes a free reconnect (no new order) legitimate after a disconnect.
-  order_id: string | null;
+  disconnected_by: 'owner' | 'invitee' | null;
 }
 
-// Payment instructions for a collaborator-seat order — same shape returned
-// by POST /api/collaborators/invite and GET /api/collaborators/:id/pending-order.
-// Doku Checkout/Invoice (automatic payment link) — no more static QRIS, no
-// more manual BCA transfer, no more channel choice.
-export interface CollaboratorOrder {
-  order_code: string;
-  total_amount: number;
-  paymentUrl: string;
+// What an invitee actually sees for one pocket shared TO them — the
+// owner's pocket + only the transactions/accounts/categories that pocket
+// touches, never the owner's other pockets/wallets. Returned by GET
+// /api/data as a `sharedPockets` array alongside (not merged into) the
+// caller's own pockets/transactions/accounts/categories.
+export interface SharedPocketBundle {
+  shareId: string;
+  ownerUserId: string;
+  ownerName: string;
+  pocket: Pocket;
+  transactions: Transaction[];
+  accounts: Account[];
+  categories: Category[];
 }
 

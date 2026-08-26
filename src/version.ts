@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '5.4';
+export const APP_VERSION = '6.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,15 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '6.0',
+    date: '26 Agustus 2026',
+    changes: [
+      'Baru: "Kantong Bersama" menggantikan fitur Kolaborator lama — sekarang Anda membagikan satu kantong tertentu (misal Kantong Bisnis) ke rekan yang sudah punya akun KantongKu sendiri, bukan seluruh data akun. Rekan bisa terima/tolak undangan, dan transaksi yang mereka catat di kantong bersama otomatis memotong wallet Anda. Gratis, tanpa pembayaran.',
+      'Baru: tombol Export di halaman Riwayat Transaksi — unduh data yang sedang tampil (sesuai filter aktif) sebagai CSV atau PDF, lengkap dengan kolom kantong, wallet, kategori, dan siapa yang menginput.',
+      'Baru: mode tampilan Terang/Gelap, bisa diganti lewat toggle di halaman Profil (default: Gelap).',
+    ],
+  },
   {
     version: '5.4',
     date: '22 Agustus 2026',

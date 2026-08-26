@@ -504,11 +504,11 @@ export default function AccountView({
   const selectedAccount = selectedAccountId ? accounts.find(a => a.id === selectedAccountId) : null;
 
   return (
-    <div className="flex flex-col gap-6 select-none font-body-md text-white">
+    <div className="flex flex-col gap-6 select-none font-body-md text-on-surface">
       {/* Title Header */}
       <div className="flex justify-between items-center w-full">
         <div>
-          <h1 className="font-headline-md text-2xl text-white font-bold leading-tight">Dompet &amp; Wallet</h1>
+          <h1 className="font-headline-md text-2xl text-on-surface font-bold leading-tight">Dompet &amp; Wallet</h1>
           <p className="text-sm text-on-surface-variant mt-1.5 leading-relaxed">
             Kelola simpanan fisik (Bank/E-Wallet/Dompet) dan pantau alokasi kantong di dalamnya.
           </p>
@@ -534,7 +534,7 @@ export default function AccountView({
             <button 
               type="button"
               onClick={() => setDeleteWarning(null)}
-              className="mt-2 text-white bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1 rounded text-[10px] font-bold"
+              className="mt-2 text-on-surface bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1 rounded text-[10px] font-bold"
             >
               Saya Mengerti
             </button>
@@ -572,7 +572,7 @@ export default function AccountView({
                       onPointerMove={handleCardPointerMove}
                       onPointerUp={(e) => handleCardPointerUp(e, acc.id)}
                       onPointerCancel={() => handleCardPointerCancel(acc.id)}
-                      className={`glass-card rounded-xl p-5 relative overflow-hidden flex flex-col gap-3 hover:bg-white/5 transition-all duration-200 cursor-pointer select-none ${isFocused ? 'ring-2 ring-offset-2 ring-offset-[#0B111E]' : ''} ${isDragging ? 'opacity-60 scale-95 shadow-2xl z-10' : ''} ${isDropTarget ? 'ring-2 ring-primary ring-dashed' : ''}`}
+                      className={`glass-card rounded-xl p-5 relative overflow-hidden flex flex-col gap-3 hover:bg-overlay/5 transition-all duration-200 cursor-pointer select-none ${isFocused ? 'ring-2 ring-offset-2 ring-offset-[#0B111E]' : ''} ${isDragging ? 'opacity-60 scale-95 shadow-2xl z-10' : ''} ${isDropTarget ? 'ring-2 ring-primary ring-dashed' : ''}`}
                       style={{
                         borderLeftColor: borderHex,
                         borderLeftWidth: '4px',
@@ -586,7 +586,7 @@ export default function AccountView({
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2.5 min-w-0">
                           {getAccountIcon(acc.icon, borderHex)}
-                          <h3 className="font-headline-sm text-md text-white font-medium truncate">{acc.name}</h3>
+                          <h3 className="font-headline-sm text-md text-on-surface font-medium truncate">{acc.name}</h3>
                         </div>
 
                         {/* CRUD Tools in header */}
@@ -597,14 +597,14 @@ export default function AccountView({
                         >
                           <button
                             onClick={(e) => handleCopyAccountInfo(e, acc)}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white transition-colors"
+                            className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors"
                             title="Salin info rekening"
                           >
                             {copiedId === acc.id ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                           <button
                             onClick={() => handleOpenEdit(acc)}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white transition-colors"
+                            className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors"
                             title="Edit rekening"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -612,7 +612,7 @@ export default function AccountView({
                           {accounts.length > 1 && (
                             <button
                               onClick={() => handleDeleteCheck(acc.id, acc.name)}
-                              className="p-1.5 bg-white/5 hover:bg-rose-500/5 hover:border-rose-500/20 border border-white/5 rounded-lg text-on-surface-variant/60 hover:text-rose-400 transition-colors"
+                              className="p-1.5 bg-overlay/5 hover:bg-rose-500/5 hover:border-rose-500/20 border border-overlay/5 rounded-lg text-on-surface-variant/60 hover:text-rose-400 transition-colors"
                               title="Hapus rekening"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -623,10 +623,10 @@ export default function AccountView({
 
                       <div>
                         <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">Saldo Total</p>
-                        <p className="font-mono-data text-xl font-bold text-white mt-0.5">{formatRupiah(acc.balance)}</p>
+                        <p className="font-mono-data text-xl font-bold text-on-surface mt-0.5">{formatRupiah(acc.balance)}</p>
                       </div>
 
-                      <div className="flex justify-between items-center mt-1 pt-2.5 border-t border-white/5 gap-2">
+                      <div className="flex justify-between items-center mt-1 pt-2.5 border-t border-overlay/5 gap-2">
                         <div className="flex flex-col min-w-0">
                           <span className="text-[10px] text-on-surface-variant/60 font-mono-data truncate max-w-[150px]">{acc.accountNumber || '-'}</span>
                           {acc.ownerName && (
@@ -648,14 +648,14 @@ export default function AccountView({
           {/* RIGHT COLUMN: Pocket Allocation Breakdown for Focused Account */}
           <div className="lg:col-span-5 w-full">
             {selectedAccount ? (
-              <div className="glass-card rounded-xl p-5 border border-white/10 relative overflow-hidden flex flex-col gap-4 animate-fade-in">
+              <div className="glass-card rounded-xl p-5 border border-overlay/10 relative overflow-hidden flex flex-col gap-4 animate-fade-in">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
                 
                 {isEditingAllocation ? (
                   <form onSubmit={handleAllocationSubmit} className="flex flex-col gap-4 text-left">
-                    <div className="border-b border-white/5 pb-2">
+                    <div className="border-b border-overlay/5 pb-2">
                       <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Atur Alokasi Saldo</span>
-                      <h3 className="font-headline-sm text-lg text-white font-bold flex items-center gap-2 mt-0.5">
+                      <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
                         {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
                         {selectedAccount.name}
                       </h3>
@@ -671,7 +671,7 @@ export default function AccountView({
                         const isPribadi = p.id === 'pribadi';
                         return (
                           <div key={p.id} className="flex flex-col gap-1.5">
-                            <label className="text-[11px] text-white/80 font-medium">
+                            <label className="text-[11px] text-on-surface/80 font-medium">
                               {p.name} {isPribadi && <span className="text-[10px] text-on-surface-variant">(Terhitung Otomatis)</span>}
                             </label>
                             <div className="relative flex items-center">
@@ -695,7 +695,7 @@ export default function AccountView({
                                     handleAllocationInputChange(p.id, evaluateEquation(clean));
                                   }
                                 }}
-                                className={`h-10 w-full bg-[#0B111E]/40 border border-white/10 rounded-lg pl-9 pr-3 text-xs text-white focus:outline-none focus:border-primary/60 font-mono-data ${isPribadi ? 'opacity-60 cursor-not-allowed bg-slate-800/20' : ''}`}
+                                className={`h-10 w-full bg-body-bg/40 border border-overlay/10 rounded-lg pl-9 pr-3 text-xs text-on-surface focus:outline-none focus:border-primary/60 font-mono-data ${isPribadi ? 'opacity-60 cursor-not-allowed bg-slate-800/20' : ''}`}
                               />
                             </div>
                           </div>
@@ -704,7 +704,7 @@ export default function AccountView({
                     </div>
 
                     {showAllocCalc && activeAllocPocketId && (
-                      <div className="mt-2 border-t border-white/5 pt-3 animate-fade-in">
+                      <div className="mt-2 border-t border-overlay/5 pt-3 animate-fade-in">
                         <CalcKeyboard
                           onKeyPress={handleAllocCalcKeyPress}
                           onClear={handleAllocCalcClear}
@@ -716,12 +716,12 @@ export default function AccountView({
                     )}
 
                     {/* Totals check */}
-                    <div className="p-3 bg-surface-variant/30 border border-white/5 rounded-xl text-xs flex flex-col gap-1.5 font-mono-data">
+                    <div className="p-3 bg-surface-variant/30 border border-overlay/5 rounded-xl text-xs flex flex-col gap-1.5 font-mono-data">
                       <div className="flex justify-between text-on-surface-variant">
                         <span>Total Saldo Wallet:</span>
                         <span>{formatRupiah(selectedAccount.balance)}</span>
                       </div>
-                      <div className="flex justify-between text-white font-bold">
+                      <div className="flex justify-between text-on-surface font-bold">
                         <span>Total Dialokasikan:</span>
                         <span>{formatRupiah(totalAllocatedInput)}</span>
                       </div>
@@ -731,7 +731,7 @@ export default function AccountView({
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-2 border-t border-white/5">
+                    <div className="flex gap-2 pt-2 border-t border-overlay/5">
                       <button
                         type="submit"
                         disabled={totalAllocatedInput !== selectedAccount.balance}
@@ -743,7 +743,7 @@ export default function AccountView({
                       <button
                         type="button"
                         onClick={() => setIsEditingAllocation(false)}
-                        className="px-3 h-10 bg-white/5 border border-white/10 text-on-surface-variant hover:text-white rounded-xl text-xs font-semibold hover:bg-white/10 transition-all"
+                        className="px-3 h-10 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold hover:bg-overlay/10 transition-all"
                       >
                         Batal
                       </button>
@@ -751,9 +751,9 @@ export default function AccountView({
                   </form>
                 ) : (
                   <>
-                    <div className="border-b border-white/5 pb-3">
+                    <div className="border-b border-overlay/5 pb-3">
                       <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Rincian Alokasi Uang</span>
-                      <h3 className="font-headline-sm text-lg text-white font-bold flex items-center gap-2 mt-0.5">
+                      <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
                         {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
                         {selectedAccount.name}
                       </h3>
@@ -769,7 +769,7 @@ export default function AccountView({
                       ) : (
                         <>
                           {/* Allocation percentages progress bar */}
-                          <div className="flex h-3 w-full rounded-full overflow-hidden bg-white/5 border border-white/5">
+                          <div className="flex h-3 w-full rounded-full overflow-hidden bg-overlay/5 border border-overlay/5">
                             {activeAllocations.map(alloc => (
                               <div 
                                 key={alloc.pocketId}
@@ -787,13 +787,13 @@ export default function AccountView({
                             {activeAllocations.map(alloc => {
                               const pColor = getPocketColorHex(alloc.color);
                               return (
-                                <div key={alloc.pocketId} className="flex items-center justify-between text-sm py-1.5 border-b border-white/5 last:border-b-0">
+                                <div key={alloc.pocketId} className="flex items-center justify-between text-sm py-1.5 border-b border-overlay/5 last:border-b-0">
                                   <div className="flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pColor }} />
-                                    <span className="text-white font-medium">{alloc.name}</span>
+                                    <span className="text-on-surface font-medium">{alloc.name}</span>
                                   </div>
                                   <div className="text-right">
-                                    <p className="font-mono-data text-xs font-bold text-white">{formatRupiah(alloc.balance)}</p>
+                                    <p className="font-mono-data text-xs font-bold text-on-surface">{formatRupiah(alloc.balance)}</p>
                                     <p className="text-[10px] text-on-surface-variant font-mono-data mt-0.5">{alloc.percentage}% dari saldo wallet</p>
                                   </div>
                                 </div>
@@ -814,7 +814,7 @@ export default function AccountView({
                           Sesuaikan Alokasi Dana
                         </button>
                       ) : (
-                        <div className="p-3 bg-white/5 border border-white/5 rounded-xl text-xs text-on-surface-variant/60 flex items-center gap-2 mt-2">
+                        <div className="p-3 bg-overlay/5 border border-overlay/5 rounded-xl text-xs text-on-surface-variant/60 flex items-center gap-2 mt-2">
                           <Info className="w-4 h-4 shrink-0 text-primary" />
                           <span>Saldo wallet Rp 0. Catat pemasukan baru di wallet ini terlebih dahulu untuk mengalokasikan dana.</span>
                         </div>
@@ -824,9 +824,9 @@ export default function AccountView({
                 )}
               </div>
             ) : (
-              <div className="glass-card rounded-xl p-6 text-center border border-white/5 text-on-surface-variant/40 flex flex-col items-center gap-2 py-12">
+              <div className="glass-card rounded-xl p-6 text-center border border-overlay/5 text-on-surface-variant/40 flex flex-col items-center gap-2 py-12">
                 <Sliders className="w-9 h-9 text-on-surface-variant/25" />
-                <h3 className="text-sm font-semibold text-white/80">Pilih Wallet</h3>
+                <h3 className="text-sm font-semibold text-on-surface/80">Pilih Wallet</h3>
                 <p className="text-xs leading-relaxed max-w-[200px] mx-auto text-on-surface-variant/50">
                   Klik salah satu kartu wallet di samping untuk melihat rincian alokasi kantong di dalamnya.
                 </p>
@@ -837,7 +837,7 @@ export default function AccountView({
         </div>
       ) : (
         /* ADD / EDIT FORM OVERLAY */
-        <div className="glass-card rounded-xl p-5 border border-white/10 max-w-md mx-auto w-full">
+        <div className="glass-card rounded-xl p-5 border border-overlay/10 max-w-md mx-auto w-full">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
             
             {/* Account Name */}
@@ -850,7 +850,7 @@ export default function AccountView({
                 placeholder="Contoh: Bank BCA, E-Wallet ShopeePay"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+                className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
               />
             </div>
 
@@ -863,7 +863,7 @@ export default function AccountView({
                 placeholder="Contoh: 1234567890"
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
-                className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+                className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
               />
             </div>
 
@@ -876,7 +876,7 @@ export default function AccountView({
                 placeholder="Contoh: Kurnia Ramadhan"
                 value={ownerName}
                 onChange={(e) => setOwnerName(e.target.value)}
-                className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+                className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
               />
             </div>
 
@@ -897,13 +897,13 @@ export default function AccountView({
                     const clean = e.target.value.replace(/[^0-9+\-*/]/g, '');
                     setInitialBalanceExpr(clean);
                   }}
-                  className="h-11 w-full bg-surface-variant/40 border border-white/10 rounded-lg pl-9 pr-3 text-sm text-white focus:outline-none focus:border-primary/60 font-mono-data"
+                  className="h-11 w-full bg-surface-variant/40 border border-overlay/10 rounded-lg pl-9 pr-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-mono-data"
                 />
               </div>
             </div>
 
             {showInitialCalc && (
-              <div className="mt-2 border-t border-white/5 pt-3 animate-fade-in">
+              <div className="mt-2 border-t border-overlay/5 pt-3 animate-fade-in">
                 <CalcKeyboard
                   onKeyPress={handleInitialKeyPress}
                   onClear={handleInitialClear}
@@ -923,7 +923,7 @@ export default function AccountView({
                     key={c.value}
                     type="button"
                     onClick={() => setColor(c.value)}
-                    className={`h-9 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold ${color === c.value ? c.activeClass : 'bg-surface-variant/10 border-white/5 text-on-surface-variant hover:bg-white/5'}`}
+                    className={`h-9 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold ${color === c.value ? c.activeClass : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                     style={{ color: c.hex, borderColor: color === c.value ? c.hex : '' }}
                     title={c.label}
                   >
@@ -948,7 +948,7 @@ export default function AccountView({
                       key={i.value}
                       type="button"
                       onClick={() => setIcon(i.value)}
-                      className={`h-10 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-all border ${isSelected ? '' : 'bg-surface-variant/10 border-white/5 text-on-surface-variant hover:bg-white/5'}`}
+                      className={`h-10 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-all border ${isSelected ? '' : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                       style={isSelected ? activeStyle : {}}
                     >
                       <IconComp className="w-4 h-4 shrink-0" />
@@ -960,7 +960,7 @@ export default function AccountView({
             </div>
 
             {/* Form Action buttons */}
-            <div className="flex gap-2.5 mt-3 pt-3 border-t border-white/5">
+            <div className="flex gap-2.5 mt-3 pt-3 border-t border-overlay/5">
               <button
                 type="submit"
                 className="flex-1 h-11 bg-primary text-on-primary rounded-xl font-headline-sm text-sm font-bold flex items-center justify-center gap-1.5 hover:opacity-95 transition-all shadow-[0_4px_15px_rgba(78,222,163,0.15)] active:scale-[0.98]"
@@ -971,7 +971,7 @@ export default function AccountView({
               <button
                 type="button"
                 onClick={() => setFormMode('list')}
-                className="px-4 h-11 bg-white/5 border border-white/10 text-on-surface-variant hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-white/10 active:scale-[0.98]"
+                className="px-4 h-11 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-overlay/10 active:scale-[0.98]"
               >
                 <Undo2 className="w-4 h-4" />
                 Batal

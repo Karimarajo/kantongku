@@ -60,26 +60,26 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
     const isPaidOff = debt.status === 'paid_off';
 
     return (
-      <div key={debt.id} className={`flex flex-col gap-3 p-4 rounded-xl border glass-card ${isPaidOff ? 'border-primary/20 opacity-70' : 'border-white/5'}`}>
+      <div key={debt.id} className={`flex flex-col gap-3 p-4 rounded-xl border glass-card ${isPaidOff ? 'border-primary/20 opacity-70' : 'border-overlay/5'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isPaidOff ? 'bg-primary/15 border border-primary/30 text-primary' : 'bg-white/5 border border-white/10 text-on-surface-variant'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isPaidOff ? 'bg-primary/15 border border-primary/30 text-primary' : 'bg-overlay/5 border border-overlay/10 text-on-surface-variant'}`}>
               {isPaidOff ? <PartyPopper className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white truncate">{debt.name}</p>
+              <p className="text-sm font-bold text-on-surface truncate">{debt.name}</p>
               <p className="text-[11px] text-on-surface-variant/70 flex items-center gap-1 mt-0.5">
                 <CalendarClock className="w-3 h-3" /> Jatuh tempo tiap tanggal {debt.dueDay}
               </p>
             </div>
           </div>
-          <button onClick={() => onDeleteDebt(debt.id)} className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-on-surface-variant/50 hover:text-rose-400 transition-colors shrink-0" title="Hapus">
+          <button onClick={() => onDeleteDebt(debt.id)} className="p-1.5 rounded-lg bg-overlay/5 hover:bg-rose-500/10 text-on-surface-variant/50 hover:text-rose-400 transition-colors shrink-0" title="Hapus">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-overlay/5 overflow-hidden">
             <div className={`h-full rounded-full transition-all ${isPaidOff ? 'bg-primary' : 'bg-primary/70'}`} style={{ width: `${progressPercent}%` }} />
           </div>
           <div className="flex items-center justify-between text-[11px] text-on-surface-variant/70">
@@ -91,7 +91,7 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
         <div className="flex items-center justify-between gap-3 pt-1">
           <div>
             <p className="text-[10px] text-on-surface-variant/60 uppercase font-label-caps">Sisa Utang</p>
-            <p className="text-base font-bold text-white font-mono-data">{formatRupiah(remaining)}</p>
+            <p className="text-base font-bold text-on-surface font-mono-data">{formatRupiah(remaining)}</p>
           </div>
           {!isPaidOff && (
             <button
@@ -109,7 +109,7 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
         </div>
 
         {payments.length > 0 && (
-          <div className="border-t border-white/5 pt-2">
+          <div className="border-t border-overlay/5 pt-2">
             <button onClick={() => setExpandedId(isExpanded ? null : debt.id)} className="flex items-center gap-1.5 text-[11px] text-primary/80 hover:text-primary">
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               Riwayat pembayaran ({payments.length})
@@ -117,7 +117,7 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
             {isExpanded && (
               <div className="flex flex-col gap-1.5 mt-2">
                 {payments.map(p => (
-                  <div key={p.id} className="flex items-center justify-between text-[11px] text-on-surface-variant bg-white/5 rounded-lg px-3 py-2">
+                  <div key={p.id} className="flex items-center justify-between text-[11px] text-on-surface-variant bg-overlay/5 rounded-lg px-3 py-2">
                     <span>{formatDate(p.paidAt)}</span>
                     <span className="font-mono-data text-primary">{formatRupiah(p.paidAmount)}</span>
                   </div>
@@ -132,8 +132,8 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
 
   return (
     <div className="flex flex-col gap-4 w-full h-full text-left max-h-[calc(100vh-120px)] overflow-y-auto pb-12 no-scrollbar">
-      <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-        <button onClick={onBack} className="p-2 bg-white/5 rounded-lg">
+      <div className="flex items-center gap-4 border-b border-overlay/5 pb-4">
+        <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg">
           <ChevronLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
@@ -156,44 +156,44 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4 rounded-xl border border-white/10 glass-card">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4 rounded-xl border border-overlay/10 glass-card">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-label-caps text-primary uppercase">Cicilan/Hutang Baru</h3>
-            <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="p-1 rounded-lg bg-white/5 text-on-surface-variant hover:text-white">
+            <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="p-1 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-on-surface">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama</label>
-            <input type="text" required placeholder="Contoh: Cicilan Motor Honda" value={name} onChange={(e) => setName(e.target.value)} className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60" />
+            <input type="text" required placeholder="Contoh: Cicilan Motor Honda" value={name} onChange={(e) => setName(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">Total Pokok (Rp)</label>
-              <input type="number" required min={1} value={principalAmount || ''} onChange={(e) => setPrincipalAmount(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
+              <input type="number" required min={1} value={principalAmount || ''} onChange={(e) => setPrincipalAmount(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">Cicilan/Bulan (Rp)</label>
-              <input type="number" required min={1} value={monthlyInstallment || ''} onChange={(e) => setMonthlyInstallment(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
+              <input type="number" required min={1} value={monthlyInstallment || ''} onChange={(e) => setMonthlyInstallment(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tenor (bulan)</label>
-              <input type="number" required min={1} max={360} value={tenorMonths || ''} onChange={(e) => setTenorMonths(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
+              <input type="number" required min={1} max={360} value={tenorMonths || ''} onChange={(e) => setTenorMonths(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tanggal Jatuh Tempo</label>
-              <input type="number" required min={1} max={31} value={dueDay || ''} onChange={(e) => setDueDay(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
+              <input type="number" required min={1} max={31} value={dueDay || ''} onChange={(e) => setDueDay(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tanggal Mulai</label>
-            <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60" />
+            <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60" />
           </div>
 
           <button type="submit" className="w-full h-12 mt-1 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all">
@@ -205,8 +205,8 @@ export default function DebtManagerView({ debts, debtPayments, onBack, onAddDebt
       <div className="flex flex-col gap-3 mt-1">
         <h3 className="text-xs font-label-caps text-on-surface-variant uppercase">Aktif ({activeDebts.length})</h3>
         {activeDebts.length === 0 ? (
-          <div className="text-center py-8 text-white/30 flex flex-col items-center gap-2">
-            <CreditCard className="w-9 h-9 text-white/20" />
+          <div className="text-center py-8 text-on-surface/30 flex flex-col items-center gap-2">
+            <CreditCard className="w-9 h-9 text-on-surface/20" />
             <p className="text-xs">Belum ada cicilan/hutang aktif.</p>
           </div>
         ) : (

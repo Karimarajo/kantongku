@@ -242,20 +242,20 @@ export default function BudgetModal({
 
   return (
     <div className="fixed inset-0 bg-[#060A13]/85 backdrop-blur-md flex items-center justify-center z-[9999] p-4 overflow-y-auto">
-      <div className="glass-card rounded-2xl w-full max-w-2xl border border-white/10 relative overflow-hidden flex flex-col my-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+      <div className="glass-card rounded-2xl w-full max-w-2xl border border-overlay/10 relative overflow-hidden flex flex-col my-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Header Modal */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-white/5 shrink-0">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-overlay/5 shrink-0">
           <div>
-            <h2 className="font-headline-md text-xl text-white font-bold flex items-center gap-2">
+            <h2 className="font-headline-md text-xl text-on-surface font-bold flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" /> Target &amp; Limit
             </h2>
             <p className="text-xs text-on-surface-variant mt-0.5">
               Pantau batas pengeluaran alarm dan target tabungan secara otomatis berbasis kategori transaksi riil.
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-on-surface transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -271,27 +271,27 @@ export default function BudgetModal({
                   <Plus className="w-4 h-4" /> Atur Target &amp; Limit Baru
                 </button>
               ) : (
-                <form onSubmit={handleSubmit} className="bg-surface-variant/20 border border-white/5 rounded-xl p-4 flex flex-col gap-3 text-left">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                    <span className="font-bold text-white text-xs flex items-center gap-1">
+                <form onSubmit={handleSubmit} className="bg-surface-variant/20 border border-overlay/5 rounded-xl p-4 flex flex-col gap-3 text-left">
+                  <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
+                    <span className="font-bold text-on-surface text-xs flex items-center gap-1">
                       {editingBudgetId ? <><Edit3 className="w-3.5 h-3.5 text-primary" /> Edit Aturan</> : 'Atur Aturan Baru'}
                     </span>
-                    <button type="button" onClick={resetForm} className="text-[10px] text-on-surface-variant hover:text-white">Batal</button>
+                    <button type="button" onClick={resetForm} className="text-[10px] text-on-surface-variant hover:text-on-surface">Batal</button>
                   </div>
 
                   {/* Switch Jenis Aturan Tipe */}
-                  <div className="grid grid-cols-2 gap-1 bg-[#0B111E]/80 rounded-lg p-1 border border-white/5">
-                    <button type="button" onClick={() => setType('expense_limit')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'expense_limit' ? 'bg-[#EF4444] text-white font-bold shadow-sm' : 'text-on-surface-variant hover:text-white'}`}>
+                  <div className="grid grid-cols-2 gap-1 bg-body-bg/80 rounded-lg p-1 border border-overlay/5">
+                    <button type="button" onClick={() => setType('expense_limit')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'expense_limit' ? 'bg-danger text-on-surface font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
                       Limit Belanja
                     </button>
-                    <button type="button" onClick={() => setType('target_funding')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'target_funding' ? 'bg-primary text-on-primary font-bold shadow-sm' : 'text-on-surface-variant hover:text-white'}`}>
+                    <button type="button" onClick={() => setType('target_funding')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'target_funding' ? 'bg-primary text-on-primary font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
                       Target Nabung
                     </button>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Nama Aturan / Alarm</label>
-                    <input type="text" required placeholder="Misal: Limit Kopi, Target Laptop" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9 bg-[#0B111E]/40 rounded-lg text-xs text-white border border-white/10 px-3 focus:outline-none focus:border-primary/60" />
+                    <input type="text" required placeholder="Misal: Limit Kopi, Target Laptop" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9 bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 px-3 focus:outline-none focus:border-primary/60" />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -309,13 +309,13 @@ export default function BudgetModal({
                           const clean = e.target.value.replace(/[^0-9+\-*/]/g, '');
                           setLimitExpr(clean);
                         }}
-                        className="h-9 w-full bg-[#0B111E]/40 rounded-lg text-xs text-white border border-white/10 pl-9 pr-3 font-mono-data focus:outline-none focus:border-primary/60"
+                        className="h-9 w-full bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 pl-9 pr-3 font-mono-data focus:outline-none focus:border-primary/60"
                       />
                     </div>
                   </div>
 
                   {showCalc && (
-                    <div className="mt-2 border-t border-white/5 pt-3 animate-fade-in">
+                    <div className="mt-2 border-t border-overlay/5 pt-3 animate-fade-in">
                       <CalcKeyboard
                         onKeyPress={handleCalcKeyPress}
                         onClear={handleCalcClear}
@@ -328,11 +328,11 @@ export default function BudgetModal({
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Koneksikan Kategori Transaksi</label>
-                    <div className="max-h-36 overflow-y-auto border border-white/10 rounded-lg p-2 bg-[#0B111E]/40 flex flex-col gap-1.5 no-scrollbar">
+                    <div className="max-h-36 overflow-y-auto border border-overlay/10 rounded-lg p-2 bg-body-bg/40 flex flex-col gap-1.5 no-scrollbar">
                       {categories.map(cat => {
                         const isSelected = selectedCategories.includes(cat.id);
                         return (
-                          <label key={cat.id} className="flex items-center gap-2.5 p-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-colors text-xs text-white">
+                          <label key={cat.id} className="flex items-center gap-2.5 p-1.5 rounded-md hover:bg-overlay/5 cursor-pointer transition-colors text-xs text-on-surface">
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -343,7 +343,7 @@ export default function BudgetModal({
                                     : [...prev, cat.id]
                                 );
                               }}
-                              className="rounded border-white/20 bg-black/40 text-primary focus:ring-0 focus:ring-offset-0"
+                              className="rounded border-overlay/20 bg-body-bg/40 text-primary focus:ring-0 focus:ring-offset-0"
                             />
                             <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: getCategoryColorHex(cat.color) + '20' }}>
                               <CategoryIcon name={cat.icon} className="w-3 h-3" style={{ color: getCategoryColorHex(cat.color) }} />
@@ -357,10 +357,10 @@ export default function BudgetModal({
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Siklus Waktu Pemantauan</label>
-                    <select value={timeframe} onChange={(e) => setTimeframe(e.target.value as TimeframeType)} className="h-9 bg-[#0B111E]/40 rounded-lg text-xs text-white border border-white/10 px-2 focus:outline-none">
-                      <option value="1_minggu" className="bg-[#0B111E]">1 Minggu</option>
-                      <option value="1_bulan" className="bg-[#0B111E]">1 Bulan</option>
-                      <option value="tanggal_kustom" className="bg-[#0B111E]">Tanggal (Rentang Kustom)</option>
+                    <select value={timeframe} onChange={(e) => setTimeframe(e.target.value as TimeframeType)} className="h-9 bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 px-2 focus:outline-none">
+                      <option value="1_minggu" className="bg-body-bg">1 Minggu</option>
+                      <option value="1_bulan" className="bg-body-bg">1 Bulan</option>
+                      <option value="tanggal_kustom" className="bg-body-bg">Tanggal (Rentang Kustom)</option>
                     </select>
                   </div>
 
@@ -368,11 +368,11 @@ export default function BudgetModal({
                     <div className="grid grid-cols-2 gap-2 animate-fade-in">
                       <div className="flex flex-col gap-1">
                         <label className="text-[8px] font-label-caps text-on-surface-variant uppercase">Mulai</label>
-                        <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 bg-[#0B111E]/40 border border-white/10 rounded-md text-[10px] px-2 text-white focus:outline-none" />
+                        <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 bg-body-bg/40 border border-overlay/10 rounded-md text-[10px] px-2 text-on-surface focus:outline-none" />
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="text-[8px] font-label-caps text-on-surface-variant uppercase">Selesai</label>
-                        <input type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 bg-[#0B111E]/40 border border-white/10 rounded-md text-[10px] px-2 text-white focus:outline-none" />
+                        <input type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 bg-body-bg/40 border border-overlay/10 rounded-md text-[10px] px-2 text-on-surface focus:outline-none" />
                       </div>
                     </div>
                   )}
@@ -387,7 +387,7 @@ export default function BudgetModal({
             {/* PANEL KANAN: LIST ATURAN & ALARM DETEKSI PROGRESIF */}
             <div className="md:col-span-7 flex flex-col gap-3">
               {budgets.length === 0 ? (
-                <div className="text-center py-8 text-on-surface-variant/40 flex flex-col items-center gap-1.5 bg-white/5 border border-white/5 rounded-xl">
+                <div className="text-center py-8 text-on-surface-variant/40 flex flex-col items-center gap-1.5 bg-overlay/5 border border-overlay/5 rounded-xl">
                   <Target className="w-8 h-8 text-on-surface-variant/20" />
                   <p className="text-xs">Belum ada Target &amp; Limit yang dikonfigurasi.</p>
                 </div>
@@ -450,7 +450,7 @@ export default function BudgetModal({
                         onDragOver={(e) => handleDragOver(e, budget.id)}
                         onDrop={(e) => handleDrop(e, budget.id)}
                         className={`border rounded-xl p-4 flex flex-col gap-2.5 relative group transition-all text-left ${
-                          isDragging ? 'opacity-30 scale-95 bg-white/5 border-white/10' : isDragOver ? 'bg-primary/5 border-primary/30 scale-[1.01]' : 'bg-surface-variant/10 hover:bg-surface-variant/20 border-white/5'
+                          isDragging ? 'opacity-30 scale-95 bg-overlay/5 border-overlay/10' : isDragOver ? 'bg-primary/5 border-primary/30 scale-[1.01]' : 'bg-surface-variant/10 hover:bg-surface-variant/20 border-overlay/5'
                         }`}
                       >
                         <div className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing opacity-20 group-hover:opacity-50 hidden md:block">
@@ -482,7 +482,7 @@ export default function BudgetModal({
                                     return (
                                       <div 
                                         key={catId} 
-                                        className="w-8 h-8 rounded-full bg-[#0b101d] border border-white/10 flex items-center justify-center shrink-0"
+                                        className="w-8 h-8 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center shrink-0"
                                         style={{ zIndex: 3 - idx }}
                                       >
                                         <CategoryIcon name={cat?.icon || 'receipt'} className="w-4 h-4" style={{ color: colorHex }} />
@@ -490,7 +490,7 @@ export default function BudgetModal({
                                     );
                                   })}
                                   {cats.length > 3 && (
-                                    <div className="w-8 h-8 rounded-full bg-[#0b101d] border border-white/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-white z-0">
+                                    <div className="w-8 h-8 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-on-surface z-0">
                                       +{cats.length - 3}
                                     </div>
                                   )}
@@ -498,11 +498,11 @@ export default function BudgetModal({
                               );
                             })()}
                             <div className="min-w-0">
-                              <h3 className="text-sm text-white font-bold leading-snug truncate">{budget.title}</h3>
+                              <h3 className="text-sm text-on-surface font-bold leading-snug truncate">{budget.title}</h3>
                               <p className="text-[10px] text-on-surface-variant flex items-center gap-1 flex-wrap">
                                 <Clock className="w-3 h-3 text-primary" /> 
                                 {budget.type === 'expense_limit' ? 'Limit' : 'Target'} • 
-                                <span className="capitalize text-white/70"> {tf.replace('_', ' ')}</span>
+                                <span className="capitalize text-on-surface/70"> {tf.replace('_', ' ')}</span>
                                 • <span className="text-primary/95 font-semibold truncate max-w-[120px]" title={getBudgetCategories(budget).map(catId => categories.find(c => c.id === catId)?.name || catId).join(', ')}>
                                   {getBudgetCategories(budget).map(catId => categories.find(c => c.id === catId)?.name || catId).join(', ')}
                                 </span>
@@ -516,25 +516,25 @@ export default function BudgetModal({
                         </div>
 
                         <div className="flex justify-between items-end text-[11px] mt-1 md:pl-5">
-                          <span className="font-medium text-white/90">
+                          <span className="font-medium text-on-surface/90">
                             {budget.type === 'expense_limit' 
                               ? (remaining >= 0 ? `${formatRupiah(remaining)} Sisa` : `${formatRupiah(Math.abs(remaining))} Over Limit`)
                               : `${formatRupiah(realSpent)} Terkumpul`
                             }
                           </span>
                           <span className="text-on-surface-variant font-mono-data">
-                            {formatRupiah(realSpent, false)} / <span className="font-bold text-white">{formatRupiah(budget.limit, false)}</span>
+                            {formatRupiah(realSpent, false)} / <span className="font-bold text-on-surface">{formatRupiah(budget.limit, false)}</span>
                           </span>
                         </div>
 
-                        <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden md:ml-5 md:w-[calc(100%-20px)]">
+                        <div className="w-full h-1.5 bg-overlay/5 rounded-full overflow-hidden md:ml-5 md:w-[calc(100%-20px)]">
                           <div className={`h-full rounded-full transition-all duration-500 ${barBgColor}`} style={{ width: `${percentage}%` }} />
                         </div>
 
                         {/* TOMBOL NAVIGASI PRIORITAS & AKSI UTUH */}
                         <div className="md:absolute md:top-3 md:right-3 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-wrap mt-2 md:mt-0">
-                          <button onClick={() => handleOpenEdit(budget)} className="p-1.5 text-on-surface-variant/60 hover:text-primary transition-colors text-[11px] rounded hover:bg-white/5 md:hover:bg-transparent" title="Edit aturan"><Edit3 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => { if (confirm(`Hapus aturan Target & Limit "${budget.title}"?`)) onDeleteBudget(budget.id); }} className="p-1.5 text-on-surface-variant/60 hover:text-rose-400 transition-colors text-[11px] rounded hover:bg-white/5 md:hover:bg-transparent" title="Hapus aturan"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleOpenEdit(budget)} className="p-1.5 text-on-surface-variant/60 hover:text-primary transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Edit aturan"><Edit3 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => { if (confirm(`Hapus aturan Target & Limit "${budget.title}"?`)) onDeleteBudget(budget.id); }} className="p-1.5 text-on-surface-variant/60 hover:text-rose-400 transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Hapus aturan"><Trash2 className="w-3.5 h-3.5" /></button>
 
                           <button onClick={() => {
                               const idx = budgets.findIndex(b => b.id === budget.id);
@@ -545,7 +545,7 @@ export default function BudgetModal({
                               }
                             }}
                             disabled={budgets.findIndex(b => b.id === budget.id) === 0}
-                            className="p-1.5 text-on-surface-variant/60 hover:text-primary disabled:opacity-30 transition-colors text-[11px] rounded hover:bg-white/5 md:hover:bg-transparent" title="Naikkan Prioritas"
+                            className="p-1.5 text-on-surface-variant/60 hover:text-primary disabled:opacity-30 transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Naikkan Prioritas"
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
@@ -559,7 +559,7 @@ export default function BudgetModal({
                               }
                             }}
                             disabled={budgets.findIndex(b => b.id === budget.id) === budgets.length - 1}
-                            className="p-1.5 text-on-surface-variant/60 hover:text-primary disabled:opacity-30 transition-colors text-[11px] rounded hover:bg-white/5 md:hover:bg-transparent" title="Turunkan Prioritas"
+                            className="p-1.5 text-on-surface-variant/60 hover:text-primary disabled:opacity-30 transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Turunkan Prioritas"
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>

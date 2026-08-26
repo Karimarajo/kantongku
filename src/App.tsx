@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Pocket, Transaction, Budget, Notification, UserProfile, Account, Category, Reminder, WalletTransferLog, ActivityLogEntry, Collaborator, CollaboratorOrder, Debt, DebtPayment } from './types';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { Pocket, Transaction, Budget, Notification, UserProfile, Account, Category, Reminder, WalletTransferLog, ActivityLogEntry, PocketShare, SharedPocketBundle, Debt, DebtPayment } from './types';
 import {
   INITIAL_POCKETS,
   INITIAL_TRANSACTIONS,
@@ -33,6 +33,7 @@ import GuideView from './components/GuideView';
 import { APP_VERSION } from './version';
 import DebtManagerView from './components/DebtManagerView';
 import MonthlyExpenseView from './components/MonthlyExpenseView';
+import SharedPocketsView from './components/SharedPocketsView';
 
 // Default category added retroactively for any account that predates the Top
 // Up Wallet feature — kept in one place so App.tsx and mockData.ts stay in sync.
@@ -47,6 +48,23 @@ const getBudgetCategories = (b: Budget): string[] => {
   if (Array.isArray(b.category)) return b.category;
   return b.category ? [b.category as string] : [];
 };
+
+// Theme (dark/light, v11) — applied via a `data-theme` attribute on <html>,
+// which src/index.css's light-theme token overrides key off. Cached in
+// localStorage purely so the RIGHT theme can be painted before the account's
+// real settings arrive from the server (avoids a dark->light flash on
+// reload) — the server's `settings.theme` (loaded in loadSessionAndData)
+// is always the source of truth once it arrives.
+const THEME_STORAGE_KEY = 'kantongku_theme';
+function applyTheme(theme: 'dark' | 'light') {
+  document.documentElement.setAttribute('data-theme', theme);
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // localStorage unavailable (private mode, etc.) — theme still applies
+    // for this session, just won't be cached for next time.
+  }
+}
 
 const calculateBudgetSpent = (b: Budget, transactionsList: Transaction[]): number => {
   if (!b.startDate || !b.endDate) return 0;
@@ -85,13 +103,17 @@ export default function App() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [debtPayments, setDebtPayments] = useState<DebtPayment[]>([]);
 
-  // Collaboration (Task 2). Non-null collaboratorOwnerEmail means the
-  // CURRENTLY LOGGED-IN account is a collaborator viewing someone else's
-  // data — set from /api/me's response, never guessed client-side. The
-  // `collaborators` list (invites managed BY this account, as an owner) is
-  // separate and only relevant when this account isn't itself a collaborator.
-  const [collaboratorOwnerEmail, setCollaboratorOwnerEmail] = useState<string | null>(null);
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  // Pocket Sharing (v11, replaces the old whole-account "Collaborator"
+  // concept). Three independent lists:
+  // - sharedPockets: pockets OTHER people shared WITH me, returned directly
+  //   by GET /api/data (server-computed, read-only slice of their data).
+  // - pendingInvitations: invites addressed to my email, awaiting my
+  //   accept/decline.
+  // - myShares: pockets I (as owner) have shared out to others, for
+  //   management (see who has access, disconnect them).
+  const [sharedPockets, setSharedPockets] = useState<SharedPocketBundle[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<any[]>([]);
+  const [myShares, setMyShares] = useState<PocketShare[]>([]);
 
   const [activeTab, setActiveTab] = useState<string>('home');
 
@@ -104,6 +126,21 @@ export default function App() {
   // tersimpan, itulah "otomatis terdeteksi ada push baru" yang dimaksud.
   const GUIDE_VERSION_STORAGE_KEY = 'kantongku_last_seen_guide_version';
   const [hasUnseenGuideUpdate, setHasUnseenGuideUpdate] = useState<boolean>(false);
+
+  // Paint the cached theme BEFORE the browser's first paint (useLayoutEffect,
+  // not useEffect) so there's no dark->light flash while loadSessionAndData
+  // is still fetching the account's real settings. Defaults to dark if
+  // nothing's cached yet (first-ever visit, or localStorage unavailable) —
+  // matches DEFAULT_SETTINGS.theme above.
+  useLayoutEffect(() => {
+    try {
+      const cached = window.localStorage.getItem(THEME_STORAGE_KEY);
+      document.documentElement.setAttribute('data-theme', cached === 'light' ? 'light' : 'dark');
+    } catch {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
   useEffect(() => {
     try {
       const lastSeen = window.localStorage.getItem(GUIDE_VERSION_STORAGE_KEY);
@@ -148,8 +185,9 @@ export default function App() {
     setWalletTransferLogs(INITIAL_WALLET_TRANSFER_LOGS);
     setActivityLog(INITIAL_ACTIVITY_LOG);
     setAppSettings(DEFAULT_SETTINGS);
-    setCollaboratorOwnerEmail(null);
-    setCollaborators([]);
+    setSharedPockets([]);
+    setPendingInvitations([]);
+    setMyShares([]);
     setDebts([]);
     setDebtPayments([]);
   };
@@ -184,10 +222,9 @@ export default function App() {
         avatarUrl: me.avatarUrl || fallback.avatarUrl,
         joinedAt: me.joinedAt || fallback.joinedAt,
       };
-      setCollaboratorOwnerEmail(me.collaboratorOwnerEmail || null);
-
       if (dataRes.ok) {
         const data = await dataRes.json();
+        setSharedPockets(data.sharedPockets ?? []);
         if (data.profile) {
           profile = { ...profile, ...data.profile, email: me.email };
         }
@@ -216,14 +253,16 @@ export default function App() {
         setReminders(data.reminders ?? []);
         setWalletTransferLogs(data.walletTransferLogs ?? INITIAL_WALLET_TRANSFER_LOGS);
         setActivityLog(data.activityLog ?? INITIAL_ACTIVITY_LOG);
-        setAppSettings(data.settings ?? DEFAULT_SETTINGS);
+        const loadedSettings: AppSettings = data.settings ?? DEFAULT_SETTINGS;
+        setAppSettings(loadedSettings);
+        applyTheme(loadedSettings.theme);
         setDebts(data.debts ?? []);
         setDebtPayments(data.debtPayments ?? []);
       }
 
       setCurrentUser(profile);
       setActiveTab('home');
-      loadCollaborators();
+      loadPocketShareState();
     } catch (err) {
       console.error('Gagal memuat sesi/data akun:', err);
       setCurrentUser(null);
@@ -595,7 +634,12 @@ export default function App() {
     const newTransaction: Transaction = {
       ...newTransData,
       id: `t-${Date.now()}`,
-      date: newTransData.date || new Date().toISOString()
+      date: newTransData.date || new Date().toISOString(),
+      // "Siapa yang input" (Riwayat Transaksi export) — the owner's own
+      // transactions are always attributed to themselves. Shared-pocket
+      // transactions from an invitee are stamped server-side instead (see
+      // POST /api/pocket-shares/:id/transactions in server.ts), never here.
+      inputBy: newTransData.inputBy || currentUser?.email,
     };
 
     const nextTransactions = [newTransaction, ...transactions].sort(
@@ -1060,7 +1104,8 @@ export default function App() {
         pocketId: newPocData.id,
         accountId: primaryAccId,
         category: 'pendapatan',
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        inputBy: currentUser?.email,
       };
       nextTransactions = [initialTrans, ...transactions];
     }
@@ -1220,6 +1265,7 @@ export default function App() {
       category: 'topup',
       date: new Date().toISOString(),
       notes: note?.trim() || undefined,
+      inputBy: currentUser?.email,
     };
     const nextTransactions = [topUpTransaction, ...transactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -1437,83 +1483,118 @@ export default function App() {
   const handleSaveSettings = (settings: AppSettings) => {
     setAppSettings(settings);
     persistUserData({ settings });
-    // Apply theme
-    if (settings.theme === 'light') {
-      document.documentElement.classList.add('light-mode');
-    } else {
-      document.documentElement.classList.remove('light-mode');
-    }
+    applyTheme(settings.theme);
   };
 
   // CRUD Handlers for Reminders (Pengingat)
-  // CRUD Handlers for Collaboration (Task 2) — all owner-only server-side
-  // (server.ts checks owner_user_id === req.user.id, not effectiveUserId), so
-  // these are only meaningful/shown when this account is NOT itself viewing
-  // as a collaborator (see collaboratorOwnerEmail).
-  const loadCollaborators = async () => {
+  // CRUD Handlers for Pocket Sharing (v11) — replaces the old whole-account
+  // Collaboration handlers. Free (no order/payment), per-pocket, and the
+  // invitee must already be a registered+active KantongKu user (server-enforced).
+  const loadPocketShareState = async () => {
     try {
-      const res = await fetch('/api/collaborators', { credentials: 'include' });
-      if (res.ok) setCollaborators(await res.json());
+      const [invRes, sharesRes] = await Promise.all([
+        fetch('/api/pocket-shares/invitations', { credentials: 'include' }),
+        fetch('/api/pocket-shares/owned', { credentials: 'include' }),
+      ]);
+      if (invRes.ok) setPendingInvitations(await invRes.json());
+      if (sharesRes.ok) setMyShares(await sharesRes.json());
     } catch (err) {
-      console.error('Gagal memuat daftar kolaborator:', err);
+      console.error('Gagal memuat status berbagi kantong:', err);
     }
   };
 
-  // Task 2 revision: invite now creates a real Doku Checkout order (same
-  // infra as the main license) instead of a free stub — returns the order's
-  // payment link so ProfileView can open the payment modal directly.
-  const handleInviteCollaborator = async (
+  const handleInvitePocketShare = async (
+    pocketId: string,
     email: string
-  ): Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }> => {
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
     try {
-      const res = await fetch('/api/collaborators/invite', {
+      const res = await fetch('/api/pocket-shares/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ pocketId, email }),
       });
       const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || 'Gagal mengundang kolaborator' };
-      await loadCollaborators();
-      return { ok: true, order: data as CollaboratorOrder };
+      if (!res.ok) return { ok: false, error: data.error || 'Gagal membagikan kantong' };
+      await loadPocketShareState();
+      return { ok: true };
     } catch (err: any) {
-      return { ok: false, error: err.message || 'Gagal mengundang kolaborator' };
+      return { ok: false, error: err.message || 'Gagal membagikan kantong' };
     }
   };
 
-  // "Lanjutkan Pembayaran" on a pending_payment collaborator — re-opens the
-  // same order's instructions instead of creating a new one.
-  const handleGetPendingCollaboratorOrder = async (
-    collaboratorId: string
-  ): Promise<{ ok: true; order: CollaboratorOrder } | { ok: false; error: string }> => {
+  const handleAcceptPocketInvitation = async (id: string) => {
     try {
-      const res = await fetch(`/api/collaborators/${collaboratorId}/pending-order`, { credentials: 'include' });
+      const res = await fetch(`/api/pocket-shares/${id}/accept`, { method: 'POST', credentials: 'include' });
+      if (res.ok) {
+        await loadPocketShareState();
+        // The newly-accepted pocket's data only shows up via GET /api/data —
+        // reload once so it appears immediately instead of after the next refresh.
+        await loadSessionAndData();
+      }
+    } catch (err) {
+      console.error('Gagal menerima undangan kantong:', err);
+    }
+  };
+
+  const handleDeclinePocketInvitation = async (id: string) => {
+    try {
+      const res = await fetch(`/api/pocket-shares/${id}/decline`, { method: 'POST', credentials: 'include' });
+      if (res.ok) await loadPocketShareState();
+    } catch (err) {
+      console.error('Gagal menolak undangan kantong:', err);
+    }
+  };
+
+  // Either side can call this: the owner disconnecting an invitee, or the
+  // invitee leaving a pocket shared to them.
+  const handleDisconnectPocketShare = async (id: string) => {
+    try {
+      const res = await fetch(`/api/pocket-shares/${id}/disconnect`, { method: 'POST', credentials: 'include' });
+      if (res.ok) {
+        await loadPocketShareState();
+        await loadSessionAndData();
+      }
+    } catch (err) {
+      console.error('Gagal memutus berbagi kantong:', err);
+    }
+  };
+
+  // Add/edit/delete a transaction INSIDE a pocket shared to me — routed to
+  // the owner's data server-side (see POST/PATCH/DELETE
+  // /api/pocket-shares/:id/transactions* in server.ts), never through
+  // persistUserData/PUT /api/data (that would try to overwrite MY OWN blob,
+  // not the owner's). Reloads sharedPockets afterward so the balances shown
+  // reflect the owner's freshly-updated wallet.
+  const handleAddSharedPocketTransaction = async (
+    shareId: string,
+    tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string }
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch(`/api/pocket-shares/${shareId}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(tx),
+      });
       const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || 'Gagal memuat order' };
-      return { ok: true, order: data as CollaboratorOrder };
+      if (!res.ok) return { ok: false, error: data.error || 'Gagal menambah transaksi' };
+      await loadSessionAndData();
+      return { ok: true };
     } catch (err: any) {
-      return { ok: false, error: err.message || 'Gagal memuat order' };
+      return { ok: false, error: err.message || 'Gagal menambah transaksi' };
     }
   };
 
-  // Free — no new order/payment. Only valid for a previously-paid,
-  // currently-revoked row (server enforces this).
-  const handleReconnectCollaborator = async (id: string) => {
+  const handleDeleteSharedPocketTransaction = async (shareId: string, txId: string) => {
     try {
-      const res = await fetch(`/api/collaborators/${id}/reconnect`, { method: 'POST', credentials: 'include' });
-      if (res.ok) await loadCollaborators();
-      else console.error('Gagal menyambungkan kembali kolaborator:', (await res.json().catch(() => ({}))).error);
+      const res = await fetch(`/api/pocket-shares/${shareId}/transactions/${txId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) await loadSessionAndData();
     } catch (err) {
-      console.error('Gagal menyambungkan kembali kolaborator:', err);
-    }
-  };
-
-  const handleDisconnectCollaborator = async (id: string) => {
-    try {
-      const res = await fetch(`/api/collaborators/${id}/disconnect`, { method: 'POST', credentials: 'include' });
-      if (res.ok) await loadCollaborators();
-    } catch (err) {
-      console.error('Gagal memutuskan sambungan kolaborator:', err);
+      console.error('Gagal menghapus transaksi kantong bersama:', err);
     }
   };
 
@@ -1708,7 +1789,7 @@ export default function App() {
   // second while GET /api/me is still in flight.
   if (checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0B111E] text-on-surface-variant text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-body-bg text-on-surface-variant text-sm">
         Memuat...
       </div>
     );
@@ -1719,7 +1800,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen text-white relative font-body-md antialiased overflow-x-hidden select-none bg-[#0B111E] flex flex-col md:flex-row">
+    <div className="min-h-screen text-on-surface relative font-body-md antialiased overflow-x-hidden select-none bg-body-bg flex flex-col md:flex-row">
       
       {/* Background Ambient Glow Layout */}
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -1733,7 +1814,7 @@ export default function App() {
           the viewport unconditionally, which is what "menu tidak boleh ikut
           bergerak saat scroll" actually needs. Taken out of flow, so the
           main content column below carries a matching md:ml-64 offset. */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-[#0F172A]/40 backdrop-blur-2xl p-6 h-screen fixed left-0 top-0 shrink-0 z-40">
+      <aside className="hidden md:flex flex-col w-64 border-r border-overlay/5 bg-surface/40 backdrop-blur-2xl p-6 h-screen fixed left-0 top-0 shrink-0 z-40">
         {/* Brand / Logo */}
         <div className="mb-8 px-2 flex items-center gap-2">
           <BrandLogo className="w-8 h-8 text-primary shrink-0" glow={false} />
@@ -1759,7 +1840,7 @@ export default function App() {
           {/* TAB: Home */}
           <button 
             onClick={() => setActiveTab('home')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'home' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-white hover:bg-white/5'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'home' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Home className="w-5 h-5 shrink-0" />
             <span className="text-sm font-semibold">Home</span>
@@ -1768,7 +1849,7 @@ export default function App() {
           {/* TAB: Wallet */}
           <button 
             onClick={() => setActiveTab('wallet')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'wallet' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-white hover:bg-white/5'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'wallet' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Wallet className="w-5 h-5 shrink-0" />
             <span className="text-sm font-semibold">Wallet</span>
@@ -1777,7 +1858,7 @@ export default function App() {
           {/* TAB: Analisis / Activity */}
           <button 
             onClick={() => setActiveTab('activity')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'activity' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-white hover:bg-white/5'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'activity' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <LineChart className="w-5 h-5 shrink-0" />
             <span className="text-sm font-semibold">Analisis</span>
@@ -1786,7 +1867,7 @@ export default function App() {
           {/* TAB: Riwayat / History */}
           <button 
             onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'history' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-white hover:bg-white/5'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'history' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Receipt className="w-5 h-5 shrink-0" />
             <span className="text-sm font-semibold">Riwayat</span>
@@ -1795,7 +1876,7 @@ export default function App() {
           {/* TAB: Profile Settings */}
           <button 
             onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'profile' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-white hover:bg-white/5'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'profile' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <User className="w-5 h-5 shrink-0" />
             <span className="text-sm font-semibold">Profil</span>
@@ -1803,14 +1884,14 @@ export default function App() {
         </nav>
 
         {/* User profile section at the bottom of sidebar */}
-        <div className="border-t border-white/5 pt-4 flex items-center justify-between">
+        <div className="border-t border-overlay/5 pt-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             <img 
               alt="User Avatar" 
-              className="w-8 h-8 rounded-full border border-white/10 shrink-0 object-cover" 
+              className="w-8 h-8 rounded-full border border-overlay/10 shrink-0 object-cover" 
               src={currentUser?.avatarUrl}
             />
-            <span className="text-xs font-semibold text-white truncate max-w-[100px]">{currentUser?.name}</span>
+            <span className="text-xs font-semibold text-on-surface truncate max-w-[100px]">{currentUser?.name}</span>
           </div>
           <button 
             onClick={handleLogout}
@@ -1826,20 +1907,26 @@ export default function App() {
       <div className="flex-grow min-h-screen pb-28 md:pb-8 flex flex-col relative z-10 w-full min-w-0 md:ml-64">
         <div className="max-w-md md:max-w-5xl w-full mx-auto pt-4 md:pt-10 px-4 md:px-8">
           {/* Mobile persistent header */}
-          <div className="w-full flex justify-center items-center gap-2 pb-3 md:hidden border-b border-white/5 mb-3">
+          <div className="w-full flex justify-center items-center gap-2 pb-3 md:hidden border-b border-overlay/5 mb-3">
             <BrandLogo className="w-7 h-7 text-primary shrink-0" glow={false} />
             <span className="font-headline-md text-2xl font-bold text-primary tracking-tight glow-text-primary">
               KantongKu
             </span>
           </div>
 
-          {/* Collaboration (Task 2): visible on every tab so it's never
-              ambiguous whose data is currently on screen. */}
-          {collaboratorOwnerEmail && (
-            <div className="w-full flex items-center gap-2.5 px-4 py-2.5 mb-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs">
+          {/* Pocket Sharing (v11): visible on every tab whenever there's a
+              pending invitation waiting on this account, so it's never
+              missed just because the user doesn't happen to open Profile. */}
+          {pendingInvitations.length > 0 && (
+            <button
+              onClick={() => setActiveTab('shared-pockets')}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 mb-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs text-left hover:bg-indigo-500/15 transition-colors"
+            >
               <Users className="w-4 h-4 shrink-0" />
-              <span>Anda login sebagai kolaborator dari akun <span className="font-semibold text-white">{collaboratorOwnerEmail}</span></span>
-            </div>
+              <span>
+                Ada <span className="font-semibold text-on-surface">{pendingInvitations.length}</span> undangan kantong bersama menunggu — ketuk untuk lihat.
+              </span>
+            </button>
           )}
 
           {activeTab === 'home' && (
@@ -1907,6 +1994,7 @@ export default function App() {
               categories={categories}
               walletTransferLogs={walletTransferLogs}
               initialFilter={historyInitialFilter}
+              currentUserEmail={currentUser?.email}
               onEditTransactionSelect={handleEditTransactionSelect}
               onDeleteTransaction={handleDeleteTransaction}
               onBack={() => setActiveTab('home')}
@@ -1928,13 +2016,25 @@ export default function App() {
               onNavigateDebtManager={() => setActiveTab('debts')}
               onNavigateGuide={handleNavigateGuide}
               hasUnseenGuideUpdate={hasUnseenGuideUpdate}
-              isCollaborator={!!collaboratorOwnerEmail}
-              collaborators={collaborators}
-              onInviteCollaborator={handleInviteCollaborator}
-              onGetPendingCollaboratorOrder={handleGetPendingCollaboratorOrder}
-              onReconnectCollaborator={handleReconnectCollaborator}
-              onDisconnectCollaborator={handleDisconnectCollaborator}
-              onRefreshCollaborators={loadCollaborators}
+              onNavigateSharedPockets={() => setActiveTab('shared-pockets')}
+              pendingInvitationCount={pendingInvitations.length}
+            />
+          )}
+
+          {activeTab === 'shared-pockets' && (
+            <SharedPocketsView
+              pockets={pockets}
+              sharedPockets={sharedPockets}
+              pendingInvitations={pendingInvitations}
+              myShares={myShares}
+              currentUserEmail={currentUser?.email || ''}
+              onBack={() => setActiveTab('profile')}
+              onInvite={handleInvitePocketShare}
+              onAcceptInvitation={handleAcceptPocketInvitation}
+              onDeclineInvitation={handleDeclinePocketInvitation}
+              onDisconnectShare={handleDisconnectPocketShare}
+              onAddSharedTransaction={handleAddSharedPocketTransaction}
+              onDeleteSharedTransaction={handleDeleteSharedPocketTransaction}
             />
           )}
 
@@ -2035,13 +2135,13 @@ export default function App() {
 
 
       {/* FIXED BOTTOM HUD NAVIGATION (Verbatim mockups layout) */}
-      <nav className="md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-2xl bg-surface/70 border-t border-white/5 backdrop-blur-2xl px-6 pt-2 pb-6 shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
+      <nav className="md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-2xl bg-surface/70 border-t border-overlay/5 backdrop-blur-2xl px-6 pt-2 pb-6 shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center relative">
           
           {/* TAB: Home */}
           <button 
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'home' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-white'}`}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'home' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <Home className="w-5 h-5" />
             <span className="font-label-caps text-[9px] uppercase tracking-wider">Home</span>
@@ -2050,7 +2150,7 @@ export default function App() {
           {/* TAB: Wallet */}
           <button 
             onClick={() => setActiveTab('wallet')}
-            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'wallet' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-white'}`}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'wallet' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <Wallet className="w-5 h-5" />
             <span className="font-label-caps text-[9px] uppercase tracking-wider">Wallet</span>
@@ -2070,7 +2170,7 @@ export default function App() {
           {/* TAB: Analytics / Activity */}
           <button 
             onClick={() => setActiveTab('activity')}
-            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'activity' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-white'}`}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'activity' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <LineChart className="w-5 h-5" />
             <span className="font-label-caps text-[9px] uppercase tracking-wider">Analisis</span>
@@ -2079,7 +2179,7 @@ export default function App() {
           {/* TAB: Profile Settings */}
           <button 
             onClick={() => setActiveTab('profile')}
-            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'profile' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-white'}`}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'profile' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <User className="w-5 h-5" />
             <span className="font-label-caps text-[9px] uppercase tracking-wider">Profil</span>

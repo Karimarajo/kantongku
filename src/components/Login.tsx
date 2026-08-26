@@ -131,7 +131,7 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col justify-between items-center bg-[#0B111E] text-on-surface px-6 py-12 relative overflow-hidden font-body-md select-none">
+    <div className="min-h-screen flex flex-col justify-between items-center bg-body-bg text-on-surface px-6 py-12 relative overflow-hidden font-body-md select-none">
 
       {/* Ambient Radial Background Glow */}
       <div className="absolute inset-0 pointer-events-none z-0">
@@ -145,7 +145,7 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
       <div className="w-full max-w-md flex flex-col items-center gap-8 z-10 my-auto">
         {/* Brand Logo */}
         <div className="flex flex-col items-center gap-4">
-          <div className="w-28 h-28 p-3 bg-surface-variant/40 rounded-3xl border border-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] backdrop-blur-xl flex items-center justify-center relative group">
+          <div className="w-28 h-28 p-3 bg-surface-variant/40 rounded-3xl border border-overlay/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] backdrop-blur-xl flex items-center justify-center relative group">
             <BrandLogo className="w-20 h-20" />
           </div>
 
@@ -193,7 +193,7 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
 
       {/* Footer restriction note */}
       <div className="w-full max-w-sm text-center z-10 mt-auto pt-8">
-        <p className="text-[10px] sm:text-xs text-on-surface-variant/40 font-label-caps tracking-wider leading-relaxed uppercase border-t border-white/5 pt-4">
+        <p className="text-[10px] sm:text-xs text-on-surface-variant/40 font-label-caps tracking-wider leading-relaxed uppercase border-t border-overlay/5 pt-4">
           Akses masuk dijamin aman menggunakan teknologi autentikasi dari Google.
         </p>
       </div>

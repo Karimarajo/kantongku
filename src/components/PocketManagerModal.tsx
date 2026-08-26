@@ -261,24 +261,24 @@ export default function PocketManagerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-6 select-none font-body-md text-white">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-6 select-none font-body-md text-on-surface">
       {/* Background overlay */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
       
       {/* Container */}
-      <div className="relative glass-card rounded-2xl w-full max-w-md border border-white/10 z-10 overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative glass-card rounded-2xl w-full max-w-md border border-overlay/10 z-10 overflow-hidden flex flex-col max-h-[85vh]">
         
         {/* Header */}
-        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-surface-variant/20">
+        <div className="p-5 border-b border-overlay/5 flex justify-between items-center bg-surface-variant/20">
           <div className="flex items-center gap-2">
             <CircleDollarSign className="w-5 h-5 text-primary" />
-            <h3 className="font-headline-sm text-lg text-white">
+            <h3 className="font-headline-sm text-lg text-on-surface">
               {formMode === 'list' && 'Kelola Kantong Keuangan'}
               {formMode === 'add' && 'Tambah Kantong Baru'}
               {formMode === 'edit' && 'Ubah Detail Kantong'}
             </h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-full transition-colors text-on-surface-variant hover:text-white">
+          <button onClick={onClose} className="p-1 hover:bg-overlay/5 rounded-full transition-colors text-on-surface-variant hover:text-on-surface">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -288,7 +288,7 @@ export default function PocketManagerModal({
           
           {/* Warning Message Box */}
           {deleteWarning && (
-            <div className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-xs text-[#EF4444] flex gap-2 items-start animate-shake">
+            <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-xs text-danger flex gap-2 items-start animate-shake">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold mb-0.5">Tidak Dapat Dihapus</p>
@@ -296,7 +296,7 @@ export default function PocketManagerModal({
                 <button 
                   type="button"
                   onClick={() => setDeleteWarning(null)}
-                  className="mt-2 text-white bg-[#EF4444]/20 hover:bg-[#EF4444]/30 px-2.5 py-1 rounded text-[10px] font-bold"
+                  className="mt-2 text-on-surface bg-danger/20 hover:bg-danger/30 px-2.5 py-1 rounded text-[10px] font-bold"
                 >
                   Saya Mengerti
                 </button>
@@ -315,7 +315,7 @@ export default function PocketManagerModal({
                   return (
                     <div 
                       key={p.id}
-                      className="glass-card rounded-xl p-3.5 border-l-4 flex justify-between items-center hover:bg-white/5 transition-all"
+                      className="glass-card rounded-xl p-3.5 border-l-4 flex justify-between items-center hover:bg-overlay/5 transition-all"
                       style={{ borderLeftColor: borderHex }}
                     >
                       <div className="flex items-center gap-3">
@@ -323,7 +323,7 @@ export default function PocketManagerModal({
                           {getPocketIcon(p.icon, '')}
                         </div>
                         <div>
-                          <p className="font-body-md text-white font-medium">{p.name}</p>
+                          <p className="font-body-md text-on-surface font-medium">{p.name}</p>
                           <p className="text-[10px] text-on-surface-variant/70 italic">{p.tag}</p>
                           <p className="font-mono-data text-xs text-primary font-bold mt-0.5">{formatRupiah(p.balance)}</p>
                         </div>
@@ -336,7 +336,7 @@ export default function PocketManagerModal({
                             type="button"
                             disabled={idx === 0}
                             onClick={() => handleMoveUp(idx)}
-                            className="p-1 bg-white/5 border border-white/5 text-on-surface-variant hover:text-white rounded-md hover:bg-white/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                            className="p-1 bg-overlay/5 border border-overlay/5 text-on-surface-variant hover:text-on-surface rounded-md hover:bg-overlay/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
                             title="Pindahkan ke atas"
                           >
                             <ArrowUp className="w-3 h-3" />
@@ -345,7 +345,7 @@ export default function PocketManagerModal({
                             type="button"
                             disabled={idx === pockets.length - 1}
                             onClick={() => handleMoveDown(idx)}
-                            className="p-1 bg-white/5 border border-white/5 text-on-surface-variant hover:text-white rounded-md hover:bg-white/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                            className="p-1 bg-overlay/5 border border-overlay/5 text-on-surface-variant hover:text-on-surface rounded-md hover:bg-overlay/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
                             title="Pindahkan ke bawah"
                           >
                             <ArrowDown className="w-3 h-3" />
@@ -355,7 +355,7 @@ export default function PocketManagerModal({
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(p)}
-                          className="p-2 bg-white/5 border border-white/5 text-on-surface-variant hover:text-white rounded-lg hover:bg-white/10 transition-all animate-fade-in"
+                          className="p-2 bg-overlay/5 border border-overlay/5 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-overlay/10 transition-all animate-fade-in"
                           title="Edit kantong"
                         >
                           <Edit3 className="w-4 h-4" />
@@ -364,7 +364,7 @@ export default function PocketManagerModal({
                           <button
                             type="button"
                             onClick={() => handleDeleteCheck(p.id, p.name)}
-                            className="p-2 bg-white/5 border border-white/5 text-on-surface-variant/60 hover:text-[#EF4444] rounded-lg hover:bg-[#EF4444]/5 hover:border-[#EF4444]/20 transition-all animate-fade-in"
+                            className="p-2 bg-overlay/5 border border-overlay/5 text-on-surface-variant/60 hover:text-danger rounded-lg hover:bg-danger/5 hover:border-danger/20 transition-all animate-fade-in"
                             title="Hapus kantong"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -399,7 +399,7 @@ export default function PocketManagerModal({
                   placeholder="Contoh: Tabungan Liburan, Belanja Mingguan"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+                  className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
                 />
               </div>
 
@@ -412,7 +412,7 @@ export default function PocketManagerModal({
                   placeholder="Contoh: Tabungan target akhir tahun"
                   value={tag}
                   onChange={(e) => setTag(e.target.value)}
-                  className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60 font-body-md"
+                  className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
                 />
               </div>
 
@@ -432,14 +432,14 @@ export default function PocketManagerModal({
                         const clean = e.target.value.replace(/[^0-9+\-*/]/g, '');
                         setInitialBalanceExpr(clean);
                       }}
-                      className="h-11 w-full bg-surface-variant/40 border border-white/10 rounded-lg pl-9 pr-3 text-sm text-white focus:outline-none focus:border-primary/60 font-mono-data"
+                      className="h-11 w-full bg-surface-variant/40 border border-overlay/10 rounded-lg pl-9 pr-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-mono-data"
                     />
                   </div>
                 </div>
               )}
 
               {formMode === 'add' && showCalc && (
-                <div className="mt-2 border-t border-white/5 pt-3 animate-fade-in">
+                <div className="mt-2 border-t border-overlay/5 pt-3 animate-fade-in">
                   <CalcKeyboard
                     onKeyPress={handleCalcKeyPress}
                     onClear={handleCalcClear}
@@ -459,7 +459,7 @@ export default function PocketManagerModal({
                       key={c.value}
                       type="button"
                       onClick={() => setColor(c.value)}
-                      className={`h-9 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold ${color === c.value ? c.activeClass : 'bg-surface-variant/10 border-white/5 text-on-surface-variant hover:bg-white/5'}`}
+                      className={`h-9 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold ${color === c.value ? c.activeClass : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                       style={{ color: c.hex, borderColor: color === c.value ? c.hex : '' }}
                       title={c.label}
                     >
@@ -483,7 +483,7 @@ export default function PocketManagerModal({
                         key={i.value}
                         type="button"
                         onClick={() => setIcon(i.value)}
-                        className={`h-9 rounded-lg flex items-center justify-center transition-all border ${isSelected ? cClass + ' border-current' : 'bg-surface-variant/10 border-white/5 text-on-surface-variant hover:bg-white/5'}`}
+                        className={`h-9 rounded-lg flex items-center justify-center transition-all border ${isSelected ? cClass + ' border-current' : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                         title={i.label}
                       >
                         <IconComp className="w-4 h-4" />
@@ -494,7 +494,7 @@ export default function PocketManagerModal({
               </div>
 
               {/* Form Buttons */}
-              <div className="flex gap-2.5 mt-3 pt-3 border-t border-white/5">
+              <div className="flex gap-2.5 mt-3 pt-3 border-t border-overlay/5">
                 <button
                   type="submit"
                   className="flex-1 h-11 bg-primary text-on-primary rounded-xl font-headline-sm text-sm font-bold flex items-center justify-center gap-1.5 hover:opacity-95 transition-all shadow-[0_4px_15px_rgba(78,222,163,0.15)] active:scale-[0.98]"
@@ -505,7 +505,7 @@ export default function PocketManagerModal({
                 <button
                   type="button"
                   onClick={() => setFormMode('list')}
-                  className="px-4 h-11 bg-white/5 border border-white/10 text-on-surface-variant hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-white/10 active:scale-[0.98]"
+                  className="px-4 h-11 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-overlay/10 active:scale-[0.98]"
                 >
                   <Undo2 className="w-4 h-4" />
                   Kembali

@@ -93,7 +93,7 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
       )}
 
       {result && (
-        <div className="flex flex-col gap-4 p-4 glass-card rounded-xl border border-white/5">
+        <div className="flex flex-col gap-4 p-4 glass-card rounded-xl border border-overlay/5">
           <div className={`self-start flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${CATEGORY_STYLE[result.category].badge}`}>
             <span className={`w-2 h-2 rounded-full ${CATEGORY_STYLE[result.category].dot}`} />
             {result.category}
@@ -104,19 +104,19 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3 flex flex-col gap-0.5">
+            <div className="bg-overlay/5 border border-overlay/10 rounded-lg p-3 flex flex-col gap-0.5">
               <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">Cicilan/Utang</span>
-              <span className="text-lg font-bold text-white font-mono-data">{result.ratios.debt.percent}%</span>
+              <span className="text-lg font-bold text-on-surface font-mono-data">{result.ratios.debt.percent}%</span>
               <span className="text-[10px] text-on-surface-variant/50">sehat: {result.ratios.debt.healthyThreshold}</span>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3 flex flex-col gap-0.5">
+            <div className="bg-overlay/5 border border-overlay/10 rounded-lg p-3 flex flex-col gap-0.5">
               <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">Menabung</span>
-              <span className="text-lg font-bold text-white font-mono-data">{result.ratios.savings.percent}%</span>
+              <span className="text-lg font-bold text-on-surface font-mono-data">{result.ratios.savings.percent}%</span>
               <span className="text-[10px] text-on-surface-variant/50">sehat: {result.ratios.savings.healthyThreshold}</span>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3 flex flex-col gap-0.5">
+            <div className="bg-overlay/5 border border-overlay/10 rounded-lg p-3 flex flex-col gap-0.5">
               <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">Likuiditas</span>
-              <span className="text-lg font-bold text-white font-mono-data">{result.ratios.liquidity.multiplier !== null ? `${result.ratios.liquidity.multiplier}x` : '—'}</span>
+              <span className="text-lg font-bold text-on-surface font-mono-data">{result.ratios.liquidity.multiplier !== null ? `${result.ratios.liquidity.multiplier}x` : '—'}</span>
               <span className="text-[10px] text-on-surface-variant/50">sehat: {result.ratios.liquidity.healthyThreshold}</span>
             </div>
           </div>

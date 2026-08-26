@@ -4,7 +4,7 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
+
   --color-primary: #4edea3;
   --color-primary-container: #10b981;
   --color-secondary: #adc6ff;
@@ -17,42 +17,116 @@
   --color-outline: #374151;
   --color-outline-variant: #4b5563;
 
+  /* v11 (dark/light theme): tokens added specifically to replace hardcoded
+     `white`/hex classes that were scattered across every component —
+     `--color-overlay` stands in for what used to be literal `white` in
+     things like `bg-white/10`/`border-white/10` (a translucent highlight
+     OVER the current surface, so it needs to flip dark<->light with the
+     theme instead of always being literally white), and
+     danger/warning/success replace the handful of hardcoded status hex
+     colors (`#EF4444` etc) so those have a sane light-mode equivalent too. */
+  --color-overlay: #ffffff;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-success: #10b981;
+  --color-body-bg: #0b111e;
+  --color-body-text: #dde4dd;
+
   /* Spacing Tokens */
   --spacing-card_padding: 1.5rem;       /* 24px */
   --spacing-container_margin: 1.5rem;   /* 24px */
   --spacing-stack_gap_md: 1rem;         /* 16px */
 }
 
+/* Light theme — overrides the SAME custom properties above under
+   `[data-theme="light"]` on <html> (set by App.tsx's applyTheme()). Every
+   component already using a semantic token class (bg-surface,
+   text-on-surface-variant, border-overlay/X, text-danger, etc.) picks this
+   up automatically with zero per-component changes — Tailwind's generated
+   utilities reference `var(--color-*)` at paint time, not at build time. */
+:root[data-theme="light"] {
+  --color-primary: #059669;
+  --color-primary-container: #10b981;
+  --color-secondary: #2563eb;
+  --color-secondary-container: #0566d9;
+
+  --color-surface: #ffffff;
+  --color-surface-variant: #f3f4f6;
+  --color-on-surface: #111827;
+  --color-on-surface-variant: #4b5563;
+  --color-outline: #d1d5db;
+  --color-outline-variant: #e5e7eb;
+
+  --color-overlay: #000000;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+  --color-success: #059669;
+  --color-body-bg: #f3f4f6;
+  --color-body-text: #111827;
+}
+
+/* Non-Tailwind-namespaced tokens (no bg-/text- utility generation wanted)
+   backing the handwritten glass-card/glow/scrollbar rules below — same
+   dark-default-then-light-override pattern as the theme tokens above. */
+:root {
+  --glass-strong: rgba(22, 30, 46, 0.75);
+  --glass-soft: rgba(22, 30, 46, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glow-primary-shadow: rgba(78, 222, 163, 0.12);
+  --glow-primary-border: rgba(78, 222, 163, 0.3);
+  --glow-border-primary-shadow: rgba(78, 222, 163, 0.08);
+  --glow-border-primary-border: rgba(78, 222, 163, 0.25);
+  --glow-secondary-shadow: rgba(59, 130, 246, 0.12);
+  --glow-text-primary-shadow: rgba(78, 222, 163, 0.4);
+  --scrollbar-thumb: rgba(78, 222, 163, 0.15);
+  --scrollbar-thumb-hover: rgba(78, 222, 163, 0.35);
+}
+
+:root[data-theme="light"] {
+  --glass-strong: rgba(255, 255, 255, 0.75);
+  --glass-soft: rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glow-primary-shadow: rgba(5, 150, 105, 0.1);
+  --glow-primary-border: rgba(5, 150, 105, 0.25);
+  --glow-border-primary-shadow: rgba(5, 150, 105, 0.08);
+  --glow-border-primary-border: rgba(5, 150, 105, 0.2);
+  --glow-secondary-shadow: rgba(37, 99, 235, 0.1);
+  --glow-text-primary-shadow: rgba(5, 150, 105, 0.25);
+  --scrollbar-thumb: rgba(5, 150, 105, 0.15);
+  --scrollbar-thumb-hover: rgba(5, 150, 105, 0.35);
+}
+
 .glow-border-primary {
-  box-shadow: 0 0 20px rgba(78, 222, 163, 0.08);
-  border: 1px solid rgba(78, 222, 163, 0.25);
+  box-shadow: 0 0 20px var(--glow-border-primary-shadow);
+  border: 1px solid var(--glow-border-primary-border);
 }
 
 body {
-  background-color: #0B111E;
-  color: #dde4dd;
+  background-color: var(--color-body-bg);
+  color: var(--color-body-text);
   font-family: var(--font-sans);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .glow-text-primary {
-  text-shadow: 0 0 10px rgba(78, 222, 163, 0.4);
+  text-shadow: 0 0 10px var(--glow-text-primary-shadow);
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(22, 30, 46, 0.75) 0%, rgba(22, 30, 46, 0.45) 100%);
+  background: linear-gradient(135deg, var(--glass-strong) 0%, var(--glass-soft) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
 }
 
 .glow-primary {
-  box-shadow: 0 0 20px rgba(78, 222, 163, 0.12);
-  border: 1px solid rgba(78, 222, 163, 0.3);
+  box-shadow: 0 0 20px var(--glow-primary-shadow);
+  border: 1px solid var(--glow-primary-border);
 }
 
 .glow-secondary {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.12);
-  border-left: 2px solid #3B82F6;
+  box-shadow: 0 0 20px var(--glow-secondary-shadow);
+  border-left: 2px solid var(--color-secondary);
 }
 
 ::-webkit-scrollbar {
@@ -63,11 +137,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(78, 222, 163, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(78, 222, 163, 0.35);
+  background: var(--scrollbar-thumb-hover);
 }
 
 .no-scrollbar::-webkit-scrollbar {

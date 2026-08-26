@@ -43,7 +43,7 @@ const Bullets = ({ items }: { items: React.ReactNode[] }) => (
   </ul>
 );
 const H4 = ({ children }: { children: React.ReactNode }) => (
-  <h4 className="text-[11px] font-label-caps text-white font-bold uppercase tracking-wider mt-1">{children}</h4>
+  <h4 className="text-[11px] font-label-caps text-on-surface font-bold uppercase tracking-wider mt-1">{children}</h4>
 );
 
 // Konten panduan — mengacu ke fitur nyata di aplikasi (bukan aspirasional),
@@ -59,9 +59,9 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <Steps
           items={[
             'Buka kantongku.site dari browser HP atau laptop.',
-            <>Klik <b className="text-white">Masuk dengan Google</b>, pilih akun Google dengan email yang sama seperti saat pembelian.</>,
+            <>Klik <b className="text-on-surface">Masuk dengan Google</b>, pilih akun Google dengan email yang sama seperti saat pembelian.</>,
             'Setelah masuk, langsung diarahkan ke Dashboard utama.',
-            <>Buat wallet pertama (misalnya "Cash" atau "Rekening BCA") lewat menu <b className="text-white">Wallet</b>.</>,
+            <>Buat wallet pertama (misalnya "Cash" atau "Rekening BCA") lewat menu <b className="text-on-surface">Wallet</b>.</>,
             'Mulai catat transaksi pertama — boleh langsung coba fitur foto struk atau ketik bebas.',
           ]}
         />
@@ -69,9 +69,9 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <H4>Install ke Layar Utama (iPhone)</H4>
         <Steps
           items={[
-            <>Buka kantongku.site lewat <b className="text-white">Safari</b> (wajib Safari, bukan Chrome — ketentuan Apple).</>,
-            <>Tekan tombol <Share className="w-3 h-3 inline text-primary" /> <b className="text-white">Share/Bagikan</b> di bagian bawah layar.</>,
-            <>Scroll dan pilih <b className="text-white">Add to Home Screen / Tambah ke Layar Utama</b>.</>,
+            <>Buka kantongku.site lewat <b className="text-on-surface">Safari</b> (wajib Safari, bukan Chrome — ketentuan Apple).</>,
+            <>Tekan tombol <Share className="w-3 h-3 inline text-primary" /> <b className="text-on-surface">Share/Bagikan</b> di bagian bawah layar.</>,
+            <>Scroll dan pilih <b className="text-on-surface">Add to Home Screen / Tambah ke Layar Utama</b>.</>,
             'Tekan "Tambah" — ikon KantongKu akan muncul di layar utama seperti aplikasi biasa.',
           ]}
         />
@@ -79,13 +79,13 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <H4>Install ke Layar Utama (Android)</H4>
         <Steps
           items={[
-            <>Buka kantongku.site lewat <b className="text-white">Chrome</b>.</>,
+            <>Buka kantongku.site lewat <b className="text-on-surface">Chrome</b>.</>,
             <>Tekan menu titik tiga <MoreVertical className="w-3 h-3 inline text-primary" /> di pojok kanan atas.</>,
-            <>Pilih <b className="text-white">Install app</b> atau <b className="text-white">Add to Home screen</b> (kadang muncul otomatis sebagai pop-up banner "Install KantongKu").</>,
+            <>Pilih <b className="text-on-surface">Install app</b> atau <b className="text-on-surface">Add to Home screen</b> (kadang muncul otomatis sebagai pop-up banner "Install KantongKu").</>,
             'Konfirmasi install — KantongKu akan tampil sebagai aplikasi mandiri, lengkap dengan ikon di app drawer.',
           ]}
         />
-        <P>Install ke layar utama <b className="text-white">wajib</b> supaya notifikasi pengingat bisa berfungsi, terutama di iPhone.</P>
+        <P>Install ke layar utama <b className="text-on-surface">wajib</b> supaya notifikasi pengingat bisa berfungsi, terutama di iPhone.</P>
       </div>
     ),
   },
@@ -97,12 +97,12 @@ const GUIDE_SECTIONS: GuideSection[] = [
       <div className="flex flex-col gap-3">
         <P>Fitur andalan KantongKu — tidak perlu mengetik detail satu per satu. Pilih salah satu cara, AI yang membaca dan mengisikan detailnya (nominal, kategori, deskripsi).</P>
         <H4><Camera className="w-3 h-3 inline mr-1 text-primary" />Foto Struk Belanja</H4>
-        <P>Buka menu <b className="text-white">Ketik Apapun</b>, ambil atau upload foto struk. AI membaca isi struk dan otomatis mengisi nominal, tanggal, dan kategori. Cek sekali lagi lalu simpan.</P>
+        <P>Buka menu <b className="text-on-surface">Ketik Apapun</b>, ambil atau upload foto struk. AI membaca isi struk dan otomatis mengisi nominal, tanggal, dan kategori. Cek sekali lagi lalu simpan.</P>
         <H4><Mic className="w-3 h-3 inline mr-1 text-primary" />Rekam Suara</H4>
         <P>Rekam lewat suara, contoh: "Beli kopi tiga puluh lima ribu pakai cash". AI mengubahnya jadi transaksi lengkap otomatis.</P>
         <H4><Keyboard className="w-3 h-3 inline mr-1 text-primary" />Ketik Bebas</H4>
         <P>Ketik bahasa sehari-hari, misalnya "bayar listrik 250rb dari BCA" — AI memahami maksudnya tanpa perlu pilih kategori/dompet satu-satu.</P>
-        <P><b className="text-white">Selalu cek sebelum simpan</b> — terutama untuk nominal yang penting.</P>
+        <P><b className="text-on-surface">Selalu cek sebelum simpan</b> — terutama untuk nominal yang penting.</P>
       </div>
     ),
   },
@@ -116,9 +116,9 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <H4>Pisahkan Uang Bisnis, Pribadi, Titipan</H4>
         <Bullets
           items={[
-            <><b className="text-white">Kas Pribadi</b> — pengeluaran sehari-hari.</>,
-            <><b className="text-white">Kas Usaha</b> — semua transaksi bisnis/usaha kecil.</>,
-            <><b className="text-white">Dana Titipan</b> — uang orang lain yang dititipkan sementara.</>,
+            <><b className="text-on-surface">Kas Pribadi</b> — pengeluaran sehari-hari.</>,
+            <><b className="text-on-surface">Kas Usaha</b> — semua transaksi bisnis/usaha kecil.</>,
+            <><b className="text-on-surface">Dana Titipan</b> — uang orang lain yang dititipkan sementara.</>,
           ]}
         />
         <H4>Info Rekening &amp; Salin Cepat</H4>
@@ -126,7 +126,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <H4>Urutkan Wallet</H4>
         <P>Tekan lama (tahan) kartu wallet, lalu geser untuk mengatur urutan sesuai prioritas.</P>
         <H4>Transfer Antar Wallet &amp; Top Up</H4>
-        <P><b className="text-white">Transfer</b> memindahkan saldo antar wallet sendiri (tidak dihitung pemasukan/pengeluaran). <b className="text-white">+ Tambah Dana</b> menambah saldo (dicatat sebagai pemasukan kategori Top Up Saldo).</P>
+        <P><b className="text-on-surface">Transfer</b> memindahkan saldo antar wallet sendiri (tidak dihitung pemasukan/pengeluaran). <b className="text-on-surface">+ Tambah Dana</b> menambah saldo (dicatat sebagai pemasukan kategori Top Up Saldo).</P>
       </div>
     ),
   },
@@ -136,17 +136,17 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Kantong: Target Tabungan & Limit Belanja',
     body: (
       <div className="flex flex-col gap-3">
-        <P>Menu <b className="text-white">Target &amp; Limit</b> punya dua mode: <b className="text-white">Target Nabung</b> (menabung menuju nominal tujuan) dan <b className="text-white">Limit Belanja</b> (batas pengeluaran per kategori supaya lebih disiplin).</P>
+        <P>Menu <b className="text-on-surface">Target &amp; Limit</b> punya dua mode: <b className="text-on-surface">Target Nabung</b> (menabung menuju nominal tujuan) dan <b className="text-on-surface">Limit Belanja</b> (batas pengeluaran per kategori supaya lebih disiplin).</P>
         <Steps
           items={[
-            <>Buka tombol <b className="text-white">Target & Limit</b> di Dashboard, tekan "Atur Target & Limit Baru".</>,
+            <>Buka tombol <b className="text-on-surface">Target & Limit</b> di Dashboard, tekan "Atur Target & Limit Baru".</>,
             'Pilih jenisnya: Target Nabung atau Limit Belanja.',
             'Beri nama, tentukan nominal target/limit, dan hubungkan ke kategori transaksi terkait.',
             'Pilih siklus waktu pemantauan: 1 minggu, 1 bulan, atau rentang tanggal kustom.',
           ]}
         />
         <P>Progresnya dihitung otomatis dari transaksi riil — ada alarm bertahap (70%, 80%, 90%, 100%) buat limit belanja, dan notifikasi saat target nabung tercapai.</P>
-        <P><Sparkles className="w-3 h-3 inline text-primary mr-1" /><b className="text-white">Baru:</b> sampai 3 Target &amp; Limit yang sedang aktif kini juga tampil langsung di Dashboard, di bawah tombol Add Dana/Transfer, jadi progresnya kelihatan tanpa buka menu ini.</P>
+        <P><Sparkles className="w-3 h-3 inline text-primary mr-1" /><b className="text-on-surface">Baru:</b> sampai 3 Target &amp; Limit yang sedang aktif kini juga tampil langsung di Dashboard, di bawah tombol Add Dana/Transfer, jadi progresnya kelihatan tanpa buka menu ini.</P>
       </div>
     ),
   },
@@ -157,7 +157,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
     body: (
       <div className="flex flex-col gap-3">
         <P>Kategori membantu KantongKu (dan AI) mengelompokkan transaksi supaya laporan dan diagram bermakna. Kategori bawaan sudah tersedia (Makanan, Transportasi, Belanja, Tagihan, dst).</P>
-        <P>Tambah kategori sendiri lewat <b className="text-white">Profil → Kelola Kategori</b>.</P>
+        <P>Tambah kategori sendiri lewat <b className="text-on-surface">Profil → Kelola Kategori</b>.</P>
         <P>Semakin rapi kategori yang dipakai, semakin akurat juga Analisis Kesehatan Keuangan oleh AI.</P>
       </div>
     ),
@@ -171,7 +171,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <H4>Reminder Tagihan</H4>
         <P>Tambahkan pengingat untuk tagihan rutin (listrik, internet, sewa, dll) lengkap tanggal jatuh tempo — KantongKu mengingatkan sebelum tanggal tersebut tiba.</P>
         <H4><CreditCard className="w-3 h-3 inline mr-1 text-primary" />Kelola Cicilan/Hutang</H4>
-        <P>Untuk cicilan/utang (motor, KPR, pinjaman), gunakan menu <b className="text-white">Kelola Cicilan/Hutang</b> di Profil. Satu kali input, dapat dua manfaat: reminder otomatis tiap jatuh tempo, dan pelacakan progres (pokok, cicilan terbayar, sisa utang).</P>
+        <P>Untuk cicilan/utang (motor, KPR, pinjaman), gunakan menu <b className="text-on-surface">Kelola Cicilan/Hutang</b> di Profil. Satu kali input, dapat dua manfaat: reminder otomatis tiap jatuh tempo, dan pelacakan progres (pokok, cicilan terbayar, sisa utang).</P>
         <Bullets
           items={[
             'Nama Cicilan/Hutang — mis. "Cicilan Motor Honda"',
@@ -194,13 +194,13 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <P>Fitur Kolaborasi memberi akses penuh (baca &amp; tulis) ke orang lain untuk melihat dan mengelola data yang sama, secara real-time — cocok untuk pasangan, keluarga, atau partner usaha.</P>
         <Steps
           items={[
-            <>Buka <b className="text-white">Profil → Kelola Kolaborator</b>.</>,
+            <>Buka <b className="text-on-surface">Profil → Kelola Kolaborator</b>.</>,
             'Masukkan alamat email orang yang diundang.',
             'Selesaikan pembayaran biaya kolaborator (sekali bayar per kolaborator, berlaku selamanya selama tidak diputuskan).',
             'Setelah dikonfirmasi, email yang diundang bisa langsung login dan melihat data yang sama persis.',
           ]}
         />
-        <P>Bisa <b className="text-white">Putuskan Sambungan</b> kapan saja, dan <b className="text-white">Sambungkan Lagi</b> nanti gratis tanpa bayar ulang.</P>
+        <P>Bisa <b className="text-on-surface">Putuskan Sambungan</b> kapan saja, dan <b className="text-on-surface">Sambungkan Lagi</b> nanti gratis tanpa bayar ulang.</P>
         <P className="text-amber-400">Kolaborator dapat akses penuh — pastikan hanya mengundang orang yang benar-benar dipercaya.</P>
       </div>
     ),
@@ -211,7 +211,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Statistik & Diagram Interaktif',
     body: (
       <div className="flex flex-col gap-3">
-        <P>Menu <b className="text-white">Analisis</b> menampilkan tren pengeluaran dari waktu ke waktu, lengkap dua diagram donat: pengeluaran per kategori dan pemasukan per kategori.</P>
+        <P>Menu <b className="text-on-surface">Analisis</b> menampilkan tren pengeluaran dari waktu ke waktu, lengkap dua diagram donat: pengeluaran per kategori dan pemasukan per kategori.</P>
         <P>Klik salah satu bagian diagram untuk langsung memfilter daftar transaksi di bawahnya — cara cepat lihat "ke mana saja uang jajan bulan ini pergi". Fitur klik-untuk-filter ini juga ada di halaman Riwayat Transaksi.</P>
       </div>
     ),
@@ -222,8 +222,8 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Riwayat Transaksi & Rekap Bulanan',
     body: (
       <div className="flex flex-col gap-3">
-        <P>Semua transaksi bisa dilihat lengkap di menu <b className="text-white">Riwayat</b>, dengan diagram interaktif di atasnya untuk memfilter cepat.</P>
-        <P>Di Dashboard, kartu <b className="text-white">Total Pengeluaran Bulan Ini</b> → tekan "Lihat Detail" untuk rekap bulanan lengkap, lalu gunakan panah kiri/kanan untuk menjelajahi bulan-bulan sebelumnya.</P>
+        <P>Semua transaksi bisa dilihat lengkap di menu <b className="text-on-surface">Riwayat</b>, dengan diagram interaktif di atasnya untuk memfilter cepat.</P>
+        <P>Di Dashboard, kartu <b className="text-on-surface">Total Pengeluaran Bulan Ini</b> → tekan "Lihat Detail" untuk rekap bulanan lengkap, lalu gunakan panah kiri/kanan untuk menjelajahi bulan-bulan sebelumnya.</P>
       </div>
     ),
   },
@@ -233,8 +233,8 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Analisis Kesehatan Keuangan oleh AI',
     body: (
       <div className="flex flex-col gap-3">
-        <P>Bukan sekadar rekap angka. Berdasarkan data transaksi, tabungan, dan cicilan/hutang, AI menganalisis kondisi keuangan dan memberi kategori mudah dipahami — <b className="text-white">Sehat</b>, <b className="text-white">Cukup Sehat</b>, atau <b className="text-white">Perlu Perhatian</b> — lengkap penjelasan dan saran perbaikan yang relevan, bukan saran generik.</P>
-        <P>Buka <b className="text-white">Analisis → Analisis Kesehatan Keuangan</b>, pilih rentang waktu, tekan "Analisis Sekarang".</P>
+        <P>Bukan sekadar rekap angka. Berdasarkan data transaksi, tabungan, dan cicilan/hutang, AI menganalisis kondisi keuangan dan memberi kategori mudah dipahami — <b className="text-on-surface">Sehat</b>, <b className="text-on-surface">Cukup Sehat</b>, atau <b className="text-on-surface">Perlu Perhatian</b> — lengkap penjelasan dan saran perbaikan yang relevan, bukan saran generik.</P>
+        <P>Buka <b className="text-on-surface">Analisis → Analisis Kesehatan Keuangan</b>, pilih rentang waktu, tekan "Analisis Sekarang".</P>
         <P>Privasi terjaga — hasil analisis ini hanya bisa dilihat kamu (dan kolaborator jika ada), tidak pernah dibagikan ke pihak lain.</P>
       </div>
     ),
@@ -245,7 +245,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Log Aktivitas',
     body: (
       <div className="flex flex-col gap-3">
-        <P>Menu <b className="text-white">Log Activity</b> (Profil → Pengaturan) mencatat aktivitas di akun — termasuk siapa yang melakukannya kalau ada kolaborator, misalnya "Budi menambahkan transaksi Rp50.000 di kategori Makanan".</P>
+        <P>Menu <b className="text-on-surface">Log Activity</b> (Profil → Pengaturan) mencatat aktivitas di akun — termasuk siapa yang melakukannya kalau ada kolaborator, misalnya "Budi menambahkan transaksi Rp50.000 di kategori Makanan".</P>
         <P>Murni untuk transparansi, tidak memengaruhi saldo atau data keuangan. Bisa dibersihkan kapan saja lewat tombol "Bersihkan Log".</P>
       </div>
     ),
@@ -256,11 +256,11 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Notifikasi Pengingat',
     body: (
       <div className="flex flex-col gap-3">
-        <P>KantongKu bisa mengirim notifikasi pengingat (lengkap bunyi) langsung ke HP — misalnya tagihan yang akan jatuh tempo — <b className="text-white">bahkan saat aplikasi sedang tidak dibuka.</b></P>
+        <P>KantongKu bisa mengirim notifikasi pengingat (lengkap bunyi) langsung ke HP — misalnya tagihan yang akan jatuh tempo — <b className="text-on-surface">bahkan saat aplikasi sedang tidak dibuka.</b></P>
         <Steps
           items={[
             'Tambahkan KantongKu ke layar utama HP dulu (lihat bagian "Mulai Cepat & Install ke HP" di atas).',
-            <>Buka notifikasi lonceng <Bell className="w-3 h-3 inline text-primary" /> di Dashboard, tekan <b className="text-white">Aktifkan Notifikasi</b>, izinkan saat diminta browser/HP.</>,
+            <>Buka notifikasi lonceng <Bell className="w-3 h-3 inline text-primary" /> di Dashboard, tekan <b className="text-on-surface">Aktifkan Notifikasi</b>, izinkan saat diminta browser/HP.</>,
             'Selesai — pengingat otomatis muncul sesuai jadwal reminder tagihan/cicilan/kantong yang diatur.',
           ]}
         />
@@ -283,7 +283,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
         >
           <LifeBuoy className="w-4 h-4" /> Buka Halaman Bantuan &amp; Dukungan
         </a>
-        <P>Menu yang sama juga ada permanen di <b className="text-white">Profil → Bantuan &amp; Dukungan</b>.</P>
+        <P>Menu yang sama juga ada permanen di <b className="text-on-surface">Profil → Bantuan &amp; Dukungan</b>.</P>
       </div>
     ),
   },
@@ -324,8 +324,8 @@ export default function GuideView({ onBack }: GuideViewProps) {
   return (
     <div className="flex flex-col gap-4 w-full h-full text-left max-h-[calc(100vh-120px)] overflow-y-auto pb-12 no-scrollbar">
       {/* Header */}
-      <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-        <button onClick={onBack} className="p-2 bg-white/5 rounded-lg">
+      <div className="flex items-center gap-4 border-b border-overlay/5 pb-4">
+        <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg">
           <ChevronLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
@@ -348,7 +348,7 @@ export default function GuideView({ onBack }: GuideViewProps) {
           <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-primary" /> Update Terbaru
           </span>
-          <div className="glass-card rounded-xl p-3.5 border border-white/5 flex flex-col gap-2">
+          <div className="glass-card rounded-xl p-3.5 border border-overlay/5 flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold font-mono-data">
                 V{CHANGELOG[0].version}
@@ -370,19 +370,19 @@ export default function GuideView({ onBack }: GuideViewProps) {
             const Icon = section.icon;
             const isOpen = openId === section.id;
             return (
-              <div key={section.id} className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
+              <div key={section.id} className="rounded-xl bg-overlay/5 border border-overlay/10 overflow-hidden">
                 <button
                   onClick={() => setOpenId(isOpen ? null : section.id)}
-                  className="w-full h-12 flex items-center justify-between px-4 hover:bg-white/5 active:scale-[0.99] transition-all"
+                  className="w-full h-12 flex items-center justify-between px-4 hover:bg-overlay/5 active:scale-[0.99] transition-all"
                 >
-                  <span className="flex items-center gap-2 text-white font-label-caps text-xs">
+                  <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
                     <Icon className="w-4 h-4 text-primary shrink-0" />
                     {section.title}
                   </span>
                   <ChevronDown className={`w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-4 pt-1 border-t border-white/5">
+                  <div className="px-4 pb-4 pt-1 border-t border-overlay/5">
                     {section.body}
                   </div>
                 )}

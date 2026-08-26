@@ -155,7 +155,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
       
       {/* Title Header */}
       <div>
-        <h1 className="font-headline-md text-2xl text-white font-bold leading-tight">Analisis Pengeluaran</h1>
+        <h1 className="font-headline-md text-2xl text-on-surface font-bold leading-tight">Analisis Pengeluaran</h1>
         <p className="text-sm text-on-surface-variant mt-1.5 leading-relaxed">
           Tinjau statistik peredaran dana terhitung dalam kalender riil — <span className="text-primary font-semibold">{currentMonthName}</span>
         </p>
@@ -165,7 +165,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
 
         {/* GRAFIK TREN MINGGU KALENDER RIIL */}
         <section className="flex flex-col gap-2.5 w-full min-w-0">
-            <h2 className="font-headline-sm text-base text-white">Tren Pengeluaran Mingguan</h2>
+            <h2 className="font-headline-sm text-base text-on-surface">Tren Pengeluaran Mingguan</h2>
             
             <div className="glass-card rounded-xl p-4 relative overflow-hidden flex flex-col gap-4">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
@@ -173,7 +173,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
               <div className="flex justify-between items-end">
                 <div>
                   <p className="text-[10px] text-on-surface-variant font-label-caps uppercase tracking-wider">Total Belanja Bulan Ini</p>
-                  <p className="font-display-lg text-white font-mono-data text-2xl font-bold">{formatRupiah(totalWeeklySpent)}</p>
+                  <p className="font-display-lg text-on-surface font-mono-data text-2xl font-bold">{formatRupiah(totalWeeklySpent)}</p>
                   <button
                     onClick={onOpenMonthlyDetail}
                     className="flex items-center gap-0.5 text-[11px] text-primary hover:underline font-label-caps mt-1"
@@ -221,8 +221,8 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
 
                 {/* Tooltip Float panel */}
                 {selectedWeek !== null && (
-                  <div className="absolute top-1 bg-[#0F172A] border border-white/10 rounded-lg p-2 text-center text-xs shadow-xl left-1/2 -translate-x-1/2 z-10 animate-fade-in">
-                    <span className="font-bold text-white block">Minggu Riil {selectedWeek + 1}</span>
+                  <div className="absolute top-1 bg-surface border border-overlay/10 rounded-lg p-2 text-center text-xs shadow-xl left-1/2 -translate-x-1/2 z-10 animate-fade-in">
+                    <span className="font-bold text-on-surface block">Minggu Riil {selectedWeek + 1}</span>
                     <span className="text-primary font-mono-data font-bold block mt-0.5">
                       {weeklyTrendData[selectedWeek] > 0 ? formatRupiah(weeklyTrendData[selectedWeek]) : 'Tidak ada mutasi'}
                     </span>
@@ -237,7 +237,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
 
         {/* Pengeluaran & Pemasukan per Kategori: donat chart, di antara Tren Mingguan & Pengeluaran Terbesar */}
         <section className="flex flex-col gap-2.5 w-full min-w-0">
-          <h2 className="font-headline-sm text-base text-white">Pengeluaran &amp; Pemasukan per Kategori</h2>
+          <h2 className="font-headline-sm text-base text-on-surface">Pengeluaran &amp; Pemasukan per Kategori</h2>
           <CategoryDonutChart
             transactions={currentMonthTransactions}
             categories={categories}
@@ -250,8 +250,8 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
 
         {/* AGREGASI PENGELUARAN TERBESAR */}
         <section className="flex flex-col gap-2.5 w-full min-w-0">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <h2 className="font-headline-sm text-base text-white">Pengeluaran Terbesar</h2>
+            <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
+              <h2 className="font-headline-sm text-base text-on-surface">Pengeluaran Terbesar</h2>
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Urutan Termahal</span>
             </div>
 
@@ -276,7 +276,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                     <button
                       key={cat.id}
                       onClick={() => onOpenHistory({ category: cat.id })}
-                      className="glass-card rounded-lg p-3.5 flex items-center gap-4 group hover:bg-white/5 transition-all text-left w-full border border-white/5"
+                      className="glass-card rounded-lg p-3.5 flex items-center gap-4 group hover:bg-overlay/5 transition-all text-left w-full border border-overlay/5"
                       title={`Lihat semua mutasi ${cat.name}`}
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: colorHex + '15', border: `1px solid ${colorHex}30` }}>
@@ -284,12 +284,12 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                       </div>
 
                       <div className="flex-grow flex flex-col min-w-0">
-                        <span className="font-body-lg text-white font-medium truncate">{cat.name}</span>
+                        <span className="font-body-lg text-on-surface font-medium truncate">{cat.name}</span>
                         <span className="font-body-md text-xs text-on-surface-variant">{cat.count} Transaksi</span>
                       </div>
 
                       <div className="text-right shrink-0 px-2">
-                        <span className="font-mono-data text-[#FF4D4D] font-bold block">
+                        <span className="font-mono-data text-danger font-bold block">
                           - {formatRupiah(cat.spent)}
                         </span>
                         <span className="text-[10px] uppercase font-label-caps text-on-surface-variant/60 tracking-wider block mt-0.5">
@@ -313,8 +313,8 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
 
         {/* AGREGASI PEMASUKAN TERBESAR */}
         <section className="flex flex-col gap-2.5 w-full min-w-0">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <h2 className="font-headline-sm text-base text-white">Pemasukan Terbesar</h2>
+            <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
+              <h2 className="font-headline-sm text-base text-on-surface">Pemasukan Terbesar</h2>
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Urutan Terbesar</span>
             </div>
 
@@ -339,7 +339,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                     <button
                       key={cat.id}
                       onClick={() => onOpenHistory({ category: cat.id })}
-                      className="glass-card rounded-lg p-3.5 flex items-center gap-4 group hover:bg-white/5 transition-all text-left w-full border border-white/5"
+                      className="glass-card rounded-lg p-3.5 flex items-center gap-4 group hover:bg-overlay/5 transition-all text-left w-full border border-overlay/5"
                       title={`Lihat semua mutasi ${cat.name}`}
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: colorHex + '15', border: `1px solid ${colorHex}30` }}>
@@ -347,7 +347,7 @@ export default function ActivityView({ transactions, pockets, categories, onOpen
                       </div>
 
                       <div className="flex-grow flex flex-col min-w-0">
-                        <span className="font-body-lg text-white font-medium truncate">{cat.name}</span>
+                        <span className="font-body-lg text-on-surface font-medium truncate">{cat.name}</span>
                         <span className="font-body-md text-xs text-on-surface-variant">{cat.count} Transaksi</span>
                       </div>
 

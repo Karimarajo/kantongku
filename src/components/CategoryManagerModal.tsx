@@ -206,15 +206,15 @@ export default function CategoryManagerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 select-none font-body-md text-white">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 select-none font-body-md text-on-surface">
       {/* Background overlay */}
       <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={onClose} />
       
       {/* Container */}
-      <div className="relative glass-card rounded-2xl w-full max-w-md border border-white/10 z-10 overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative glass-card rounded-2xl w-full max-w-md border border-overlay/10 z-10 overflow-hidden flex flex-col max-h-[85vh]">
         
         {/* Header */}
-        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-surface-variant/20">
+        <div className="p-4 border-b border-overlay/5 flex justify-between items-center bg-surface-variant/20">
           <div className="flex items-center gap-2">
             <CircleDollarSign className="w-5 h-5 text-primary" />
             <h3 className="font-headline-sm text-base font-bold">
@@ -223,7 +223,7 @@ export default function CategoryManagerModal({
               {formMode === 'edit' && 'Ubah Kategori'}
             </h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-full transition-colors text-on-surface-variant hover:text-white">
+          <button onClick={onClose} className="p-1 hover:bg-overlay/5 rounded-full transition-colors text-on-surface-variant hover:text-on-surface">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -241,7 +241,7 @@ export default function CategoryManagerModal({
                 <button 
                   type="button"
                   onClick={() => setDeleteWarning(null)}
-                  className="mt-2 text-white bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1 rounded text-[10px] font-bold"
+                  className="mt-2 text-on-surface bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1 rounded text-[10px] font-bold"
                 >
                   Batal
                 </button>
@@ -284,10 +284,10 @@ export default function CategoryManagerModal({
                         onDragEnd={handleDragEnd}
                         className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                           isDragging
-                            ? 'opacity-40 scale-95 bg-white/5 border-white/10'
+                            ? 'opacity-40 scale-95 bg-overlay/5 border-overlay/10'
                             : isDragOver
                             ? 'bg-primary/10 border-primary/30 scale-[1.01]'
-                            : 'bg-white/5 border-white/5 hover:bg-white/10'
+                            : 'bg-overlay/5 border-overlay/5 hover:bg-overlay/10'
                         }`}
                         style={{ borderLeft: isDragOver ? `3px solid #4EDEA3` : `3px solid ${borderHex}` }}
                       >
@@ -306,7 +306,7 @@ export default function CategoryManagerModal({
                               e.stopPropagation();
                               handleOpenEdit(cat);
                             }}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white transition-colors"
+                            className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -317,7 +317,7 @@ export default function CategoryManagerModal({
                                 e.stopPropagation();
                                 handleDeleteCheck(cat.id, cat.name);
                               }}
-                              className="p-1.5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/20 border border-white/5 rounded-lg text-on-surface-variant hover:text-rose-400 transition-colors"
+                              className="p-1.5 bg-overlay/5 hover:bg-rose-500/10 hover:border-rose-500/20 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-rose-400 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -334,7 +334,7 @@ export default function CategoryManagerModal({
                               }
                             }}
                             disabled={categories.findIndex(c => c.id === cat.id) === 0}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white disabled:opacity-40"
+                            className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface disabled:opacity-40"
                             title="Naik"
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
@@ -351,7 +351,7 @@ export default function CategoryManagerModal({
                               }
                             }}
                             disabled={categories.findIndex(c => c.id === cat.id) === categories.length - 1}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-on-surface-variant hover:text-white disabled:opacity-40"
+                            className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface disabled:opacity-40"
                             title="Turun"
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
@@ -375,7 +375,7 @@ export default function CategoryManagerModal({
                   placeholder="Contoh: Belanja Bulanan, Jajan Anak"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60"
+                  className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60"
                 />
               </div>
 
@@ -388,7 +388,7 @@ export default function CategoryManagerModal({
                       key={c.value}
                       type="button"
                       onClick={() => setColor(c.value)}
-                      className={`h-9 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold ${color === c.value ? c.activeClass : 'bg-surface-variant/10 border-white/5 text-on-surface-variant hover:bg-white/5'}`}
+                      className={`h-9 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold ${color === c.value ? c.activeClass : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                       style={{ color: c.hex, borderColor: color === c.value ? c.hex : '' }}
                       title={c.label}
                     >
@@ -413,7 +413,7 @@ export default function CategoryManagerModal({
                         key={i.value}
                         type="button"
                         onClick={() => setIcon(i.value)}
-                        className={`h-10 rounded-lg flex items-center justify-center transition-all border ${isSelected ? '' : 'bg-surface-variant/10 border-white/5 text-on-surface-variant hover:bg-white/5'}`}
+                        className={`h-10 rounded-lg flex items-center justify-center transition-all border ${isSelected ? '' : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                         style={isSelected ? activeStyle : {}}
                         title={i.label}
                       >
@@ -425,7 +425,7 @@ export default function CategoryManagerModal({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2.5 mt-3 pt-3 border-t border-white/5">
+              <div className="flex gap-2.5 mt-3 pt-3 border-t border-overlay/5">
                 <button
                   type="submit"
                   className="flex-1 h-11 bg-primary text-on-primary rounded-xl font-headline-sm text-sm font-bold flex items-center justify-center gap-1.5 hover:opacity-95 transition-all shadow-[0_4px_15px_rgba(78,222,163,0.15)] active:scale-[0.98]"
@@ -436,7 +436,7 @@ export default function CategoryManagerModal({
                 <button
                   type="button"
                   onClick={() => setFormMode('list')}
-                  className="px-4 h-11 bg-white/5 border border-white/10 text-on-surface-variant hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-white/10 active:scale-[0.98]"
+                  className="px-4 h-11 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-overlay/10 active:scale-[0.98]"
                 >
                   <Undo2 className="w-4 h-4" />
                   Batal

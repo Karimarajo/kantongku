@@ -554,7 +554,7 @@ export default function AddTransactionModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={() => { goBack(); onClose(); }} />
       
       {/* Sheet Content */}
-      <div className="relative w-full max-w-md glass-card rounded-t-2xl border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transform transition-transform duration-300 translate-y-0 flex flex-col pb-10 z-10 max-h-[85vh] overflow-y-auto no-scrollbar">
+      <div className="relative w-full max-w-md glass-card rounded-t-2xl border-t border-overlay/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transform transition-transform duration-300 translate-y-0 flex flex-col pb-10 z-10 max-h-[85vh] overflow-y-auto no-scrollbar">
         <div className="w-12 h-1.5 bg-outline-variant/30 rounded-full mx-auto mt-3 mb-5 shrink-0" />
         
         {/* Modal Header */}
@@ -562,7 +562,7 @@ export default function AddTransactionModal({
           {currentView !== 'options' && !editingTransaction && (
             <button onClick={goBack} className="text-xs text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full hover:bg-primary/20">Kembali</button>
           )}
-          <span className="flex-grow text-center font-headline-sm text-white">
+          <span className="flex-grow text-center font-headline-sm text-on-surface">
             {editingTransaction ? 'Ubah Transaksi' : (
               <>
                 {currentView === 'options' && 'Catat Pengeluaran'}
@@ -573,7 +573,7 @@ export default function AddTransactionModal({
               </>
             )}
           </span>
-          <button onClick={() => { goBack(); onClose(); }} className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant hover:text-white">
+          <button onClick={() => { goBack(); onClose(); }} className="w-7 h-7 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -589,21 +589,21 @@ export default function AddTransactionModal({
                   <Brain className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-white font-bold">Ketik Apapun</p>
+                  <p className="font-body-lg text-on-surface font-bold">Ketik Apapun</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">Tulis bebas satu kalimat, AI yang urus sisanya</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0" />
               </button>
 
-              <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-left group active:scale-[0.98]">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
+              <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-xl bg-overlay/5 border border-overlay/10 hover:bg-overlay/10 transition-all text-left group active:scale-[0.98]">
+                <div className="w-12 h-12 rounded-full bg-overlay/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Camera className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-white font-bold">Foto Struk Belanja</p>
+                  <p className="font-body-lg text-on-surface font-bold">Foto Struk Belanja</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">Baca nota instan otomatis pakai AI asli</p>
                 </div>
-                <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-white transition-colors shrink-0" />
+                <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-on-surface transition-colors shrink-0" />
               </button>
 
               <button onClick={() => setCurrentView('voice')} className="flex items-center gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10 hover:bg-secondary/10 transition-all text-left group active:scale-[0.98]">
@@ -611,21 +611,21 @@ export default function AddTransactionModal({
                   <Mic className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-white font-bold">Catat Pakai Suara</p>
+                  <p className="font-body-lg text-on-surface font-bold">Catat Pakai Suara</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">Rekam suara asli / dikte via AI</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-secondary transition-colors shrink-0" />
               </button>
 
-              <button onClick={() => setCurrentView('manual')} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-left group active:scale-[0.98]">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
+              <button onClick={() => setCurrentView('manual')} className="flex items-center gap-4 p-4 rounded-xl bg-overlay/5 border border-overlay/10 hover:bg-overlay/10 transition-all text-left group active:scale-[0.98]">
+                <div className="w-12 h-12 rounded-full bg-overlay/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Edit3 className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-white font-bold">Input Manual</p>
+                  <p className="font-body-lg text-on-surface font-bold">Input Manual</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">Ketik manual nominal & kategori</p>
                 </div>
-                <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-white transition-colors shrink-0" />
+                <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-on-surface transition-colors shrink-0" />
               </button>
             </div>
           )}
@@ -637,22 +637,22 @@ export default function AddTransactionModal({
                 <div className="flex flex-col items-center gap-4 py-8">
                   <Loader className="w-12 h-12 text-primary animate-spin" />
                   <div className="flex flex-col gap-2 items-center">
-                    <p className="text-white font-medium text-lg">Menganalisis Struk...</p>
+                    <p className="text-on-surface font-medium text-lg">Menganalisis Struk...</p>
                     <p className="text-xs text-on-surface-variant animate-pulse">{progressMsg}</p>
-                    <div className="w-40 h-1.5 rounded-full bg-white/10 overflow-hidden mt-1">
+                    <div className="w-40 h-1.5 rounded-full bg-overlay/10 overflow-hidden mt-1">
                       <div className="h-full w-2/3 bg-primary rounded-full animate-pulse" />
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
-                  <label className="w-full aspect-[4/3] bg-surface/50 border border-white/5 rounded-xl flex flex-col items-center justify-center gap-4 p-6 relative overflow-hidden group border-dashed hover:border-primary/40 duration-200 cursor-pointer">
+                  <label className="w-full aspect-[4/3] bg-surface/50 border border-overlay/5 rounded-xl flex flex-col items-center justify-center gap-4 p-6 relative overflow-hidden group border-dashed hover:border-primary/40 duration-200 cursor-pointer">
                     <input type="file" id="upload-struk-input" accept="image/*" onChange={(e) => handleFileChange(e, 'image')} className="hidden" />
                     <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="absolute left-0 right-0 h-0.5 bg-primary/40 shadow-[0_0_15px_#4edea3] top-1/4 animate-bounce" />
                     <Camera className="w-12 h-12 text-primary/80" />
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm font-medium text-white">Ambil Foto atau Klik Upload Struk</p>
+                      <p className="text-sm font-medium text-on-surface">Ambil Foto atau Klik Upload Struk</p>
                       <p className="text-xs text-on-surface-variant">Kirim file nota belanjaan asli Anda untuk dibongkar AI</p>
                     </div>
                   </label>
@@ -661,10 +661,10 @@ export default function AddTransactionModal({
                     <span className="text-xs text-on-surface-variant uppercase font-label-caps tracking-wider block">Atau gunakan demo struk instan:</span>
                     <div className="grid grid-cols-1 gap-2">
                       {MOCK_RECEIPTS.map((item, idx) => (
-                        <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Struk')} className="flex justify-between items-center p-3 rounded-lg bg-white/5 border border-white/5 hover:border-primary/30 transition-colors text-left text-sm" >
+                        <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Struk')} className="flex justify-between items-center p-3 rounded-lg bg-overlay/5 border border-overlay/5 hover:border-primary/30 transition-colors text-left text-sm" >
                           <div className="flex items-center gap-3">
                             <Receipt className="w-5 h-5 text-primary shrink-0" />
-                            <span className="text-white font-medium">{item.catatan}</span>
+                            <span className="text-on-surface font-medium">{item.catatan}</span>
                           </div>
                           <span className="font-mono-data text-primary text-xs font-bold">{formatRupiah(item.nominal)}</span>
                         </button>
@@ -683,7 +683,7 @@ export default function AddTransactionModal({
                 <div className="flex flex-col items-center gap-3 py-8">
                   <Loader className="w-12 h-12 text-secondary animate-spin" />
                   <p className="text-xs text-secondary animate-pulse">{progressMsg}</p>
-                  <div className="w-40 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div className="w-40 h-1.5 rounded-full bg-overlay/10 overflow-hidden">
                     <div className="h-full w-2/3 bg-secondary rounded-full animate-pulse" />
                   </div>
                 </div>
@@ -696,9 +696,9 @@ export default function AddTransactionModal({
                     <span className="w-1.5 bg-red-500 rounded-full animate-[bounce_1.4s_infinite] h-12" />
                   </div>
                   <div className="flex flex-col gap-3 items-center">
-                    <p className="text-white font-medium text-md animate-pulse">{progressMsg}</p>
-                    <button type="button" onClick={stopAudioRecording} className="h-12 px-6 bg-red-500 text-white font-bold rounded-full flex items-center gap-2 hover:bg-red-600 active:scale-95 shadow-lg shadow-red-500/20" >
-                      <Square className="w-4 h-4 text-white fill-white" /> Selesai & Kirim Ke AI
+                    <p className="text-on-surface font-medium text-md animate-pulse">{progressMsg}</p>
+                    <button type="button" onClick={stopAudioRecording} className="h-12 px-6 bg-red-500 text-on-surface font-bold rounded-full flex items-center gap-2 hover:bg-red-600 active:scale-95 shadow-lg shadow-red-500/20" >
+                      <Square className="w-4 h-4 text-on-surface fill-white" /> Selesai & Kirim Ke AI
                     </button>
                   </div>
                 </div>
@@ -710,7 +710,7 @@ export default function AddTransactionModal({
                       <Mic className="w-6 h-6 group-hover:scale-110 transition-transform" />
                     </button>
 
-                    <label className="h-16 px-6 bg-white/5 border border-white/10 text-on-surface-variant hover:text-white rounded-full flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold active:scale-[0.98] transition-all">
+                    <label className="h-16 px-6 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-full flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold active:scale-[0.98] transition-all">
                       <input type="file" id="upload-voice-input" accept="audio/*" onChange={(e) => handleFileChange(e, 'audio')} className="hidden" />
                       <Upload className="w-[18px] h-[18px] shrink-0" /> Unggah Berkas Audio Asli
                     </label>
@@ -723,7 +723,7 @@ export default function AddTransactionModal({
                     <span className="text-xs text-on-surface-variant uppercase font-label-caps tracking-wider block">Demo Bicara Instan (Tiruan):</span>
                     <div className="flex flex-col gap-2">
                       {MOCK_VOICES.map((item, idx) => (
-                        <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Suara')} className="flex flex-col p-3 rounded-lg bg-[#161E2E] border border-white/5 hover:border-secondary/40 transition-colors text-left text-xs gap-1" >
+                        <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Suara')} className="flex flex-col p-3 rounded-lg bg-surface-variant border border-overlay/5 hover:border-secondary/40 transition-colors text-left text-xs gap-1" >
                           <span className="italic text-secondary font-medium">{item.text}</span>
                         </button>
                       ))}
@@ -739,7 +739,7 @@ export default function AddTransactionModal({
             <div className="flex flex-col gap-4 text-left py-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Input Teks/Suara Bebas</label>
-                <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')..." className="h-24 bg-surface-variant/40 border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
+                <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')..." className="h-24 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
               </div>
 
               <div className="flex gap-2">
@@ -755,14 +755,14 @@ export default function AddTransactionModal({
           {/* VIEW: Manual Form Input */}
           {currentView === 'manual' && (
             <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 text-left">
-              <div className="flex bg-[#0B111E] rounded-lg p-1 border border-white/5 w-fit self-center">
-                <button type="button" onClick={() => setType('outgoing')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'outgoing' ? 'bg-[#EF4444] text-white shadow-lg' : 'text-on-surface-variant/60 hover:text-white'}`}>Pengeluaran</button>
-                <button type="button" onClick={() => setType('incoming')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'incoming' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant/60 hover:text-white'}`}>Pemasukan</button>
+              <div className="flex bg-body-bg rounded-lg p-1 border border-overlay/5 w-fit self-center">
+                <button type="button" onClick={() => setType('outgoing')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'outgoing' ? 'bg-danger text-on-surface shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>Pengeluaran</button>
+                <button type="button" onClick={() => setType('incoming')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'incoming' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>Pemasukan</button>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Judul Transaksi</label>
-                <input type="text" required placeholder="Contoh: Beli Kopi Susu, Gaji Bulanan" value={title} onChange={(e) => setTitle(e.target.value)} className="h-12 bg-surface-variant/40 border border-white/10 rounded-lg px-4 text-white focus:outline-none focus:border-primary/60" />
+                <input type="text" required placeholder="Contoh: Beli Kopi Susu, Gaji Bulanan" value={title} onChange={(e) => setTitle(e.target.value)} className="h-12 bg-surface-variant/40 border border-overlay/10 rounded-lg px-4 text-on-surface focus:outline-none focus:border-primary/60" />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -780,13 +780,13 @@ export default function AddTransactionModal({
                       const clean = e.target.value.replace(/[^0-9+\-*/]/g, '');
                       setAmountExpr(clean);
                     }}
-                    className="h-12 w-full bg-surface-variant/40 border border-white/10 rounded-lg pl-12 pr-4 text-white focus:outline-none focus:border-primary/60 font-mono-data"
+                    className="h-12 w-full bg-surface-variant/40 border border-overlay/10 rounded-lg pl-12 pr-4 text-on-surface focus:outline-none focus:border-primary/60 font-mono-data"
                   />
                 </div>
               </div>
 
               {showCalc && (
-                <div className="mt-2 border-t border-white/5 pt-3 animate-fade-in">
+                <div className="mt-2 border-t border-overlay/5 pt-3 animate-fade-in">
                   <CalcKeyboard
                     onKeyPress={handleCalcKeyPress}
                     onClear={handleCalcClear}
@@ -805,11 +805,11 @@ export default function AddTransactionModal({
                     const isSelected = datePreset === preset;
                     let label = preset === 'today' ? 'Hari Ini' : preset === 'yesterday' ? 'Kemarin' : preset === 'lusa' ? 'Lusa' : 'Kalender';
                     return (
-                      <button key={preset} type="button" onClick={() => setDatePreset(preset)} className={`py-2 px-1 rounded-lg border text-xs font-semibold text-center transition-all ${isSelected ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-variant/20 border-white/5 text-on-surface-variant hover:bg-white/5'}`}>{label}</button>
+                      <button key={preset} type="button" onClick={() => setDatePreset(preset)} className={`py-2 px-1 rounded-lg border text-xs font-semibold text-center transition-all ${isSelected ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>{label}</button>
                     );
                   })}
                 </div>
-                {datePreset === 'custom' && <input type="date" required value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="mt-2 h-11 bg-surface-variant/40 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-primary/60" />}
+                {datePreset === 'custom' && <input type="date" required value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="mt-2 h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60" />}
               </div>
 
               {/* Selector Kantong */}
@@ -820,7 +820,7 @@ export default function AddTransactionModal({
                     const isSelected = pocketId === p.id;
                     let IconComponent = p.icon === 'group' ? Users : p.icon === 'storefront' ? Store : p.icon === 'food' ? Utensils : Wallet;
                     return (
-                      <button key={p.id} type="button" onClick={() => setPocketId(p.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-white/5 text-on-surface-variant hover:bg-white/5'}`}>
+                      <button key={p.id} type="button" onClick={() => setPocketId(p.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
                         <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{p.name}</span>
                       </button>
                     );
@@ -836,7 +836,7 @@ export default function AddTransactionModal({
                     const isSelected = accountId === acc.id;
                     let IconComponent = acc.icon === 'bank' ? CreditCard : acc.icon === 'smartphone' ? Smartphone : Coins;
                     return (
-                      <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-white/5 text-on-surface-variant hover:bg-white/5'}`}>
+                      <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
                         <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{acc.name}</span>
                       </button>
                     );
@@ -855,7 +855,7 @@ export default function AddTransactionModal({
                     const isSelected = category === cat.id;
                     const catHex = getCategoryColorHex(cat.color);
                     return (
-                      <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={`flex-shrink-0 px-3.5 py-1.5 rounded-full border text-xs flex items-center gap-1.5 transition-all ${isSelected ? 'font-bold' : 'bg-surface-variant/40 border-white/5 text-on-surface-variant/70'}`} style={isSelected ? { backgroundColor: catHex + '20', borderColor: catHex, color: catHex } : {}}><CategoryIcon name={cat.icon} className="w-4 h-4" />{cat.name}</button>
+                      <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={`flex-shrink-0 px-3.5 py-1.5 rounded-full border text-xs flex items-center gap-1.5 transition-all ${isSelected ? 'font-bold' : 'bg-surface-variant/40 border-overlay/5 text-on-surface-variant/70'}`} style={isSelected ? { backgroundColor: catHex + '20', borderColor: catHex, color: catHex } : {}}><CategoryIcon name={cat.icon} className="w-4 h-4" />{cat.name}</button>
                     );
                   })}
                 </div>
@@ -863,7 +863,7 @@ export default function AddTransactionModal({
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">Catatan Tambahan (Opsional)</label>
-                <textarea placeholder="Tuliskan catatan transaksi..." value={notes} onChange={(e) => setNotes(e.target.value)} className="h-16 bg-surface-variant/40 border border-white/10 rounded-lg p-3 text-white text-xs focus:outline-none focus:border-primary/60 resize-none" />
+                <textarea placeholder="Tuliskan catatan transaksi..." value={notes} onChange={(e) => setNotes(e.target.value)} className="h-16 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-xs focus:outline-none focus:border-primary/60 resize-none" />
               </div>
 
               <button type="submit" className="w-full h-13 mt-2 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_4px_15px_rgba(78,222,163,0.2)]">

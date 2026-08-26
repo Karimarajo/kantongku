@@ -258,6 +258,39 @@ ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMPTZ;
 ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS disconnected_by TEXT;
 ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id);
 
+-- v11: whole-account `collaborators` sharing (above) is REPLACED by
+-- per-pocket sharing — an owner shares ONE pocket (not their whole account)
+-- with another email, who must already be a registered+active KantongKu
+-- user (checked at invite time in server.ts, not enforceable as a DB FK
+-- since the invited person's `users` row may not exist yet at all). Free —
+-- no `orders` row involved, unlike the old collaborator flow. The old
+-- `collaborators` table/routes are left in place (dormant, unused by new
+-- code) rather than dropped, so any already-active real collaborator
+-- relationship doesn't silently break mid-migration.
+--
+-- `pocket_id` is NOT a foreign key: pockets aren't relational rows, they're
+-- entries inside the owner's `user_app_data.data->'pockets'` JSONB array —
+-- same non-relational-reference pattern `orders`/`Transaction` already use
+-- for `pocketId`/`accountId` throughout this app.
+CREATE TABLE IF NOT EXISTS pocket_shares (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pocket_id TEXT NOT NULL,
+  invited_email TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'revoked')),
+  invited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  activated_at TIMESTAMPTZ,
+  disconnected_at TIMESTAMPTZ,
+  disconnected_by TEXT CHECK (disconnected_by IN ('owner', 'invitee')),
+  UNIQUE (owner_user_id, pocket_id, invited_email)
+);
+
+-- Two lookup shapes needed: the invitee finding pending/active invitations
+-- addressed to their email (across ANY owner/pocket), and an owner listing
+-- everything they've shared (across their own pockets).
+CREATE INDEX IF NOT EXISTS idx_pocket_shares_invited_email_active ON pocket_shares(invited_email) WHERE status IN ('pending', 'active');
+CREATE INDEX IF NOT EXISTS idx_pocket_shares_owner ON pocket_shares(owner_user_id);
+
 -- v9: Web Push subscriptions (cicilan-ai-notifikasi Task 5). Kept as its own
 -- relational table (unlike Debt/DebtPayment, which the same prompt chose to
 -- store inside user_app_data — see the comment on those types in
