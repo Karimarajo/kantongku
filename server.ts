@@ -1731,6 +1731,44 @@ app.post("/api/admin/orders/:order_code/cancel", requireAdmin, async (req, res) 
   }
 });
 
+// Permanently remove an order row — the admin uses this to clear out
+// pending orders (test/duplicate/abandoned checkout attempts). Root cause
+// this fixes: this route never existed before, so the Order Pending list
+// had no way to actually remove a row (only Confirm/Batalkan, which just
+// changes status) — nothing here is a regression from the Doku/collaborator
+// order_type work, it's new.
+//
+// A still-'pending' order is always safe to delete: collaborators.order_id
+// is only ever set inside confirmOrderRecord's collaborator branch, which
+// runs AFTER flipping the order to 'settlement' — so nothing can reference
+// a pending order's id yet. A settled 'collaborator' order that DID go on
+// to activate a real `collaborators` row is still protected by the
+// collaborators_order_id_fkey foreign key (NO ACTION — deliberately not
+// ON DELETE CASCADE/SET NULL, since that FK is the proof-of-past-payment a
+// disconnected collaborator's free reconnect relies on). Deleting such an
+// order throws a Postgres 23503 (foreign_key_violation), which used to be
+// indistinguishable from any other failure if this route were written
+// naively — caught explicitly below and turned into a clear, actionable
+// message instead of a raw 500.
+app.delete("/api/admin/orders/:order_code", requireAdmin, async (req, res) => {
+  try {
+    const { order_code } = req.params;
+    const result = await pool.query(`DELETE FROM orders WHERE order_code = $1 RETURNING id`, [order_code]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Order tidak ditemukan" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    if (error.code === "23503") {
+      return res.status(409).json({
+        error: "Order ini masih terhubung ke data kolaborator (order_id di tabel collaborators) — putuskan atau hapus permanen kolaborator terkait dulu di tab Kelola User sebelum menghapus order ini.",
+      });
+    }
+    console.error("Gagal menghapus order:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus order" });
+  }
+});
+
 app.get("/api/admin/users", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(

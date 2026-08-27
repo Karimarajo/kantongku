@@ -488,6 +488,21 @@ export default function AdminConsole() {
     }
   };
 
+  const handleDeleteOrder = async (order_code: string) => {
+    if (!window.confirm(`Hapus permanen order "${order_code}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setActionError('');
+    setBusyId(order_code);
+    try {
+      const res = await fetch(`/api/admin/orders/${order_code}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal menghapus order');
+      await loadOrders();
+    } catch (err: any) {
+      setActionError(err.message || 'Gagal menghapus order');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleManualActivate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualEmail.trim()) return;
@@ -887,6 +902,14 @@ export default function AdminConsole() {
                           className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                         >
                           <XCircle className="w-3.5 h-3.5" /> Batalkan
+                        </button>
+                        <button
+                          onClick={() => handleDeleteOrder(o.order_code)}
+                          disabled={busyId === o.order_code}
+                          title="Hapus permanen — tidak bisa dibatalkan"
+                          className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       )}
