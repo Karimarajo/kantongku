@@ -18,7 +18,6 @@ import Login from './components/Login';
 import HomeDashboard from './components/HomeDashboard';
 import AccountView from './components/AccountView';
 import BudgetModal from './components/BudgetModal';
-import ActivityView from './components/ActivityView';
 import ProfileView from './components/ProfileView';
 import { AppSettings } from './components/ProfileView';
 import AddTransactionModal from './components/AddTransactionModal';
@@ -40,8 +39,22 @@ import SharedPocketsView from './components/SharedPocketsView';
 const TOPUP_CATEGORY: Category = { id: 'topup', name: 'Top Up Saldo', icon: 'piggy', color: 'teal' };
 
 // Icons for navigation
-import { Home, Wallet, PlusCircle, LineChart, User, Receipt, Users } from 'lucide-react';
+import { Home, Wallet, PlusCircle, User, Receipt, Users, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 
+
+// Task: pengingat/notifikasi push server-side harus mengikuti waktu
+// PERANGKAT pengguna, bukan zona waktu tetap (server.ts sebelumnya
+// hard-code WIB/UTC+7 untuk semua akun). Dibaca ulang setiap kali data
+// disimpan (lihat pemakaian di persistUserData di bawah) — bukan sekali
+// saat login — supaya tetap akurat kalau perangkat yang sama dipakai
+// setelah pindah zona waktu (mis. traveling), tanpa perlu pengaturan manual.
+function getDeviceTimezone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined; // Intl tidak tersedia — server.ts jatuh ke default WIB
+  }
+}
 
 const getBudgetCategories = (b: Budget): string[] => {
   if (b.categories && Array.isArray(b.categories)) return b.categories;
@@ -116,6 +129,43 @@ export default function App() {
   const [myShares, setMyShares] = useState<PocketShare[]>([]);
 
   const [activeTab, setActiveTab] = useState<string>('home');
+
+  // Task: "kembali" dari Kantong Bersama/Cicilan/Hutang/Detail Bulanan harus
+  // menuju tab tempat tombolnya ditekan (Home ATAU Profil, bisa dari
+  // keduanya sekarang) — bukan tujuan tetap. Dicatat HANYA saat berpindah
+  // KE salah satu dari 3 sub-halaman ini, lewat navigateTo di bawah;
+  // dipakai sebagai target onBack ketiganya (lihat render masing-masing).
+  const [returnTab, setReturnTab] = useState<string>('home');
+  const SUB_VIEWS_WITH_BACK = ['shared-pockets', 'debts', 'monthly-detail'];
+  const navigateTo = (tab: string) => {
+    if (SUB_VIEWS_WITH_BACK.includes(tab) && activeTab !== tab) {
+      setReturnTab(activeTab);
+    }
+    setActiveTab(tab);
+  };
+
+  // Task: sidebar desktop bisa diciutkan — device-local (localStorage), sama
+  // seperti THEME_STORAGE_KEY di atas: preferensi tampilan per-browser, bukan
+  // per-akun, jadi tidak perlu ikut disimpan ke server lewat /api/data.
+  const SIDEBAR_COLLAPSED_STORAGE_KEY = 'kantongku_sidebar_collapsed';
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? '1' : '0');
+      } catch {
+        // localStorage unavailable — preference just won't survive reload, harmless.
+      }
+      return next;
+    });
+  };
 
   // Badge "ada update baru" di menu Panduan Pengguna — device-local by
   // design (localStorage, bukan disinkron ke server): membandingkan
@@ -297,7 +347,7 @@ export default function App() {
       categories: overrides.categories ?? categories,
       reminders: overrides.reminders ?? reminders,
       profile: overrides.profile ?? currentUser,
-      settings: overrides.settings ?? appSettings,
+      settings: { ...(overrides.settings ?? appSettings), timezone: getDeviceTimezone() },
       walletTransferLogs: overrides.walletTransferLogs ?? walletTransferLogs,
       activityLog: overrides.activityLog ?? activityLog,
       debts: overrides.debts ?? debts,
@@ -330,8 +380,9 @@ export default function App() {
   }, []);
 
   // Periodically re-check session validity so a device gets logged out reasonably
-  // promptly after another device logs into the same account (server enforces
-  // 1 active session per account via current_session_id).
+  // promptly after another device of the SAME type logs into the same account
+  // (server enforces 1 active session per device type — desktop/mobile/tablet —
+  // via current_session_id_desktop/_mobile/_tablet, see server.ts).
   useEffect(() => {
     if (!currentUser) return;
 
@@ -490,6 +541,16 @@ export default function App() {
     };
   }, [categories, pockets, accounts]);
 
+  // `extra` bundles reminders/debts/debtPayments changes that must land in
+  // the SAME persist call as a transaction add/edit/delete — e.g. Reminder/
+  // Debt "Sudah Bayar" both create a Transaction AND touch their own state
+  // in one user action. Two separate persistUserData calls in the same tick
+  // would race: the second call's payload falls back to the CLOSURE value
+  // for every field it doesn't explicitly override, and React state setters
+  // don't update that closure until the next render — so a second call
+  // would silently overwrite the first call's freshly-saved
+  // transactions/pockets/accounts with stale pre-update ones. Bundling
+  // everything into one updateStateAndStorage call sidesteps that entirely.
   const updateStateAndStorage = (
     newTransactions: Transaction[],
     newPockets: Pocket[],
@@ -498,7 +559,8 @@ export default function App() {
     newNotifications: Notification[] = notifications,
     newCategories: Category[] = categories,
     newWalletTransferLogs: WalletTransferLog[] = walletTransferLogs,
-    newActivityLog: ActivityLogEntry[] = activityLog
+    newActivityLog: ActivityLogEntry[] = activityLog,
+    extra?: { reminders?: Reminder[]; debts?: Debt[]; debtPayments?: DebtPayment[] }
   ) => {
     setPockets(newPockets);
     setAccounts(newAccounts);
@@ -508,7 +570,10 @@ export default function App() {
     setCategories(newCategories);
     setWalletTransferLogs(newWalletTransferLogs);
     setActivityLog(newActivityLog);
-    saveStateToStorage(newPockets, newTransactions, newBudgets, newNotifications, newAccounts, newCategories, newWalletTransferLogs, newActivityLog);
+    if (extra?.reminders) setReminders(extra.reminders);
+    if (extra?.debts) setDebts(extra.debts);
+    if (extra?.debtPayments) setDebtPayments(extra.debtPayments);
+    saveStateToStorage(newPockets, newTransactions, newBudgets, newNotifications, newAccounts, newCategories, newWalletTransferLogs, newActivityLog, extra);
   };
 
   // Sync state mutations to the account's row in Postgres (via persistUserData).
@@ -520,7 +585,8 @@ export default function App() {
     updatedAccounts: Account[],
     updatedCategories: Category[] = categories,
     updatedWalletTransferLogs: WalletTransferLog[] = walletTransferLogs,
-    updatedActivityLog: ActivityLogEntry[] = activityLog
+    updatedActivityLog: ActivityLogEntry[] = activityLog,
+    extra?: { reminders?: Reminder[]; debts?: Debt[]; debtPayments?: DebtPayment[] }
   ) => {
     persistUserData({
       pockets: updatedPockets,
@@ -531,6 +597,9 @@ export default function App() {
       categories: updatedCategories,
       walletTransferLogs: updatedWalletTransferLogs,
       activityLog: updatedActivityLog,
+      ...(extra?.reminders ? { reminders: extra.reminders } : {}),
+      ...(extra?.debts ? { debts: extra.debts } : {}),
+      ...(extra?.debtPayments ? { debtPayments: extra.debtPayments } : {}),
     });
   };
 
@@ -629,11 +698,22 @@ export default function App() {
     updateStateAndStorage(transactions, pockets, accounts, budgets, updatedNotifications, categories);
   };
 
-  // Add transaction logic with reactive wallet & budget computations
-  const handleAddTransaction = (newTransData: Omit<Transaction, 'id' | 'date'> & { date?: string }) => {
+  // Add transaction logic with reactive wallet & budget computations.
+  // `extra` — see updateStateAndStorage above — lets a caller like Reminder/
+  // Debt "Sudah Bayar" bundle their own state changes (reminders/debts/
+  // debtPayments) into this SAME persist call; `extra.activityNote` appends
+  // a short suffix to this transaction's own activity-log line (e.g.
+  // "(cicilan lunas)") instead of logging a second, separately-raced entry.
+  // `newTransData.id` lets a caller pre-generate the id (needed when it must
+  // also reference that id itself, e.g. DebtPayment.transactionId, before
+  // this function would otherwise generate one internally).
+  const handleAddTransaction = (
+    newTransData: Omit<Transaction, 'id' | 'date'> & { id?: string; date?: string },
+    extra?: { reminders?: Reminder[]; debts?: Debt[]; debtPayments?: DebtPayment[]; activityNote?: string }
+  ): Transaction => {
     const newTransaction: Transaction = {
       ...newTransData,
-      id: `t-${Date.now()}`,
+      id: newTransData.id || `t-${Date.now()}`,
       date: newTransData.date || new Date().toISOString(),
       // "Siapa yang input" (Riwayat Transaksi export) — the owner's own
       // transactions are always attributed to themselves. Shared-pocket
@@ -718,7 +798,8 @@ export default function App() {
       message: `Pencatatan berhasil: ${typeLabel} '${newTransaction.title}' sebesar ${amountFormatted} telah disimpan.`,
       time: waktuSekarang,
       isRead: false,
-      type: 'success'
+      type: 'success',
+      link: { type: 'transaction', transactionId: newTransaction.id }
     };
     nextNotifications = [successNotif, ...nextNotifications];
 
@@ -750,11 +831,12 @@ export default function App() {
             message: `⚠️ Peringatan: Sisa anggaran "${targetBudgetObj.title}" kurang dari 50% (${newSisaPercent}% tersisa).`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [warningNotif, ...nextNotifications];
         }
-        
+
         // Milestone 30%
         if (oldSisaPercent > 30 && newSisaPercent <= 30 && newSisaPercent > 15) {
           const warningNotif: Notification = {
@@ -763,7 +845,8 @@ export default function App() {
             message: `⚠️ Peringatan: Sisa anggaran "${targetBudgetObj.title}" kurang dari 30% (${newSisaPercent}% tersisa).`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [warningNotif, ...nextNotifications];
         }
@@ -776,7 +859,8 @@ export default function App() {
             message: `⚠️ Peringatan Kritis: Sisa anggaran "${targetBudgetObj.title}" kurang dari 15% (${newSisaPercent}% tersisa). Batasi pengeluaran Anda!`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [criticalNotif, ...nextNotifications];
         }
@@ -789,7 +873,8 @@ export default function App() {
             message: `🚨 Peringatan Kritis: Anggaran "${targetBudgetObj.title}" telah habis terpakai (0% tersisa).`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [criticalNotif, ...nextNotifications];
         }
@@ -800,7 +885,7 @@ export default function App() {
       // ==========================================
       else if (targetBudgetObj.type === 'target_funding') {
         const savingMilestones = [25, 50, 70, 85, 100];
-        
+
         // Cari milestone yang baru saja dilompati ke atas oleh tabungan ini
         const triggeredMilestone = savingMilestones.find(m => oldProgressPercent < m && progressPercent >= m);
 
@@ -817,7 +902,8 @@ export default function App() {
             message: msg,
             time: waktuSekarang,
             isRead: false,
-            type: 'info'
+            type: 'info',
+            link: { type: 'budget' }
           };
 
           nextNotifications = [alertNotif, ...nextNotifications];
@@ -827,12 +913,13 @@ export default function App() {
 
     const typeSign = newTransaction.type === 'incoming' ? '+' : '-';
     const nextLog = logActivity(
-      `Menambahkan transaksi '${newTransaction.title}' ${typeSign}${formatRupiah(newTransaction.amount)}`,
+      `Menambahkan transaksi '${newTransaction.title}' ${typeSign}${formatRupiah(newTransaction.amount)}${extra?.activityNote ? ` (${extra.activityNote})` : ''}`,
       'transaction',
       'receipt'
     );
 
-    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications, undefined, undefined, nextLog);
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications, undefined, undefined, nextLog, extra);
+    return newTransaction;
   };
 
   // Delete transaction operation
@@ -895,7 +982,30 @@ export default function App() {
       'receipt'
     );
 
-    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, undefined, undefined, undefined, nextLog);
+    // Task 3: keep Kelola Cicilan/Hutang in sync automatically, regardless
+    // of WHERE the delete was triggered from (History, Home, or the Debt
+    // Manager's own "riwayat pembayaran" list all call this same function)
+    // — never leaves an orphaned DebtPayment pointing at a deleted
+    // transaction, and correctly reverts a debt from 'paid_off' back to
+    // 'active' if the deleted payment was what completed it.
+    const linkedPayment = debtPayments.find(p => p.transactionId === id);
+    let nextDebtPaymentsAfterDelete: DebtPayment[] | undefined;
+    let nextDebtsAfterDelete: Debt[] | undefined;
+    if (linkedPayment) {
+      nextDebtPaymentsAfterDelete = debtPayments.filter(p => p.id !== linkedPayment.id);
+      const linkedDebt = debts.find(d => d.id === linkedPayment.debtId);
+      if (linkedDebt) {
+        const paidCount = nextDebtPaymentsAfterDelete.filter(p => p.debtId === linkedDebt.id).length;
+        nextDebtsAfterDelete = debts.map(d => d.id === linkedDebt.id
+          ? { ...d, status: (paidCount >= linkedDebt.tenorMonths ? 'paid_off' : 'active') as Debt['status'] }
+          : d);
+      }
+    }
+
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, undefined, undefined, undefined, nextLog, {
+      debtPayments: nextDebtPaymentsAfterDelete,
+      debts: nextDebtsAfterDelete,
+    });
   };
 
   const handleEditTransactionSelect = (t: Transaction) => {
@@ -1015,11 +1125,12 @@ export default function App() {
             message: `⚠️ Peringatan: Sisa anggaran "${targetBudgetObj.title}" kurang dari 50% (${newSisaPercent}% tersisa).`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [warningNotif, ...nextNotifications];
         }
-        
+
         // Milestone 30%
         if (oldSisaPercent > 30 && newSisaPercent <= 30 && newSisaPercent > 15) {
           const warningNotif: Notification = {
@@ -1028,7 +1139,8 @@ export default function App() {
             message: `⚠️ Peringatan: Sisa anggaran "${targetBudgetObj.title}" kurang dari 30% (${newSisaPercent}% tersisa).`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [warningNotif, ...nextNotifications];
         }
@@ -1041,7 +1153,8 @@ export default function App() {
             message: `⚠️ Peringatan Kritis: Sisa anggaran "${targetBudgetObj.title}" kurang dari 15% (${newSisaPercent}% tersisa). Batasi pengeluaran Anda!`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [criticalNotif, ...nextNotifications];
         }
@@ -1054,7 +1167,8 @@ export default function App() {
             message: `🚨 Peringatan Kritis: Anggaran "${targetBudgetObj.title}" telah habis terpakai (0% tersisa).`,
             time: waktuSekarang,
             isRead: false,
-            type: 'warning'
+            type: 'warning',
+            link: { type: 'budget' }
           };
           nextNotifications = [criticalNotif, ...nextNotifications];
         }
@@ -1063,7 +1177,20 @@ export default function App() {
 
     const editLog = logActivity(`Mengedit transaksi '${editedTrans.title}'`, 'transaction', 'receipt');
 
-    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications, undefined, undefined, editLog);
+    // Task 3: if this transaction is a Cicilan/Hutang payment (created via
+    // "Sudah Bayar", or a pre-existing one that already had transactionId
+    // linked), keep that DebtPayment's paidAmount/paidAt mirroring whatever
+    // was just edited — works no matter where the edit was triggered from
+    // (History, Home, or the Debt Manager's own payment-history row all
+    // funnel through this same function).
+    const linkedPayment = debtPayments.find(p => p.transactionId === editedTrans.id);
+    const nextDebtPaymentsAfterEdit = linkedPayment
+      ? debtPayments.map(p => p.id === linkedPayment.id ? { ...p, paidAmount: editedTrans.amount, paidAt: editedTrans.date } : p)
+      : undefined;
+
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, nextNotifications, undefined, undefined, editLog, {
+      debtPayments: nextDebtPaymentsAfterEdit,
+    });
     setEditingTransaction(null);
   };
 
@@ -1640,6 +1767,12 @@ export default function App() {
     persistUserData({ reminders: nextReminders });
   };
 
+  const handleEditReminder = (updated: Reminder) => {
+    const nextReminders = reminders.map(r => r.id === updated.id ? updated : r);
+    setReminders(nextReminders);
+    persistUserData({ reminders: nextReminders });
+  };
+
   const handleToggleReminder = (id: string) => {
     const nextReminders = reminders.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r);
     setReminders(nextReminders);
@@ -1650,6 +1783,43 @@ export default function App() {
     const nextReminders = reminders.filter(r => r.id !== id);
     setReminders(nextReminders);
     persistUserData({ reminders: nextReminders });
+  };
+
+  // Task: tombol "Sudah Bayar" di Pengingat — membuat transaksi otomatis
+  // dari nominal/wallet/kategori yang sudah diisi saat reminder ini dibuat/
+  // diedit, LALU menandai reminder ini "sudah selesai untuk siklus ini" via
+  // lastTriggeredDate = tanggal hari ini — EXACT mekanisme yang sama yang
+  // sudah dipakai checkAlarms di bawah untuk mem-suppress alarm sampai
+  // kemunculan berikutnya (minggu/bulan depan, tergantung repeatType), jadi
+  // tidak perlu state/flag baru: begitu tanggal berputar ke siklus
+  // berikutnya, lastTriggeredDate otomatis tidak match lagi dan reminder ini
+  // aktif kembali dengan sendirinya. Reminder 'once' langsung nonaktif
+  // permanen, sama seperti saat alarm 'once' benar-benar berbunyi sendiri.
+  const handleMarkReminderPaid = (reminderId: string) => {
+    const reminder = reminders.find(r => r.id === reminderId);
+    if (!reminder || !reminder.isActive) return;
+    if (!reminder.amount || !reminder.accountId || !reminder.category) return; // tombol seharusnya disembunyikan kalau ini terjadi
+
+    const now = new Date();
+    const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const nextReminders = reminders.map(r => r.id === reminderId ? {
+      ...r,
+      lastTriggeredDate: currentDateStr,
+      isActive: r.repeatType === 'once' ? false : r.isActive,
+    } : r);
+
+    handleAddTransaction(
+      {
+        title: reminder.title,
+        amount: reminder.amount,
+        type: 'outgoing',
+        pocketId: reminder.pocketId || pockets[0]?.id || 'pribadi',
+        accountId: reminder.accountId,
+        category: reminder.category,
+        notes: 'Ditandai sudah bayar dari Pengingat',
+      },
+      { reminders: nextReminders, activityNote: 'dari Pengingat' }
+    );
   };
 
   // Kelola Cicilan/Hutang (cicilan-ai-notifikasi Task 3) — reuses the
@@ -1689,35 +1859,101 @@ export default function App() {
     persistUserData({ debts: nextDebts, reminders: nextReminders, activityLog: nextLog });
   };
 
+  // Task: edit cicilan/hutang — juga dipakai untuk mengisi/mengubah
+  // wallet+kategori pada cicilan LAMA (dibuat sebelum field ini ada), yang
+  // wajib terisi sebelum "Sudah Bayar" bisa dipakai. Menjaga judul/tanggal
+  // reminder bulanan otomatisnya tetap sinkron kalau nama/dueDay berubah.
+  const handleEditDebt = (debtId: string, input: Omit<Debt, 'id' | 'createdAt' | 'status' | 'reminderId'>) => {
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+    const nextDebts = debts.map(d => d.id === debtId ? { ...d, ...input } : d);
+    const nextReminders = debt.reminderId
+      ? reminders.map(r => r.id === debt.reminderId ? { ...r, dayOfMonth: input.dueDay, title: `Cicilan/Hutang: ${input.name}` } : r)
+      : reminders;
+    setDebts(nextDebts);
+    setReminders(nextReminders);
+    const nextLog = logActivity(`Mengedit cicilan/hutang '${input.name}'`, 'debt', 'wallet');
+    persistUserData({ debts: nextDebts, reminders: nextReminders, activityLog: nextLog });
+  };
+
   // Records a debt_payments-equivalent entry and auto-flips status to
   // 'paid_off' once the number of recorded payments reaches the tenor —
   // mirrors the SQL version's "COUNT(*) >= tenor_months" check the prompt
   // described, just evaluated over the JSONB array instead of a table.
+  //
+  // Task: also creates a real Transaction (via handleAddTransaction, using
+  // this debt's own accountId/category/pocketId) and suppresses the debt's
+  // linked monthly reminder for this cycle (lastTriggeredDate = today) —
+  // paying early shouldn't still fire a "jatuh tempo" alarm/push later this
+  // same month. transactionId is generated HERE (not left to
+  // handleAddTransaction's default) so it can be stored on the DebtPayment
+  // record up front, in the SAME atomic persist (see updateStateAndStorage's
+  // `extra` — two separate persist calls in one tick would race).
   const handleMarkDebtPaid = (debtId: string) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt || debt.status === 'paid_off') return;
+    if (!debt.accountId || !debt.category) {
+      alert('Wallet dan Kategori cicilan ini belum diisi — buka Edit untuk melengkapinya dulu sebelum menandai sudah bayar.');
+      return;
+    }
 
+    const transactionId = `t-${Date.now()}`;
     const newPayment: DebtPayment = {
       id: `debtpay-${Date.now()}`,
       debtId,
       paidAmount: debt.monthlyInstallment,
       paidAt: new Date().toISOString(),
+      transactionId,
     };
     const nextPayments = [...debtPayments, newPayment];
     const paidCount = nextPayments.filter(p => p.debtId === debtId).length;
     const isNowPaidOff = paidCount >= debt.tenorMonths;
+    const nextDebts = debts.map(d => d.id === debtId ? { ...d, status: (isNowPaidOff ? 'paid_off' : d.status) as Debt['status'] } : d);
 
-    const nextDebts = debts.map(d => d.id === debtId ? { ...d, status: isNowPaidOff ? 'paid_off' as const : d.status } : d);
-    setDebts(nextDebts);
-    setDebtPayments(nextPayments);
-    const nextLog = logActivity(
-      isNowPaidOff
-        ? `Cicilan/hutang '${debt.name}' lunas!`
-        : `Menandai cicilan/hutang '${debt.name}' sudah dibayar bulan ini`,
-      'debt',
-      'wallet'
+    let nextReminders: Reminder[] | undefined;
+    if (debt.reminderId) {
+      const now = new Date();
+      const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      nextReminders = reminders.map(r => r.id === debt.reminderId ? { ...r, lastTriggeredDate: currentDateStr } : r);
+    }
+
+    handleAddTransaction(
+      {
+        id: transactionId,
+        title: debt.name,
+        amount: debt.monthlyInstallment,
+        type: 'outgoing',
+        pocketId: debt.pocketId || pockets[0]?.id || 'pribadi',
+        accountId: debt.accountId,
+        category: debt.category,
+        notes: 'Pembayaran cicilan/hutang',
+      },
+      { debts: nextDebts, debtPayments: nextPayments, reminders: nextReminders, activityNote: isNowPaidOff ? 'cicilan lunas' : 'cicilan' }
     );
-    persistUserData({ debts: nextDebts, debtPayments: nextPayments, activityLog: nextLog });
+  };
+
+  // Task: hapus SATU baris riwayat pembayaran (mis. salah pencet) — kalau
+  // ada transaksi tertaut, hapus lewat handleDeleteTransaction supaya
+  // saldo/anggaran ikut ter-rollback dengan benar (fungsi itu sendiri yang
+  // menghapus DebtPayment-nya, lihat komentar di sana); kalau tidak ada
+  // (pembayaran lama dari sebelum linkage ini ada), hapus record-nya saja.
+  const handleDeleteDebtPayment = (paymentId: string) => {
+    const payment = debtPayments.find(p => p.id === paymentId);
+    if (!payment) return;
+    if (payment.transactionId && transactions.some(t => t.id === payment.transactionId)) {
+      handleDeleteTransaction(payment.transactionId);
+      return;
+    }
+    const nextPayments = debtPayments.filter(p => p.id !== paymentId);
+    const debt = debts.find(d => d.id === payment.debtId);
+    const nextDebts = debt
+      ? debts.map(d => d.id === debt.id
+          ? { ...d, status: (nextPayments.filter(p => p.debtId === debt.id).length >= d.tenorMonths ? 'paid_off' : 'active') as Debt['status'] }
+          : d)
+      : debts;
+    setDebtPayments(nextPayments);
+    setDebts(nextDebts);
+    persistUserData({ debtPayments: nextPayments, debts: nextDebts });
   };
 
   const handleDeleteDebt = (debtId: string) => {
@@ -1793,7 +2029,11 @@ export default function App() {
             message: `⏰ Pengingat: "${r.title}"! Waktu terjadwal: ${r.time}.`,
             time: waktuSekarang,
             isRead: false,
-            type: 'success'
+            type: 'success',
+            // Task 5: klik notifikasi ini diarahkan ke Cicilan/Hutang kalau
+            // reminder ini auto-dibuat oleh sebuah Debt, kalau bukan ya ke
+            // modal Pengingat biasa.
+            link: debts.some(d => d.reminderId === r.id) ? { type: 'debt' } : { type: 'reminder' }
           });
 
           return {
@@ -1818,7 +2058,7 @@ export default function App() {
 
     const intervalId = setInterval(checkAlarms, 20000);
     return () => clearInterval(intervalId);
-  }, [currentUser, reminders, notifications]);
+  }, [currentUser, reminders, notifications, debts]);
 
   // Guard routing view: wait for the initial session check before deciding
   // between the app and the login screen, so we don't flash Login for a split
@@ -1850,13 +2090,24 @@ export default function App() {
           the viewport unconditionally, which is what "menu tidak boleh ikut
           bergerak saat scroll" actually needs. Taken out of flow, so the
           main content column below carries a matching md:ml-64 offset. */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-overlay/5 bg-surface/40 backdrop-blur-2xl p-6 h-screen fixed left-0 top-0 shrink-0 z-40">
-        {/* Brand / Logo */}
-        <div className="mb-8 px-2 flex items-center gap-2">
-          <BrandLogo className="w-8 h-8 text-primary shrink-0" glow={false} />
-          <span className="font-headline-md text-2xl font-bold text-primary tracking-tight glow-text-primary">
-            KantongKu
-          </span>
+      <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'} border-r border-overlay/5 bg-surface/40 backdrop-blur-2xl p-6 h-screen fixed left-0 top-0 shrink-0 z-40 transition-[width] duration-200`}>
+        {/* Brand / Logo + tombol ciutkan sidebar */}
+        <div className={`mb-8 flex items-center ${isSidebarCollapsed ? 'flex-col gap-3 px-0' : 'justify-between px-2'}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <BrandLogo className="w-8 h-8 text-primary shrink-0" glow={false} />
+            {!isSidebarCollapsed && (
+              <span className="font-headline-md text-2xl font-bold text-primary tracking-tight glow-text-primary truncate">
+                KantongKu
+              </span>
+            )}
+          </div>
+          <button
+            onClick={toggleSidebarCollapsed}
+            className="p-1.5 rounded-lg text-on-surface-variant/60 hover:text-primary hover:bg-overlay/5 transition-colors shrink-0 focus:outline-none"
+            title={isSidebarCollapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
+          >
+            {isSidebarCollapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Tambah Transaksi — desktop punya sidebar tetap (bukan bottom nav
@@ -1865,82 +2116,92 @@ export default function App() {
             memicu Tambah Transaksi. */}
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-[0_4px_16px_rgba(78,222,163,0.25)] hover:opacity-90 active:scale-[0.98] transition-all"
+          title="Tambah Transaksi"
+          className={`flex items-center justify-center gap-2 mb-4 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-[0_4px_16px_rgba(78,222,163,0.25)] hover:opacity-90 active:scale-[0.98] transition-all ${isSidebarCollapsed ? 'w-11 h-11 mx-auto' : 'w-full px-4 py-3'}`}
         >
           <PlusCircle className="w-5 h-5 shrink-0" />
-          Tambah Transaksi
+          {!isSidebarCollapsed && 'Tambah Transaksi'}
         </button>
 
-        {/* Navigation Menu */}
+        {/* Navigation Menu — Task: menu "Analisis" dihapus, grafiknya pindah
+            ke tab Riwayat (lihat TransactionHistoryPage.tsx). */}
         <nav className="flex flex-col gap-2 flex-grow">
           {/* TAB: Home */}
-          <button 
+          <button
             onClick={() => setActiveTab('home')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'home' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+            title="Home"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'home' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Home className="w-5 h-5 shrink-0" />
-            <span className="text-sm font-semibold">Home</span>
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">Home</span>}
           </button>
 
           {/* TAB: Wallet */}
-          <button 
+          <button
             onClick={() => setActiveTab('wallet')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'wallet' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+            title="Wallet"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'wallet' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Wallet className="w-5 h-5 shrink-0" />
-            <span className="text-sm font-semibold">Wallet</span>
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">Wallet</span>}
           </button>
 
-          {/* TAB: Analisis / Activity */}
-          <button 
-            onClick={() => setActiveTab('activity')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'activity' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
-          >
-            <LineChart className="w-5 h-5 shrink-0" />
-            <span className="text-sm font-semibold">Analisis</span>
-          </button>
-
-          {/* TAB: Riwayat / History */}
-          <button 
+          {/* TAB: Riwayat / History (termasuk grafik & analisis) */}
+          <button
             onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'history' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+            title="Riwayat"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'history' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Receipt className="w-5 h-5 shrink-0" />
-            <span className="text-sm font-semibold">Riwayat</span>
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">Riwayat</span>}
           </button>
 
           {/* TAB: Profile Settings */}
-          <button 
+          <button
             onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${activeTab === 'profile' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+            title="Profil"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'profile' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <User className="w-5 h-5 shrink-0" />
-            <span className="text-sm font-semibold">Profil</span>
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">Profil</span>}
           </button>
         </nav>
 
         {/* User profile section at the bottom of sidebar */}
-        <div className="border-t border-overlay/5 pt-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <img 
-              alt="User Avatar" 
-              className="w-8 h-8 rounded-full border border-overlay/10 shrink-0 object-cover" 
+        <div className={`border-t border-overlay/5 pt-4 flex items-center ${isSidebarCollapsed ? 'flex-col gap-2.5' : 'justify-between'}`}>
+          <div className={`flex items-center gap-2.5 min-w-0 ${isSidebarCollapsed ? 'flex-col' : ''}`}>
+            <img
+              alt="User Avatar"
+              className="w-8 h-8 rounded-full border border-overlay/10 shrink-0 object-cover"
               src={currentUser?.avatarUrl}
             />
-            <span className="text-xs font-semibold text-on-surface truncate max-w-[100px]">{currentUser?.name}</span>
+            {!isSidebarCollapsed && (
+              <span className="text-xs font-semibold text-on-surface truncate max-w-[100px]">{currentUser?.name}</span>
+            )}
           </div>
-          <button 
-            onClick={handleLogout}
-            className="text-[10px] uppercase font-label-caps tracking-wider text-rose-400 hover:text-rose-300 font-bold px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-lg transition-colors"
-          >
-            Logout
-          </button>
+          {isSidebarCollapsed ? (
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="p-2 rounded-lg text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/20 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="text-[10px] uppercase font-label-caps tracking-wider text-rose-400 hover:text-rose-300 font-bold px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-lg transition-colors"
+            >
+              Logout
+            </button>
+          )}
         </div>
       </aside>
 
-      {/* Main View Container — md:ml-64 makes up for the sidebar now being
-          `fixed` (out of normal flow) instead of an in-flow flex sibling. */}
-      <div className="flex-grow min-h-screen pb-28 md:pb-8 flex flex-col relative z-10 w-full min-w-0 md:ml-64">
+      {/* Main View Container — md:ml-64/md:ml-20 makes up for the sidebar now
+          being `fixed` (out of normal flow) instead of an in-flow flex
+          sibling, matching whichever width it currently has. */}
+      <div className={`flex-grow min-h-screen pb-28 md:pb-8 flex flex-col relative z-10 w-full min-w-0 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'} transition-[margin] duration-200`}>
         <div className="max-w-md md:max-w-5xl w-full mx-auto pt-4 md:pt-10 px-4 md:px-8">
           {/* Mobile persistent header */}
           <div className="w-full flex justify-center items-center gap-2 pb-3 md:hidden border-b border-overlay/5 mb-3">
@@ -1955,12 +2216,12 @@ export default function App() {
               missed just because the user doesn't happen to open Profile. */}
           {pendingInvitations.length > 0 && (
             <button
-              onClick={() => setActiveTab('shared-pockets')}
+              onClick={() => navigateTo('shared-pockets')}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 mb-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs text-left hover:bg-indigo-500/15 transition-colors"
             >
               <Users className="w-4 h-4 shrink-0" />
               <span>
-                Ada <span className="font-semibold text-on-surface">{pendingInvitations.length}</span> undangan kantong bersama menunggu — ketuk untuk lihat.
+                Ada <span className="font-mono-data font-semibold text-on-surface">{pendingInvitations.length}</span> undangan kantong bersama menunggu — ketuk untuk lihat.
               </span>
             </button>
           )}
@@ -1979,14 +2240,17 @@ export default function App() {
               onDeleteTransaction={handleDeleteTransaction}
               onTransferBetweenWallets={handleTransferBetweenWallets}
               onTopUpWallet={handleTopUpWallet}
-              onChangeTab={setActiveTab}
+              onChangeTab={navigateTo}
               onOpenPocketManager={() => setIsPocketManagerOpen(true)}
+              onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
               onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
               onOpenReminderModal={() => setIsReminderModalOpen(true)}
               onEditTransactionSelect={handleEditTransactionSelect}
               onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
               onOpenHistory={handleOpenHistory}
-              onOpenMonthlyDetail={() => setActiveTab('monthly-detail')}
+              onOpenMonthlyDetail={() => navigateTo('monthly-detail')}
+              appSettings={appSettings}
+              onSaveSettings={handleSaveSettings}
             />
           )}
 
@@ -2003,23 +2267,13 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'activity' && (
-            <ActivityView
-              transactions={transactions}
-              pockets={pockets}
-              categories={categories}
-              onOpenHistory={handleOpenHistory}
-              onOpenMonthlyDetail={() => setActiveTab('monthly-detail')}
-            />
-          )}
-
           {activeTab === 'monthly-detail' && (
             <MonthlyExpenseView
               transactions={transactions}
               categories={categories}
               onEditTransactionSelect={handleEditTransactionSelect}
               onDeleteTransaction={handleDeleteTransaction}
-              onBack={() => setActiveTab('home')}
+              onBack={() => setActiveTab(returnTab)}
             />
           )}
 
@@ -2035,6 +2289,7 @@ export default function App() {
               onEditTransactionSelect={handleEditTransactionSelect}
               onDeleteTransaction={handleDeleteTransaction}
               onBack={() => setActiveTab('home')}
+              onOpenMonthlyDetail={() => navigateTo('monthly-detail')}
             />
           )}
 
@@ -2050,10 +2305,10 @@ export default function App() {
               onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
               onNavigateHistory={() => setActiveTab('history')}
               onNavigateActivityLog={() => setActiveTab('activity-log')}
-              onNavigateDebtManager={() => setActiveTab('debts')}
+              onNavigateDebtManager={() => navigateTo('debts')}
               onNavigateGuide={handleNavigateGuide}
               hasUnseenGuideUpdate={hasUnseenGuideUpdate}
-              onNavigateSharedPockets={() => setActiveTab('shared-pockets')}
+              onNavigateSharedPockets={() => navigateTo('shared-pockets')}
               pendingInvitationCount={pendingInvitations.length}
             />
           )}
@@ -2064,7 +2319,7 @@ export default function App() {
               sharedPockets={sharedPockets}
               pendingInvitations={pendingInvitations}
               myShares={myShares}
-              onBack={() => setActiveTab('profile')}
+              onBack={() => setActiveTab(returnTab)}
               onInvite={handleInvitePocketShare}
               onAcceptInvitation={handleAcceptPocketInvitation}
               onDeclineInvitation={handleDeclinePocketInvitation}
@@ -2088,10 +2343,17 @@ export default function App() {
             <DebtManagerView
               debts={debts}
               debtPayments={debtPayments}
-              onBack={() => setActiveTab('profile')}
+              transactions={transactions}
+              pockets={pockets}
+              accounts={accounts}
+              categories={categories}
+              onBack={() => setActiveTab(returnTab)}
               onAddDebt={handleAddDebt}
+              onEditDebt={handleEditDebt}
               onMarkPaid={handleMarkDebtPaid}
               onDeleteDebt={handleDeleteDebt}
+              onDeleteDebtPayment={handleDeleteDebtPayment}
+              onEditTransactionSelect={handleEditTransactionSelect}
             />
           )}
         </div>
@@ -2165,9 +2427,15 @@ export default function App() {
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
         reminders={reminders}
+        debts={debts}
+        pockets={pockets}
+        accounts={accounts}
+        categories={categories}
         onAddReminder={handleAddReminder}
+        onEditReminder={handleEditReminder}
         onToggleReminder={handleToggleReminder}
         onDeleteReminder={handleDeleteReminder}
+        onMarkPaid={handleMarkReminderPaid}
       />
 
 
@@ -2204,13 +2472,14 @@ export default function App() {
             </button>
           </div>
 
-          {/* TAB: Analytics / Activity */}
-          <button 
-            onClick={() => setActiveTab('activity')}
-            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'activity' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
+          {/* TAB: Riwayat — Task: menggantikan menu "Analisis" lama, grafik
+              analisisnya sekarang tampil langsung di dalam Riwayat. */}
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'history' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
-            <LineChart className="w-5 h-5" />
-            <span className="font-label-caps text-[9px] uppercase tracking-wider">Analisis</span>
+            <Receipt className="w-5 h-5" />
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">Riwayat</span>
           </button>
 
           {/* TAB: Profile Settings */}

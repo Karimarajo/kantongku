@@ -39,12 +39,30 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended')),
   settings JSONB NOT NULL DEFAULT '{}'::jsonb,
-  current_session_id UUID,
+  -- v12: one active session PER DEVICE TYPE instead of a single global
+  -- `current_session_id` — logging in on a phone while already logged in on
+  -- a PC no longer kicks the PC out; logging in on a SECOND phone still
+  -- kicks the first phone (same device-type slot). Device type is decided
+  -- server-side from the login request's User-Agent (see parseUserAgent in
+  -- lib/userAgent.ts), never trusted from the client. requireSession in
+  -- server.ts matches a session cookie against ANY of the three columns.
+  current_session_id_desktop UUID,
+  current_session_id_mobile UUID,
+  current_session_id_tablet UUID,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   activated_at TIMESTAMPTZ,
   last_active_at TIMESTAMPTZ
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+-- v12: real ALTERs for an existing deployment (see the note on `orders`
+-- below for why a comment alone here would silently never apply). The old
+-- single-slot `current_session_id` is dropped — everyone gets logged out
+-- once when this migration runs, a one-time, acceptable cost for moving to
+-- per-device-type sessions.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_id_desktop UUID;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_id_mobile UUID;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_id_tablet UUID;
+ALTER TABLE users DROP COLUMN IF EXISTS current_session_id;
 
 -- Orders — Doku Checkout/Invoice (automatic payment link), admin/manual
 -- confirmation retired.

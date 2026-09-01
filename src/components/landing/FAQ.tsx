@@ -10,7 +10,7 @@ const FAQS = [
   {
     question: 'Bisa dipakai di berapa device?',
     answer:
-      'Satu akun aktif di satu device dalam satu waktu — kalau login di HP baru, sesi lama otomatis logout demi keamanan.',
+      'Bisa aktif di 1 device untuk tiap jenis sekaligus — misalnya 1 PC, 1 HP, dan 1 tablet bersamaan. Login baru di device LAIN dengan jenis yang SAMA (mis. HP baru) baru akan otomatis logout dari HP yang lama, demi keamanan.',
   },
   {
     question: 'Cocok buat kelola dana usaha juga? Bukan cuma pribadi?',

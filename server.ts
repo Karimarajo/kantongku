@@ -46,6 +46,25 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Session Middleware
 // ==========================================
 
+// v12: one active session per DEVICE TYPE (desktop/mobile/tablet) instead of
+// one global session — see the comment on these columns in db/schema.sql.
+// Whitelisted (not built from user input) so it's always a safe literal
+// column name to interpolate into SQL below.
+type DeviceSessionType = "desktop" | "mobile" | "tablet";
+function sessionColumnFor(deviceType: DeviceSessionType): string {
+  return `current_session_id_${deviceType}`;
+}
+
+// Starts a new session for `userId` in ONLY that device type's slot — the
+// other two device types' sessions (if any) are left untouched, which is
+// the entire point of v12 (1 device active per TYPE, not 1 device total).
+// Logging in twice on the SAME device type still invalidates the earlier
+// one, same as before.
+async function setUserSession(userId: string, sessionId: string, deviceType: DeviceSessionType): Promise<void> {
+  const column = sessionColumnFor(deviceType);
+  await pool.query(`UPDATE users SET ${column} = $2 WHERE id = $1`, [userId, sessionId]);
+}
+
 // Attaches req.user when a valid session cookie is present; 401 otherwise.
 async function requireSession(req: express.Request, res: express.Response, next: express.NextFunction) {
   try {
@@ -53,7 +72,14 @@ async function requireSession(req: express.Request, res: express.Response, next:
     if (!sessionId) {
       return res.status(401).json({ error: "Tidak ada sesi aktif" });
     }
-    const result = await pool.query(`SELECT * FROM users WHERE current_session_id = $1`, [sessionId]);
+    // Matches whichever of the 3 device-type slots holds this cookie's
+    // session id — a session cookie only ever lives in exactly one slot at
+    // a time (see setUserSession below), so this is never ambiguous.
+    const result = await pool.query(
+      `SELECT * FROM users
+       WHERE current_session_id_desktop = $1 OR current_session_id_mobile = $1 OR current_session_id_tablet = $1`,
+      [sessionId]
+    );
     const user = result.rows[0];
     if (!user) {
       return res.status(401).json({ error: "Sesi tidak valid atau sudah kedaluwarsa" });
@@ -403,9 +429,9 @@ app.post("/api/push/unsubscribe", requireSession, requireActiveStatus, async (re
 // this runs on a multi-minute server interval, not a live browser clock. Once
 // a reminder's time-of-day has passed today AND today's date pattern
 // matches AND it hasn't already fired today, it's due.
-function isReminderDueForPush(reminder: any, now: Date): boolean {
+function isReminderDueForPush(reminder: any, now: Date, timeZone: string): boolean {
   if (!reminder?.isActive) return false;
-  const { dateStr: currentDateStr, hour, minute, dayOfWeek, dayOfMonth } = getWibDateParts(now);
+  const { dateStr: currentDateStr, hour, minute, dayOfWeek, dayOfMonth } = getDatePartsInTimeZone(now, timeZone);
   if (reminder.lastTriggeredDate === currentDateStr) return false;
 
   const [rh, rm] = String(reminder.time || "00:00").split(":").map((n: string) => parseInt(n, 10) || 0);
@@ -457,11 +483,12 @@ async function runReminderPushSweep() {
       const reminders: any[] = Array.isArray(data.reminders) ? data.reminders : [];
       if (reminders.length === 0) continue;
 
+      const timeZone = data.settings?.timezone || DEFAULT_REMINDER_TIMEZONE;
       const subs = subsByUser.get(row.user_id);
       let anyDue = false;
-      const currentDateStr = getWibDateParts(now).dateStr;
+      const currentDateStr = getDatePartsInTimeZone(now, timeZone).dateStr;
       const nextReminders = reminders.map((r) => {
-        if (!isReminderDueForPush(r, now)) return r;
+        if (!isReminderDueForPush(r, now, timeZone)) return r;
         anyDue = true;
         return { ...r, lastTriggeredDate: currentDateStr, isActive: r.repeatType === "once" ? false : r.isActive };
       });
@@ -1059,63 +1086,115 @@ async function runActivityLogCleanup() {
   }
 }
 
-// Task 7 — daily 20:00 WIB "sudah input transaksi hari ini?" broadcast to
-// EVERY active push subscriber, independent of each account's own
-// custom reminders/debts above (those still work exactly the same,
-// unaffected by this). One shared in-memory flag tracks the WIB calendar
+// Task 7 — daily 20:00 (device-local) "sudah input transaksi hari ini?"
+// broadcast to every active push subscriber, independent of each account's
+// own custom reminders/debts above (those still work exactly the same,
+// unaffected by this). v12: PER-OWNER-timezone instead of one global
+// "20:00 WIB for everyone" check — see getDatePartsInTimeZone above — so a
+// WITA/WIT (or overseas) user's 20:00 fires at THEIR actual 20:00, not
+// Jakarta's. In-memory map tracks, per owner user id, the local calendar
 // date this last fired for, so the 5-minute-granularity sweep tick below
 // doesn't double-send within the ~5 minute window it catches 20:00 in —
-// resets naturally at WIB midnight since the date string changes. A server
-// restart could in theory cause a second send on the same day if it
-// happens to restart inside that same 5-minute window — an acceptable,
-// extremely rare edge case (same "worst case: fires once extra, never data
-// loss" tolerance as the reminder sweep above), not worth a DB-backed flag.
-let lastDailyTransactionReminderDateWIB: string | null = null;
+// resets naturally at that owner's local midnight since the date string
+// changes. A server restart could in theory cause a second send on the same
+// day if it happens to restart inside that same 5-minute window — an
+// acceptable, extremely rare edge case (same "worst case: fires once extra,
+// never data loss" tolerance as the reminder sweep above), not worth a
+// DB-backed flag.
+const lastDailyTransactionReminderDateByUser = new Map<string, string>();
 
-// Asia/Jakarta is a fixed UTC+7 offset with no DST — safe to compute by
-// hand without a timezone library (constraint: no new dependency for this
-// task besides `web-push` itself). Also used by isReminderDueForPush/
-// runReminderPushSweep above (function declarations are hoisted, so the
-// earlier-in-file usage is fine) — the production container runs Node with
-// no TZ set (node:20-slim defaults to UTC), so `now.getHours()` etc. on a
-// bare `new Date()` reflect UTC, not WIB. Every reminder time the user picks
-// in the UI is a WIB wall-clock time, so any due-check must convert through
-// this helper — using bare local getters here previously fired custom/debt
-// reminders up to 7 hours late (or on the wrong WIB calendar day).
-function getWibDateParts(now: Date): { dateStr: string; hour: number; minute: number; dayOfWeek: number; dayOfMonth: number } {
-  const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+// v12 (was hand-rolled fixed-WIB/UTC+7 math): every reminder time the user
+// picks in the UI is a wall-clock time in THEIR OWN device's timezone — not
+// necessarily WIB. Indonesia alone spans 3 zones (WIB/WITA/WIT), so hard-
+// coding +7 fired a WITA/WIT user's reminder up to 1-2 hours off, and any
+// non-Indonesian install would be off by however many hours entirely. Uses
+// Node's built-in `Intl` (full ICU, ships with Node — no new dependency) to
+// read wall-clock parts in an ARBITRARY IANA zone, DST-aware. `timeZone`
+// comes from data.settings.timezone (see App.tsx capturing
+// Intl.DateTimeFormat().resolvedOptions().timeZone on every load/save) —
+// 'Asia/Jakarta' (WIB) is only the fallback for an account whose client
+// hasn't saved one yet (old data, or push firing before the first save).
+function getDatePartsInTimeZone(now: Date, timeZone: string): { dateStr: string; hour: number; minute: number; dayOfWeek: number; dayOfMonth: number } {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false, weekday: "short",
+    }).formatToParts(now);
+  } catch {
+    // Unknown/invalid IANA zone string (corrupted setting, or a typo) —
+    // fall back to WIB rather than let the whole sweep throw for one account.
+    return getDatePartsInTimeZone(now, "Asia/Jakarta");
+  }
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+  const year = get("year"), month = get("month"), day = get("day");
+  // Intl gives "24" for midnight hour with hour12:false in some engines —
+  // normalize to 0 so minute-of-day math below stays correct.
+  const hour = Number(get("hour")) % 24;
+  const minute = Number(get("minute"));
+  const weekdayShort = get("weekday").toLowerCase();
+  const weekdayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
   return {
-    dateStr: wib.toISOString().slice(0, 10),
-    hour: wib.getUTCHours(),
-    minute: wib.getUTCMinutes(),
-    dayOfWeek: wib.getUTCDay(),
-    dayOfMonth: wib.getUTCDate(),
+    dateStr: `${year}-${month}-${day}`,
+    hour,
+    minute,
+    dayOfWeek: weekdayMap[weekdayShort] ?? new Date(`${year}-${month}-${day}T00:00:00Z`).getUTCDay(),
+    dayOfMonth: Number(day),
   };
 }
+
+const DEFAULT_REMINDER_TIMEZONE = "Asia/Jakarta";
 
 async function runDailyTransactionReminderSweep() {
   if (!isPushConfigured()) return;
   try {
-    const { dateStr, hour, minute } = getWibDateParts(new Date());
-    // 20:00–20:04 WIB window — matches this sweep's 5-minute tick interval
-    // (REMINDER_PUSH_INTERVAL_MS) so it fires exactly once as soon as the
-    // window opens, without needing sub-minute precision.
-    if (hour !== 20 || minute >= 5) return;
-    if (lastDailyTransactionReminderDateWIB === dateStr) return; // already sent today
-    lastDailyTransactionReminderDateWIB = dateStr;
+    const now = new Date();
+    // push_subscriptions.user_id is the OWNER's id (see the comment on that
+    // table in db/schema.sql), so grouping by it here and reading THAT
+    // owner's own settings.timezone is exactly the right per-account zone —
+    // a collaborator's device subscribing still fires on the account
+    // owner's local 20:00, consistent with every other per-account setting.
+    const rows = await pool.query(
+      `SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth, uad.data->'settings'->>'timezone' AS timezone
+       FROM push_subscriptions ps
+       LEFT JOIN user_app_data uad ON uad.user_id = ps.user_id`
+    );
+    if (rows.rowCount === 0) return;
 
-    const subsResult = await pool.query(`SELECT id, endpoint, p256dh, auth FROM push_subscriptions`);
-    if (subsResult.rowCount === 0) return;
-
-    const { sent, expiredIds } = await sendPushToSubscriptions(subsResult.rows, {
-      title: "Sudah catat transaksi hari ini?",
-      body: "Jangan lupa input pemasukan/pengeluaran hari ini biar catatan keuanganmu tetap rapi.",
-      icon: "/logo.png",
-    });
-    if (expiredIds.length > 0) {
-      await pool.query(`DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`, [expiredIds]);
+    const subsByUser = new Map<string, { id: string; endpoint: string; p256dh: string; auth: string }[]>();
+    const timeZoneByUser = new Map<string, string>();
+    for (const row of rows.rows) {
+      const list = subsByUser.get(row.user_id) || [];
+      list.push(row);
+      subsByUser.set(row.user_id, list);
+      timeZoneByUser.set(row.user_id, row.timezone || DEFAULT_REMINDER_TIMEZONE);
     }
-    console.log(`Daily transaction reminder (20:00 WIB) terkirim ke ${sent} subscription.`);
+
+    let totalSent = 0;
+    for (const [userId, subs] of subsByUser) {
+      const timeZone = timeZoneByUser.get(userId) || DEFAULT_REMINDER_TIMEZONE;
+      const { dateStr, hour, minute } = getDatePartsInTimeZone(now, timeZone);
+      // 20:00–20:04 local window — matches this sweep's 5-minute tick
+      // interval (REMINDER_PUSH_INTERVAL_MS) so it fires exactly once as
+      // soon as the window opens, without needing sub-minute precision.
+      if (hour !== 20 || minute >= 5) continue;
+      if (lastDailyTransactionReminderDateByUser.get(userId) === dateStr) continue; // already sent today
+      lastDailyTransactionReminderDateByUser.set(userId, dateStr);
+
+      const { sent, expiredIds } = await sendPushToSubscriptions(subs, {
+        title: "Sudah catat transaksi hari ini?",
+        body: "Jangan lupa input pemasukan/pengeluaran hari ini biar catatan keuanganmu tetap rapi.",
+        icon: "/logo.png",
+      });
+      totalSent += sent;
+      if (expiredIds.length > 0) {
+        await pool.query(`DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`, [expiredIds]);
+      }
+    }
+    if (totalSent > 0) {
+      console.log(`Daily transaction reminder (20:00 waktu lokal masing-masing akun) terkirim ke ${totalSent} subscription.`);
+    }
   } catch (error: any) {
     // Best-effort by design, same footing as runReminderPushSweep — never
     // crash the server or block the next tick.
@@ -2026,9 +2105,11 @@ app.post("/api/auth/google", async (req, res) => {
     const user = access.user;
 
     const sessionId = crypto.randomUUID();
+    const deviceType = parseUserAgent(req.headers["user-agent"] as string | undefined).deviceType;
+    const sessionColumn = sessionColumnFor(deviceType);
     const updateResult = await pool.query(
       `UPDATE users
-       SET current_session_id = $2,
+       SET ${sessionColumn} = $2,
            google_id = COALESCE(google_id, $3),
            name = COALESCE($4, name),
            avatar_url = COALESCE($5, avatar_url)
@@ -2129,7 +2210,8 @@ app.post("/api/dev/login-as-test-user", async (req, res) => {
     }
 
     const sessionId = crypto.randomUUID();
-    await pool.query(`UPDATE users SET current_session_id = $2 WHERE id = $1`, [user.id, sessionId]);
+    const deviceType = parseUserAgent(req.headers["user-agent"] as string | undefined).deviceType;
+    await setUserSession(user.id, sessionId, deviceType);
 
     res.cookie("session_id", sessionId, {
       httpOnly: true,
@@ -2167,8 +2249,15 @@ app.post("/api/auth/logout", async (req, res) => {
   try {
     const sessionId = req.signedCookies?.session_id;
     if (sessionId) {
+      // Clears whichever ONE of the 3 device-type slots currently holds this
+      // exact session id — the other two (other device types) are
+      // untouched, so logging out on the phone never logs out the PC.
       await pool.query(
-        `UPDATE users SET current_session_id = NULL WHERE current_session_id = $1`,
+        `UPDATE users SET
+           current_session_id_desktop = CASE WHEN current_session_id_desktop = $1 THEN NULL ELSE current_session_id_desktop END,
+           current_session_id_mobile = CASE WHEN current_session_id_mobile = $1 THEN NULL ELSE current_session_id_mobile END,
+           current_session_id_tablet = CASE WHEN current_session_id_tablet = $1 THEN NULL ELSE current_session_id_tablet END
+         WHERE current_session_id_desktop = $1 OR current_session_id_mobile = $1 OR current_session_id_tablet = $1`,
         [sessionId]
       );
     }

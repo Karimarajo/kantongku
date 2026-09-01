@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Transaction, Category } from '../types';
-import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
+import { formatRupiah, formatDate, getCategoryColorHex, getWeeklyExpenseTrend } from '../utils';
 import CategoryIcon from './CategoryIcon';
+import WeeklyTrendChart from './WeeklyTrendChart';
 import {
   ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Receipt, Edit3, Trash2
 } from 'lucide-react';
@@ -42,6 +43,15 @@ export default function MonthlyExpenseView({
 
   const totalIncoming = monthTransactions.filter(t => t.type === 'incoming').reduce((s, t) => s + t.amount, 0);
   const totalOutgoing = monthTransactions.filter(t => t.type === 'outgoing').reduce((s, t) => s + t.amount, 0);
+
+  // Task: grafik mingguan (sebelumnya di menu Analisis) juga tampil di sini,
+  // di bawah navigator bulan — dihitung untuk bulan yang SEDANG DILIHAT
+  // (viewDate), bukan selalu bulan berjalan, jadi tetap benar saat user
+  // menavigasi ke bulan-bulan sebelumnya.
+  const weeklyTrendData = useMemo(
+    () => getWeeklyExpenseTrend(transactions, viewDate.getFullYear(), viewDate.getMonth()),
+    [transactions, viewDate]
+  );
 
   const goToPrevMonth = () => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -88,6 +98,12 @@ export default function MonthlyExpenseView({
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Grafik Tren Mingguan untuk bulan yang sedang dilihat — Task: pindah
+          dari menu Analisis (dihapus), ditaruh persis di bawah navigator
+          bulan. Tanpa tombol "Lihat Keseluruhan" (onOpenMonthlyDetail
+          dilewatkan) — halaman ini SUDAH "Lihat Keseluruhan"-nya. */}
+      <WeeklyTrendChart weeklyTrendData={weeklyTrendData} totalLabel={`Total Pengeluaran ${monthLabel}`} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-2 mt-1">

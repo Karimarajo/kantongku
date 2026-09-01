@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useHorizontalDragScroll } from '../hooks/useHorizontalDragScroll';
 import { 
   Camera, 
   Mic, 
@@ -127,6 +128,11 @@ export default function AddTransactionModal({
     () => [...pockets, ...sharedPockets.map(sp => ({ ...sp.pocket, id: sp.shareId }))],
     [pockets, sharedPockets]
   );
+  // Task: klik-geser + roda-mouse-ke-horizontal untuk baris kategori di
+  // bawah (lihat useHorizontalDragScroll) — sebelumnya cuma bisa digeser
+  // lewat swipe layar sentuh, mouse biasa di desktop tidak bisa sama sekali.
+  const categoryScrollHandlers = useHorizontalDragScroll<HTMLDivElement>();
+
   const activeShare = useMemo(() => sharedPockets.find(sp => sp.shareId === pocketId), [sharedPockets, pocketId]);
   const effectiveAccounts = activeShare ? activeShare.accounts : accounts;
   const effectiveCategories = activeShare ? activeShare.categories : categories;
@@ -925,7 +931,10 @@ export default function AddTransactionModal({
                   <label className="text-xs font-label-caps text-on-surface-variant uppercase">Kategori</label>
                   <button type="button" onClick={onOpenCategoryManager} className="text-[10px] text-primary hover:underline flex items-center gap-1.5 font-semibold"><Settings className="w-3.5 h-3.5" /> Kelola Kategori</button>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar whitespace-nowrap">
+                <div
+                  {...categoryScrollHandlers}
+                  className="flex gap-2 overflow-x-auto pb-1 no-scrollbar whitespace-nowrap cursor-grab active:cursor-grabbing"
+                >
                   {effectiveCategories.map((cat) => {
                     const isSelected = category === cat.id;
                     const catHex = getCategoryColorHex(cat.color);

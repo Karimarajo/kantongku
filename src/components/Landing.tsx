@@ -288,11 +288,11 @@ export default function Landing() {
         <div className="max-w-md mx-auto flex flex-col items-center gap-8 z-10 relative">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
-              🔥 Harga Promo — Hemat {Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%, Segera Ambil!
+              🔥 Harga Promo — Hemat <span className="font-mono-data">{Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%</span>, Segera Ambil!
             </span>
             <div className="flex flex-col items-center">
-              <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
-              <span className="text-4xl font-bold text-white">{formatCurrency(PRICE_PROMO)}</span>
+              <span className="font-mono-data text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
+              <span className="font-mono-data text-4xl font-bold text-white">{formatCurrency(PRICE_PROMO)}</span>
             </div>
             <p className="text-sm text-on-surface-variant">akses selamanya (bukan langganan bulanan) — harga promo, sewaktu-waktu bisa naik</p>
           </div>
@@ -311,7 +311,7 @@ export default function Landing() {
           {price && step === 'form' && (
             <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5 text-center">
               <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">Paket Akses</p>
-              <p className="text-3xl font-bold text-white">{formatCurrency(price.amount)}</p>
+              <p className="font-mono-data text-3xl font-bold text-white">{formatCurrency(price.amount)}</p>
               <p className="text-sm text-on-surface-variant mt-1">{price.label}</p>
             </div>
           )}
@@ -388,7 +388,7 @@ export default function Landing() {
                   Total yang harus dibayar
                 </p>
                 <div className="flex items-center justify-center gap-2">
-                  <p className="text-4xl font-bold text-white">{formatCurrency(order.total_amount)}</p>
+                  <p className="font-mono-data text-4xl font-bold text-white">{formatCurrency(order.total_amount)}</p>
                   <button
                     type="button"
                     onClick={handleCopyAmount}

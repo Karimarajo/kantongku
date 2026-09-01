@@ -29,7 +29,7 @@ export default function CalcKeyboard({ onKeyPress, onClear, onDelete, onEvaluate
     { label: '1', action: () => onKeyPress('1'), className: 'bg-overlay/5 text-on-surface text-lg' },
     { label: '2', action: () => onKeyPress('2'), className: 'bg-overlay/5 text-on-surface text-lg' },
     { label: '3', action: () => onKeyPress('3'), className: 'bg-overlay/5 text-on-surface text-lg' },
-    { label: '=', action: onEvaluate, className: 'bg-primary text-black font-bold text-xl rounded-xl' },
+    { label: '=', action: onEvaluate, className: 'bg-primary text-on-primary font-bold text-xl rounded-xl' },
     
     { label: '0', action: () => onKeyPress('0'), className: 'col-span-2 bg-overlay/5 text-on-surface text-lg' },
     { label: '000', action: () => onKeyPress('000'), className: 'bg-overlay/5 text-on-surface font-medium' },

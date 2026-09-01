@@ -70,6 +70,14 @@ export interface Notification {
   time: string;
   isRead: boolean;
   type: 'info' | 'warning' | 'success';
+  // Task: klik notifikasi diarahkan ke menu yang relevan. Undefined untuk
+  // notifikasi lama/umum (peringatan anggaran dsb) — itu tetap cuma menutup
+  // panel seperti sebelumnya, tanpa navigasi.
+  link?:
+    | { type: 'transaction'; transactionId: string }
+    | { type: 'reminder' }
+    | { type: 'debt' }
+    | { type: 'budget' };
 }
 
 export interface UserProfile {
@@ -90,6 +98,14 @@ export interface Reminder {
   dayOfMonth: number; // 1-31 (day of month)
   lastTriggeredDate?: string; // Format: "YYYY-MM-DD"
   targetDate?: string; // Format: "YYYY-MM-DD"
+  // Task: tombol "Sudah Bayar" — detail transaksi yang otomatis dibuat saat
+  // ditekan. Semua opsional supaya pengingat lama (dibuat sebelum field ini
+  // ada, termasuk reminder bawaan Debt lama) tetap valid; tombol "Sudah
+  // Bayar" hanya muncul kalau ketiganya (amount/accountId/category) terisi.
+  amount?: number;
+  pocketId?: string;
+  accountId?: string;
+  category?: string;
 }
 
 // Internal movement of balance between two Accounts (wallets). Deliberately
@@ -145,6 +161,12 @@ export interface Debt {
   // App.tsx) — kept so deleting the debt can also clean up its reminder
   // instead of leaving an orphaned monthly alarm behind.
   reminderId?: string;
+  // Task: detail transaksi otomatis untuk tombol "Sudah Bayar" — sama seperti
+  // Reminder di atas. Optional untuk cicilan lama; "Sudah Bayar" menolak
+  // jalan (lewat alert) kalau accountId/category belum diisi (lihat Edit).
+  pocketId?: string;
+  accountId?: string;
+  category?: string;
 }
 
 export interface DebtPayment {
@@ -152,6 +174,12 @@ export interface DebtPayment {
   debtId: string;
   paidAmount: number;
   paidAt: string; // ISO string
+  // Task: link ke Transaction yang otomatis dibuat saat "Sudah Bayar"
+  // ditekan — Edit/Hapus di riwayat pembayaran beroperasi lewat transaksi
+  // ini (handleEditTransaction/handleDeleteTransaction di App.tsx yang
+  // menjaga paidAmount/paidAt tetap sinkron dua arah). Undefined untuk
+  // pembayaran lama yang direkam sebelum linkage ini ada.
+  transactionId?: string;
 }
 
 // v11: per-pocket sharing, REPLACES the old whole-account "Collaborator"
