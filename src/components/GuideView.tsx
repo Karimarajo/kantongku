@@ -362,24 +362,21 @@ export default function GuideView({ onBack }: GuideViewProps) {
         Rangkuman cara pakai semua fitur KantongKu, plus catatan pembaruan setiap kali ada versi baru.
       </p>
 
-      {/* Update Terbaru — HANYA entri paling baru (CHANGELOG[0]), bukan
-          seluruh histori: ini notifikasi "apa yang baru", bukan log
-          perjalanan versi. CHANGELOG di src/version.ts tetap menyimpan
-          entri-entri lama sebagai arsip internal (memudahkan maintenance),
-          tapi GuideView sengaja hanya menampilkan yang terkini. */}
+      {/* Update Terbaru — Task: cuma badge versi + tanggal, TANPA daftar
+          detail perubahan (sebelumnya menampilkan CHANGELOG[0].changes lewat
+          Bullets — sengaja dihapus dari tampilan ini per permintaan user,
+          bukan dari data CHANGELOG itu sendiri di src/version.ts, yang tetap
+          menyimpan detailnya sebagai arsip internal). */}
       {CHANGELOG.length > 0 && (
         <section className="flex flex-col gap-2.5">
           <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-primary" /> Update Terbaru
           </span>
-          <div className="glass-card rounded-xl p-3.5 border border-overlay/5 flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold font-mono-data">
-                V{CHANGELOG[0].version}
-              </span>
-              <span className="text-[10px] text-on-surface-variant/60">{CHANGELOG[0].date}</span>
-            </div>
-            <Bullets items={CHANGELOG[0].changes} />
+          <div className="glass-card rounded-xl p-3.5 border border-overlay/5 flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold font-mono-data">
+              V{CHANGELOG[0].version}
+            </span>
+            <span className="text-[10px] text-on-surface-variant/60">{CHANGELOG[0].date}</span>
           </div>
         </section>
       )}
