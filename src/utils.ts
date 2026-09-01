@@ -46,6 +46,46 @@ export function formatDate(dateStr: string): string {
   }
 }
 
+// Pengeluaran per minggu kalender riil (Senin-Minggu, dinamis 4/5/6 minggu
+// tergantung bulan) untuk SATU bulan target — diekstrak dari ActivityView
+// lama (menu "Analisis", sekarang dihapus) supaya bisa dipakai ulang baik di
+// TransactionHistoryPage (grafik mingguan bulan berjalan) maupun
+// MonthlyExpenseView (grafik mingguan untuk bulan yang sedang dilihat user,
+// bisa bulan lampau). Logika pembagian minggu SAMA PERSIS dengan versi lama
+// — jangan diubah tanpa mengubah keduanya sekaligus.
+export function getWeeklyExpenseTrend(transactions: Transaction[], year: number, month: number): number[] {
+  const outgoingThisMonth = transactions.filter(t => {
+    if (t.type !== 'outgoing') return false;
+    const d = new Date(t.date);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+
+  if (outgoingThisMonth.length === 0) return [0, 0, 0, 0];
+
+  // Cari hari pertama bulan ini jatuh di hari apa (0 = Minggu, 1 = Senin, ..., 6 = Sabtu)
+  const firstDayOfMonth = new Date(year, month, 1);
+  let dayOfWeek = firstDayOfMonth.getDay();
+  // Normalisasi agar Senin = 0, Selasa = 1, ..., Minggu = 6
+  dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  // Hitung total minggu riil kalender di bulan ini
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalWeeksNeeded = Math.ceil((totalDaysInMonth + dayOfWeek) / 7);
+
+  const liveWeeks = Array(totalWeeksNeeded).fill(0);
+
+  outgoingThisMonth.forEach(t => {
+    const day = new Date(t.date).getDate();
+    // Tentukan indeks minggu riil (Senin - Minggu)
+    const weekIndex = Math.floor((day + dayOfWeek - 1) / 7);
+    if (weekIndex >= 0 && weekIndex < liveWeeks.length) {
+      liveWeeks[weekIndex] += t.amount;
+    }
+  });
+
+  return liveWeeks;
+}
+
 export function getDefaultProfile(email: string, displayName?: string | null, photoURL?: string | null): UserProfile {
   const cleanName = email.split('@')[0];
   const capitalizedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);

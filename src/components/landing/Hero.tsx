@@ -103,12 +103,12 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
         </div>
 
         <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
-          🔥 Harga Promo — Hemat {formatCurrency(priceOriginal - pricePromo)}, Segera Ambil!
+          🔥 Harga Promo — Hemat <span className="font-mono-data">{formatCurrency(priceOriginal - pricePromo)}</span>, Segera Ambil!
         </span>
 
         <div className="flex flex-col items-center gap-1">
-          <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(priceOriginal)}</span>
-          <span className="text-4xl font-bold text-white">{formatCurrency(pricePromo)}</span>
+          <span className="font-mono-data text-lg text-on-surface-variant/60 line-through">{formatCurrency(priceOriginal)}</span>
+          <span className="font-mono-data text-4xl font-bold text-white">{formatCurrency(pricePromo)}</span>
           <span className="text-xs text-on-surface-variant/60">akses selamanya — harga promo, sewaktu-waktu bisa naik</span>
         </div>
 
@@ -137,7 +137,7 @@ export default function Hero({ priceOriginal, pricePromo, formatCurrency, onCtaC
               <span className="text-xs text-on-surface-variant/60">Jajan / Kopi</span>
               <span className="text-sm font-semibold text-white">Kopi</span>
             </div>
-            <span className="text-sm font-bold text-rose-400">-Rp15.000</span>
+            <span className="font-mono-data text-sm font-bold text-rose-400">-Rp15.000</span>
           </div>
         </div>
       </div>

@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Pocket, Account, Category, WalletTransferLog } from '../types';
-import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
+import { formatRupiah, formatDate, getCategoryColorHex, getWeeklyExpenseTrend } from '../utils';
 import { buildExportRows, exportTransactionsToCsv, exportTransactionsToPdf } from '../lib/exportTransactions';
 import CategoryIcon from './CategoryIcon';
 import CategoryDonutChart, { CategoryDonutFilter } from './CategoryDonutChart';
+import WeeklyTrendChart from './WeeklyTrendChart';
 import FinancialHealthCard from './FinancialHealthCard';
 import {
   Search, SlidersHorizontal, ChevronDown, Calendar, Tag, Wallet,
@@ -22,6 +23,10 @@ interface TransactionHistoryPageProps {
   onEditTransactionSelect: (transaction: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
   onBack: () => void;
+  // Task: kartu grafik yang sebelumnya ada di menu Analisis (dihapus)
+  // sekarang tampil di sini — "Lihat Keseluruhan" membuka Detail Pengeluaran
+  // Bulanan, sama seperti dulu.
+  onOpenMonthlyDetail: () => void;
 }
 
 export default function TransactionHistoryPage({
@@ -34,7 +39,8 @@ export default function TransactionHistoryPage({
   currentUserEmail = '',
   onEditTransactionSelect,
   onDeleteTransaction,
-  onBack
+  onBack,
+  onOpenMonthlyDetail
 }: TransactionHistoryPageProps) {
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -80,6 +86,15 @@ export default function TransactionHistoryPage({
       .filter(t => !donutFilter || t.category === donutFilter.id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [preDonutFilteredTransactions, donutFilter]);
+
+  // Tren mingguan bulan berjalan — SELALU seluruh transaksi bulan ini
+  // (bukan hasil filter di atas), sama seperti perilaku menu Analisis lama:
+  // ini ringkasan tetap "bulan ini", bukan mengikuti pencarian/tanggal yang
+  // sedang aktif.
+  const weeklyTrendData = useMemo(() => {
+    const now = new Date();
+    return getWeeklyExpenseTrend(transactions, now.getFullYear(), now.getMonth());
+  }, [transactions]);
 
   const getAccountName = (id: string) => accounts.find(a => a.id === id)?.name || 'Wallet';
 
@@ -131,6 +146,10 @@ export default function TransactionHistoryPage({
         <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg"><ChevronLeft className="w-5 h-5"/></button>
         <h1 className="text-xl font-bold">Riwayat Transaksi</h1>
       </div>
+
+      {/* Grafik Tren Pengeluaran Mingguan — dipindah dari menu Analisis
+          (dihapus, lihat App.tsx) ke sini. */}
+      <WeeklyTrendChart weeklyTrendData={weeklyTrendData} onOpenMonthlyDetail={onOpenMonthlyDetail} />
 
       {/* Donut chart pengeluaran/pemasukan + klik-untuk-filter (Task 7) —
           dihitung dari transaksi yang sudah lolos filter lain (search/
@@ -190,7 +209,7 @@ export default function TransactionHistoryPage({
             
             <div className="flex gap-2 items-center my-1">
               {(['all', 'incoming', 'outgoing'] as const).map(t => (
-                <button key={t} type="button" onClick={() => setTypeFilter(t)} className={`h-8 px-3 rounded-lg text-xs border transition-all ${typeFilter === t ? 'bg-primary text-black font-bold border-primary' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>
+                <button key={t} type="button" onClick={() => setTypeFilter(t)} className={`h-8 px-3 rounded-lg text-xs border transition-all ${typeFilter === t ? 'bg-primary text-on-primary font-bold border-primary' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>
                   {t === 'all' ? 'Semua Kas' : t === 'incoming' ? 'Masuk' : 'Keluar'}
                 </button>
               ))}

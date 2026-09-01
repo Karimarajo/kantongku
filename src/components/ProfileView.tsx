@@ -13,6 +13,18 @@ export interface AppSettings {
   currency: 'IDR' | 'USD';
   theme: 'dark' | 'light';
   alarmRem: boolean;
+  // IANA zone (e.g. "Asia/Jakarta", "Asia/Makassar") captured automatically
+  // from the browser (Intl.DateTimeFormat().resolvedOptions().timeZone) on
+  // every save in App.tsx — never a manual setting here, always whatever the
+  // device itself reports "now". Used server-side (server.ts) so reminder/
+  // debt push notifications fire at the account's OWN local time instead of
+  // an app-wide fixed WIB assumption. Optional/undefined for any account
+  // whose data predates this field — server.ts falls back to WIB for those.
+  timezone?: string;
+  // Task: urutan tombol Aksi Cepat di Home, bisa diatur drag & drop —
+  // array id aksi, 5 pertama yang tampil langsung. Undefined/kosong = urutan
+  // bawaan (lihat DEFAULT_QUICK_ACTION_ORDER di HomeDashboard.tsx).
+  quickActionOrder?: string[];
 }
 
 interface ProfileViewProps {

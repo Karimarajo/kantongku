@@ -1,14 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Task: semua teks pakai grotesque sans-serif, jatuh ke Helvetica/Arial
+     lalu sans-serif generik kalau Space Grotesk gagal load. Semua ANGKA
+     (nominal rupiah, persen, statistik) tetap pakai --font-mono di bawah —
+     lihat className="font-mono tabular-nums" di komponen-komponen angka. */
+  --font-sans: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, ui-sans-serif, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --color-primary: #4edea3;
   --color-primary-container: #10b981;
   --color-secondary: #adc6ff;
   --color-secondary-container: #0566d9;
+  /* Task: "kartu hijau terang, font jadi gelap" — text-on-primary is used on
+     ~16 bg-primary buttons/cards across the app but was never defined here,
+     so it silently rendered with whatever color it happened to inherit
+     (this theme's light on-surface text) instead of a real contrast-checked
+     color. Dark theme's primary is a BRIGHT mint green, so on-primary here
+     is dark (near-black) for real contrast — deliberately the opposite of
+     --color-on-surface's light text on this same dark theme. */
+  --color-on-primary: #06281d;
 
   --color-surface: #111827;
   --color-surface-variant: #1f2937;
@@ -49,6 +61,9 @@
   --color-primary-container: #10b981;
   --color-secondary: #2563eb;
   --color-secondary-container: #0566d9;
+  /* Light theme's primary is a deeper, more saturated green — light text
+     reads correctly on it here, the reverse of dark theme above. */
+  --color-on-primary: #ffffff;
 
   --color-surface: #ffffff;
   --color-surface-variant: #f3f4f6;
@@ -99,6 +114,27 @@
 .glow-border-primary {
   box-shadow: 0 0 20px var(--glow-border-primary-shadow);
   border: 1px solid var(--glow-border-primary-border);
+}
+
+/* Task: "semua Angka pakai mono". `font-mono-data` is already applied
+   consistently across every view in src/components (amounts, percentages,
+   dates, account numbers, stat counts) but was never actually defined
+   anywhere as real CSS — Tailwind does not recognize it as a utility on its
+   own, so every one of those numbers was silently still rendering in the
+   body's sans font. This is the fix: registering it as a real Tailwind v4
+   utility (not a plain class) so it composes correctly alongside the other
+   utility classes already listed next to it in those components' className
+   strings, wins the font-family cascade there, and gets picked up by
+   Tailwind's JIT scan of the existing className="...font-mono-data..." usages.
+   Deliberately does NOT touch font-display-lg / font-label-caps (the two
+   other undefined-but-used classes in this codebase) — both are applied to
+   plain TEXT headings/captions in some places (e.g. AdminConsole's "Admin
+   Console" <h1>), so forcing a font-family there could fight the intended
+   sans-serif body font; they already fall back to --font-sans correctly via
+   inheritance with zero extra CSS needed. */
+@utility font-mono-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 body {

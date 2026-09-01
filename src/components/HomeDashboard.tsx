@@ -1,9 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budget, SharedPocketBundle } from '../types';
+import type { AppSettings } from './ProfileView';
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
+import { useHorizontalDragScroll } from '../hooks/useHorizontalDragScroll';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 import CategoryIcon from './CategoryIcon';
 import PushNotificationToggle from './PushNotificationToggle';
+import QuickActionOrderModal, { QuickActionMeta } from './QuickActionOrderModal';
 import {
   RefreshCw,
   Bell,
@@ -39,7 +43,9 @@ import {
   Utensils,
   Users,
   ChevronRight,
-  Target
+  Target,
+  Tag,
+  Settings2
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -54,12 +60,16 @@ interface HomeDashboardProps {
   userProfile: UserProfile;
   categories: Category[];
   budgets: Budget[];
+  // Task: urutan tombol Aksi Cepat (drag & drop, disimpan per-akun).
+  appSettings: AppSettings;
+  onSaveSettings: (settings: AppSettings) => void;
   onOpenAddModal: () => void;
   onDeleteTransaction: (id: string) => void;
   onTransferBetweenWallets: (fromAccountId: string, toAccountId: string, amount: number, note?: string) => void;
   onTopUpWallet: (accountId: string, amount: number, note?: string) => void;
   onChangeTab: (tab: string) => void;
   onOpenPocketManager: () => void;
+  onOpenCategoryManager: () => void;
   onOpenBudgetModal: () => void;
   onOpenReminderModal: () => void;
   onEditTransactionSelect: (transaction: Transaction) => void;
@@ -77,12 +87,15 @@ export default function HomeDashboard({
   userProfile,
   categories,
   budgets,
+  appSettings,
+  onSaveSettings,
   onOpenAddModal,
   onDeleteTransaction,
   onTransferBetweenWallets,
   onTopUpWallet,
   onChangeTab,
   onOpenPocketManager,
+  onOpenCategoryManager,
   onOpenBudgetModal,
   onOpenReminderModal,
   onEditTransactionSelect,
@@ -91,7 +104,20 @@ export default function HomeDashboard({
   onOpenMonthlyDetail
 }: HomeDashboardProps) {
   const [selectedPocketId, setSelectedPocketId] = useState<string | null>(null);
+  // Task: Aksi Cepat — cuma 5 teratas tampil, sisanya di balik "Lihat
+  // Semua"; urutannya diatur lewat QuickActionOrderModal (drag & drop).
+  const [showAllActions, setShowAllActions] = useState(false);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  // Task 5: sorotan sesaat pada transaksi yang dituju dari klik notifikasi.
+  const [highlightedTransactionId, setHighlightedTransactionId] = useState<string | null>(null);
+  // Task: klik-geser + roda-mouse-ke-horizontal untuk carousel kantong di
+  // bawah — mouse desktop biasa sebelumnya tidak bisa menggeser baris ini
+  // sama sekali (lihat useHorizontalDragScroll).
+  const pocketScrollHandlers = useHorizontalDragScroll<HTMLDivElement>();
+  // Task: "aktivitas terakhir tampilkan semua sampai bawah" di desktop —
+  // mobile tetap menampilkan 5 teratas + tombol "Lihat Semua" seperti biasa.
+  const isDesktop = useIsDesktop();
 
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferFromAcc, setTransferFromAcc] = useState<string>('');
@@ -277,6 +303,68 @@ export default function HomeDashboard({
     setTopUpModalOpen(false);
   };
 
+  // Task: SETIAP notifikasi (bukan cuma sebagian, dan bukan bar "pengingat
+  // aktif" terpisah) bisa diklik dan diarahkan ke asalnya — transaksi
+  // (Pencatatan Berhasil, atau hasil "Bayar" Pengingat/Cicilan), Pengingat
+  // (alarm reminder biasa), Cicilan/Hutang (alarm reminder yang tertaut
+  // Debt), atau Target & Limit (peringatan/pencapaian anggaran).
+  const handleNotificationClick = (notif: Notification) => {
+    if (!notif.link) return;
+    setIsNotifOpen(false);
+    if (notif.link.type === 'transaction') {
+      const targetId = notif.link.transactionId;
+      setSelectedPocketId(null); // pastikan tidak sedang difilter kantong lain
+      setHighlightedTransactionId(targetId);
+      // Tunggu satu tick render (filter kantong baru saja direset) sebelum scroll.
+      requestAnimationFrame(() => {
+        document.getElementById(`transaksi-${targetId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      setTimeout(() => setHighlightedTransactionId(null), 2500);
+    } else if (notif.link.type === 'reminder') {
+      onOpenReminderModal();
+    } else if (notif.link.type === 'debt') {
+      onChangeTab('debts');
+    } else if (notif.link.type === 'budget') {
+      onOpenBudgetModal();
+    }
+  };
+
+  // Task: daftar lengkap Aksi Cepat — Panduan Pengguna & Bantuan/Dukungan
+  // sengaja TIDAK diikutkan (tetap di Profil saja), begitu juga Reset Data/
+  // Hapus Akun (aksi destruktif, sengaja tidak dijadikan tombol satu-tap).
+  type QuickActionEntry = QuickActionMeta & { onClick: () => void };
+  const ALL_ACTIONS: QuickActionEntry[] = useMemo(() => [
+    { id: 'add-dana', label: 'Add Dana', icon: Plus, onClick: () => setTopUpModalOpen(true) },
+    { id: 'transfer', label: 'Transfer', icon: Send, onClick: () => setTransferModalOpen(true) },
+    { id: 'target-limit', label: 'Target & Limit', icon: Receipt, onClick: onOpenBudgetModal },
+    { id: 'pengingat', label: 'Pengingat', icon: AlarmClock, onClick: onOpenReminderModal },
+    { id: 'kelola-kantong', label: 'Kelola Kantong', icon: Sliders, onClick: onOpenPocketManager },
+    { id: 'kantong-bersama', label: 'Kantong Bersama', icon: Users, onClick: () => onChangeTab('shared-pockets') },
+    { id: 'kelola-kategori', label: 'Kelola Kategori', icon: Tag, onClick: onOpenCategoryManager },
+    { id: 'riwayat-transaksi', label: 'Riwayat Transaksi', icon: Receipt, onClick: onOpenHistory },
+    { id: 'cicilan-hutang', label: 'Cicilan/Hutang', icon: CreditCard, onClick: () => onChangeTab('debts') },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
+  // Urutan tersimpan (appSettings.quickActionOrder) diikuti; id yang belum
+  // pernah tersimpan (aksi baru) ditambahkan di akhir; id tersimpan yang
+  // sudah tidak ada lagi (aksi yang dihapus) diabaikan begitu saja.
+  const orderedActions = useMemo(() => {
+    const savedOrder = appSettings.quickActionOrder;
+    if (!savedOrder || savedOrder.length === 0) return ALL_ACTIONS;
+    const byId = new Map(ALL_ACTIONS.map(a => [a.id, a]));
+    const ordered = savedOrder.map(id => byId.get(id)).filter((a): a is QuickActionEntry => !!a);
+    const missing = ALL_ACTIONS.filter(a => !savedOrder.includes(a.id));
+    return [...ordered, ...missing];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appSettings.quickActionOrder]);
+
+  const visibleActions = showAllActions ? orderedActions : orderedActions.slice(0, 5);
+
+  const handleSaveQuickActionOrder = (orderedIds: string[]) => {
+    onSaveSettings({ ...appSettings, quickActionOrder: orderedIds });
+  };
+
   return (
     <div className="flex flex-col gap-5 relative select-none">
       
@@ -331,9 +419,10 @@ export default function HomeDashboard({
                   <p className="text-xs text-on-surface-variant/40 py-4 text-center">Tidak ada notifikasi baru</p>
                 ) : (
                   notifications.map(notif => (
-                    <div 
-                      key={notif.id} 
-                      className={`p-2.5 rounded-lg text-xs flex flex-col gap-1 ${notif.type === 'warning' ? 'bg-danger/10 border-l-2 border-l-[#EF4444]' : 'bg-primary/5 border-l-2 border-l-primary'}`}
+                    <div
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`p-2.5 rounded-lg text-xs flex flex-col gap-1 ${notif.type === 'warning' ? 'bg-danger/10 border-l-2 border-l-[#EF4444]' : 'bg-primary/5 border-l-2 border-l-primary'} ${notif.link ? 'cursor-pointer hover:bg-overlay/10 transition-colors' : ''}`}
                     >
                       <div className="flex justify-between items-center">
                         <span className="font-bold text-on-surface flex items-center gap-1">
@@ -352,22 +441,12 @@ export default function HomeDashboard({
         </div>
       </header>
 
-      {/* Dasbor Actions Header Row */}
-      <div className="flex justify-end w-full">
-        <button
-          onClick={onOpenPocketManager}
-          className="flex items-center gap-2 px-4 py-2 bg-overlay/5 border border-overlay/10 hover:border-primary/40 hover:bg-overlay/10 text-xs font-bold font-label-caps text-on-surface-variant hover:text-on-surface rounded-xl transition-all active:scale-95"
-        >
-          <Sliders className="w-3.5 h-3.5 text-primary" />
-          Kelola Kantong
-        </button>
-      </div>
-
-      {/* GRID RESPONSIVE DASHBOARD LAYOUT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
-        
-        {/* LEFT COLUMN: Pockets & Quick Actions */}
-        <div className="lg:col-span-7 flex flex-col gap-6 w-full min-w-0">
+      {/* ROW 1 — full width (Task: kartu saldo/pengeluaran/kantong/tombol
+          aksi cepat melebar sampai ujung kanan, tidak lagi terkurung di
+          kolom kiri sempit berdampingan dengan Aktivitas Terakhir). Target &
+          Limit + Aktivitas Terakhir pindah jadi baris terpisah DI BAWAH,
+          lihat grid ROW 2 setelah section ini ditutup. */}
+      <div className="flex flex-col gap-6 w-full min-w-0">
 
           {/* Hero Section: Total Balance */}
           <section className="glass-card rounded-xl p-card_padding glow-primary relative overflow-hidden flex flex-col gap-2">
@@ -419,7 +498,10 @@ export default function HomeDashboard({
           </button>
 
           {/* Sub Pockets Carousel */}
-          <div className="w-full overflow-x-auto pb-2 pt-1 flex gap-3 no-scrollbar scroll-smooth snap-x">
+          <div
+            {...pocketScrollHandlers}
+            className="w-full overflow-x-auto pb-2 pt-1 flex gap-3 no-scrollbar scroll-smooth snap-x cursor-grab active:cursor-grabbing"
+          >
             {pockets.map(p => {
               const IconComponent = getPocketIconComponent(p.icon);
               const { hex: colorHex, textClass: colorTextClass } = getPocketColorHexAndTextClass(p.color);
@@ -489,50 +571,58 @@ export default function HomeDashboard({
             })}
           </div>
 
-          {/* Quick Action Matrix Grid - 4 KOLOM */}
+          {/* Aksi Cepat — Task: dipadatkan jadi 5 kolom, cuma 5 teratas
+              tampil (sisanya di balik "Lihat Semua"), urutan diatur lewat
+              QuickActionOrderModal (drag & drop / panah). Fitur-fitur yang
+              sebelumnya cuma ada di menu Profil/Pengaturan ikut masuk sini
+              — kecuali Panduan Pengguna & Bantuan/Dukungan (tetap di Profil
+              saja) dan aksi destruktif (Reset Data/Hapus Akun). */}
           <section className="py-2">
-            <div className="grid grid-cols-4 gap-2 w-full">
+            <div className="flex justify-between items-center mb-2.5">
+              <span className="font-label-caps text-[10px] text-on-surface-variant/60 uppercase tracking-wider">Aksi Cepat</span>
               <button
-                onClick={() => setTopUpModalOpen(true)}
-                className="flex flex-col items-center gap-2 group w-full"
+                onClick={() => setIsOrderModalOpen(true)}
+                className="flex items-center gap-1 text-[10px] text-on-surface-variant/60 hover:text-primary transition-colors"
+                title="Atur urutan Aksi Cepat"
               >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/20 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
-                  <Plus className="w-6 h-6" />
-                </div>
-                <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Add Dana</span>
-              </button>
-              
-              <button 
-                onClick={() => setTransferModalOpen(true)}
-                className="flex flex-col items-center gap-2 group w-full"
-              >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
-                  <Send className="w-5 h-5" />
-                </div>
-                <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Transfer</span>
-              </button>
-
-              <button 
-                onClick={onOpenBudgetModal}
-                className="flex flex-col items-center gap-2 group w-full"
-              >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
-                  <Receipt className="w-5 h-5" />
-                </div>
-                <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Target & Limit</span>
-              </button>
-
-              <button 
-                onClick={onOpenReminderModal}
-                className="flex flex-col items-center gap-2 group w-full"
-              >
-                <div className="w-14 h-14 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
-                  <AlarmClock className="w-5 h-5" />
-                </div>
-                <span className="font-label-caps text-on-surface-variant text-center text-[10px]">Pengingat</span>
+                <Settings2 className="w-3 h-3" /> Atur
               </button>
             </div>
+            <div className="grid grid-cols-5 gap-1.5 w-full">
+              {visibleActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.id}
+                    onClick={action.onClick}
+                    className="flex flex-col items-center gap-1.5 group w-full"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-surface-variant border border-overlay/10 flex items-center justify-center text-primary group-hover:bg-primary/10 group-active:scale-95 transition-all shadow-[0_0_10px_rgba(78,222,163,0.05)]">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <span className="font-label-caps text-on-surface-variant text-center text-[9px] leading-tight">{action.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {orderedActions.length > 5 && (
+              <button
+                onClick={() => setShowAllActions(v => !v)}
+                className="w-full text-center text-[11px] text-primary hover:underline mt-3"
+              >
+                {showAllActions ? 'Sembunyikan' : `Lihat Semua (${orderedActions.length})`}
+              </button>
+            )}
           </section>
+
+      </div>
+
+      {/* ROW 2 — Target & Limit (kiri) + Aktivitas Terakhir (kanan), di
+          BAWAH Row 1 (Task 2). */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
+
+        {/* LEFT COLUMN: Target & Limit */}
+        <div className="lg:col-span-7 flex flex-col gap-6 w-full min-w-0">
 
           {/* Ringkasan Target & Limit aktif — biar user langsung tahu progresnya
               tanpa buka modal Target & Limit. Pakai budget.spent/sisaPercent
@@ -620,7 +710,10 @@ export default function HomeDashboard({
               </button>
             </div>
 
-            <div className="flex flex-col gap-3 select-none max-h-[360px] lg:max-h-[500px] overflow-y-auto no-scrollbar">
+            {/* Task 2: di desktop, tampilkan SEMUA aktivitas sampai bawah
+                (tidak dibatasi tinggi/scroll) — mobile tetap seperti semula
+                (5 teratas dalam kotak scroll pendek). */}
+            <div className={`flex flex-col gap-3 select-none ${isDesktop ? '' : 'max-h-[360px] overflow-y-auto no-scrollbar'}`}>
               {(() => {
                 // Pocket Sharing (v11): pockets shared to me behave like any
                 // other pocket in this feed — their transactions are folded
@@ -632,7 +725,7 @@ export default function HomeDashboard({
                 const filteredTrans = selectedPocketId
                   ? allTransactions.filter(t => txDisplayContext.get(t.id)?.filterKey === selectedPocketId)
                   : allTransactions;
-                const displayedTrans = filteredTrans.slice(0, 5);
+                const displayedTrans = isDesktop ? filteredTrans : filteredTrans.slice(0, 5);
 
                 if (filteredTrans.length === 0) {
                   return (
@@ -651,11 +744,11 @@ export default function HomeDashboard({
                   const catColorClass = isExpense ? 'text-danger' : 'text-primary';
 
                   return (
-                    <div 
+                    <div
                       key={t.id}
                       id={`transaksi-${t.id}`}
                       onClick={() => onEditTransactionSelect(t)}
-                      className="glass-card rounded-xl p-3 flex justify-between items-center hover:bg-overlay/5 transition-all group relative cursor-pointer border border-overlay/5"
+                      className={`glass-card rounded-xl p-3 flex justify-between items-center hover:bg-overlay/5 transition-all group relative cursor-pointer border ${highlightedTransactionId === t.id ? 'border-primary ring-2 ring-primary/40' : 'border-overlay/5'}`}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div className="w-10 h-10 rounded-full bg-overlay/10 flex items-center justify-center text-on-surface-variant group-hover:scale-105 transition-transform shrink-0">
@@ -866,6 +959,13 @@ export default function HomeDashboard({
           </div>
         </div>
       )}
+
+      <QuickActionOrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        actions={orderedActions}
+        onSave={handleSaveQuickActionOrder}
+      />
     </div>
   );
 }

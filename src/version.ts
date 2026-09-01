@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '6.1';
+export const APP_VERSION = '6.5';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,40 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '6.5',
+    date: '1 September 2026',
+    changes: [
+      'Perbaikan: tombol Aksi Cepat di Home dipadatkan (5 tombol per baris, tampil 5 teratas + "Lihat Semua"), urutannya sekarang bisa diatur sendiri lewat geser/drag & drop. Tombol Log Activity dihapus dari Home (tetap ada di Profil).',
+      'Perbaikan: tombol kembali di Kantong Bersama, Cicilan/Hutang, dan Detail Pengeluaran Bulanan sekarang menuju halaman TEMPAT tombolnya ditekan (Home atau Profil) — sebelumnya selalu menuju Profil/Home tetap, tidak peduli dari mana dibuka.',
+      'Perbaikan: SEMUA notifikasi sekarang bisa diklik dan diarahkan ke asalnya (Pencatatan Berhasil → transaksinya, peringatan Target & Limit → menu Target & Limit, dst) — bar "Pengingat Aktif" terpisah di panel notifikasi dihapus lagi.',
+      'Perbaikan: notifikasi push sempat gagal diaktifkan di server lokal ("belum dikonfigurasi") — kunci VAPID untuk environment dev sekarang sudah diisi.',
+      'Perbaikan: di Pengingat, tombol "Sudah Bayar" diganti jadi "Bayar" — begitu ditekan baru berubah keterangannya jadi "Sudah Bayar" dan kartunya meredup, sampai siklus pengingat berikutnya.',
+      'Perbaikan: kontras teks pada tombol/kartu hijau (mis. tombol submit, "Bayar") yang sempat sulit dibaca di beberapa tempat — warna teks di atas warna primary sekarang benar-benar ditetapkan (gelap di atas hijau terang, terang di atas hijau gelap), bukan ikut warna teks sekitarnya.',
+    ],
+  },
+  {
+    version: '6.4',
+    date: '1 September 2026',
+    changes: [
+      'Baru: Pengingat sekarang bisa diedit, dan punya tombol "Sudah Bayar" — kalau diisi detail nominal/wallet/kategori saat membuat pengingat, satu tekan otomatis mencatat transaksinya dan pengingatnya otomatis nonaktif sampai siklus berikutnya (minggu/bulan depan, tergantung tipe pengulangan).',
+      'Baru: Cicilan/Hutang juga punya wallet & kategori pembayaran (bisa diedit), dan "Sudah Bayar" otomatis mencatat transaksi. Riwayat pembayaran tiap cicilan sekarang bisa diedit atau dihapus langsung (kalau salah pencet) — otomatis ikut mengubah/menghapus transaksinya di Riwayat Transaksi juga, dan sebaliknya.',
+      'Baru: fitur-fitur di menu Profil (Kelola Kantong, Kantong Bersama, Kelola Kategori, Riwayat Transaksi, Log Activity, Cicilan/Hutang) sekarang juga tersedia sebagai tombol bulat langsung di Home, sama seperti Add Dana/Transfer/Target & Limit/Pengingat.',
+      'Baru: ikon lonceng notifikasi sekarang juga menampilkan daftar Pengingat Aktif, dan setiap notifikasi/pengingat bisa ditekan untuk langsung menuju transaksi, Pengingat, atau Cicilan/Hutang yang bersangkutan.',
+    ],
+  },
+  {
+    version: '6.3',
+    date: '1 September 2026',
+    changes: [
+      'Baru: sidebar desktop sekarang bisa diciutkan (tombol panah di pojok atas) supaya area kerja lebih lega.',
+      'Perbaikan: tampilan Home di desktop — kartu Saldo, Pengeluaran Bulan Ini, Kantong, dan tombol Add Dana/Transfer/Target & Limit/Pengingat sekarang melebar penuh sampai ujung kanan; Target & Limit dan Aktivitas Terakhir pindah ke baris di bawahnya, dan Aktivitas Terakhir menampilkan semua transaksi (tidak lagi dipotong 5 teratas) di layar desktop.',
+      'Baru: menu "Analisis" dihapus — grafik Tren Pengeluaran Mingguan dan diagram kategori sekarang tampil langsung di halaman Riwayat Transaksi, dan grafik mingguan juga tampil di Detail Pengeluaran Bulanan (di bawah pilihan bulan) saat menekan "Lihat Keseluruhan".',
+      'Perbaikan: notifikasi pengingat (tagihan, cicilan, kantong custom) kini mengikuti zona waktu PERANGKAT masing-masing pengguna secara otomatis, bukan selalu WIB — pengguna WITA/WIT (atau di luar Indonesia) tidak lagi menerima pengingat yang melesat jamnya.',
+      'Perbaikan: di PC/laptop, baris pilihan kategori saat input transaksi sekarang bisa digeser dengan klik-tahan-geser mouse atau scroll — sebelumnya cuma bisa digeser lewat layar sentuh.',
+      'Perbaikan: satu akun sekarang bisa login aktif di 3 jenis perangkat sekaligus (1 PC + 1 HP + 1 tablet) — sebelumnya login baru di perangkat mana pun langsung mengeluarkan sesi di perangkat lain, sekarang hanya perangkat dengan JENIS yang sama yang saling gantian.',
+    ],
+  },
   {
     version: '6.1',
     date: '26 Agustus 2026',

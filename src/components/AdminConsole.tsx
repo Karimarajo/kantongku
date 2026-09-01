@@ -713,56 +713,56 @@ export default function AdminConsole() {
                       <Wallet className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Total Pendapatan</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{formatCurrency(stats.totalRevenue)}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{formatCurrency(stats.totalRevenue)}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <ShoppingBag className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Pembelian Sukses</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.successfulOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.successfulOrders}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Users2 className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Akun Aktif</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.activeUsers}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.activeUsers}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Percent className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Tingkat Konversi</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.conversionRate}%</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.conversionRate}%</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-amber-400">
                       <Hourglass className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Order Menunggu</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.pendingOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.pendingOrders}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-on-surface-variant">
                       <TimerOff className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Order Kedaluwarsa</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.expiredOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.expiredOrders}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-rose-400">
                       <XCircle className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Order Dibatalkan</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.cancelledOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.cancelledOrders}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-on-surface-variant">
                       <ShoppingBag className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Total Order Dibuat</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{stats.totalOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{stats.totalOrders}</p>
                   </div>
                 </div>
 
@@ -872,7 +872,7 @@ export default function AdminConsole() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-lg font-bold text-white whitespace-nowrap">
+                    <td className="font-mono-data px-4 py-3 text-lg font-bold text-white whitespace-nowrap">
                       {formatCurrency(o.total_amount)}
                     </td>
                     <td className="px-4 py-3">
@@ -1164,14 +1164,14 @@ export default function AdminConsole() {
                       <Globe className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Total Page View</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{analytics.totalViews}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{analytics.totalViews}</p>
                   </div>
                   <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Users2 className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Unique Visitor</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{analytics.uniqueVisitors}</p>
+                    <p className="font-mono-data text-2xl font-bold text-white">{analytics.uniqueVisitors}</p>
                   </div>
                 </div>
 
