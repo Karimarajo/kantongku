@@ -10,6 +10,7 @@ import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import { sendEmail } from "./lib/email";
 import { sendMetaCapiEvent } from "./lib/metaCapi";
+import { PRODUCT_PRICE_IDR } from "./lib/constants";
 import { parseUserAgent } from "./lib/userAgent";
 import { createCheckoutPayment, verifyDokuNotificationSignature } from "./lib/doku";
 import { isPushConfigured, sendPushToSubscriptions } from "./lib/push";
@@ -835,8 +836,13 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
   // the customer is waiting on. Unlike the Doku call above, these are pure
   // notifications, not something the customer's response depends on.
   if (orderType === "license") {
+    // value/currency use the shared PRODUCT_PRICE_IDR constant (not
+    // totalAmount) — see lib/constants.ts. Meta's diagnostics flagged 37% of
+    // Lead events arriving with no value/currency at all; a request-time
+    // amount going momentarily undefined/stale silently drops the whole
+    // custom_data object in sendMetaCapiEvent, a fixed constant can't.
     sendMetaCapiEvent("Lead", orderCode, {
-      value: totalAmount,
+      value: PRODUCT_PRICE_IDR,
       currency: "IDR",
       eventSourceUrl: params.requestReferer,
       userData: {

@@ -11,6 +11,7 @@ import ValueStack from './landing/ValueStack';
 import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
+import { PRODUCT_PRICE_IDR } from '../../lib/constants';
 
 // Anchoring price shown on marketing sections (Hero, Pricing badge). Change
 // here to update everywhere it's displayed. This is separate from the actual
@@ -214,8 +215,14 @@ export default function Landing() {
       // (= order_code) exactly, so Meta dedups the two into a single event
       // instead of double-counting it. Fires only if the Pixel was actually
       // initialized (VITE_META_PIXEL_ID set) — see src/main.tsx.
+      //
+      // value/currency use the shared PRODUCT_PRICE_IDR constant (not
+      // createData.total_amount) — see lib/constants.ts for why: a
+      // request-derived amount going momentarily undefined/stale was
+      // exactly what caused 37% of Lead events to arrive with no
+      // value/currency in Meta's diagnostics.
       if (window.fbq) {
-        window.fbq('track', 'Lead', { value: createData.total_amount, currency: 'IDR' }, { eventID: createData.order_code });
+        window.fbq('track', 'Lead', { value: PRODUCT_PRICE_IDR, currency: 'IDR' }, { eventID: createData.order_code });
       } else {
         // Silently no-op-ing here (via `window.fbq?.(...)`) is exactly how a
         // missing/unbuilt VITE_META_PIXEL_ID goes unnoticed — the only symptom
