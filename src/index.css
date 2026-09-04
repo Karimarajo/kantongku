@@ -121,12 +121,12 @@
   --glow-border-primary-shadow: rgba(31, 122, 77, 0.08);
   --glow-border-primary-border: rgba(31, 122, 77, 0.22);
   --glow-secondary-shadow: rgba(47, 102, 144, 0.1);
-  /* Task revisi 4: glow hijau-terang (cocok utk teks di atas bg gelap)
-     nyaris tidak kelihatan di atas bg terang & malah bikin teks "KantongKu"
-     dan angka saldo (keduanya pakai .glow-text-primary) terlihat pudar —
-     di light mode glow-nya diganti jadi shadow GELAP tipis supaya teksnya
-     malah dapat kedalaman/ketegasan, bukan pudar. */
-  --glow-text-primary-shadow: rgba(8, 28, 18, 0.35);
+  /* Task revisi lagi: shadow gelap tipis (percobaan revisi sebelumnya)
+     ternyata tetap tidak diinginkan — user minta glow di teks "KantongKu"
+     & angka saldo (.glow-text-primary) di light mode DIHILANGKAN saja,
+     bukan diganti warna. transparent = text-shadow efektif tidak terlihat
+     tanpa perlu override rule .glow-text-primary terpisah. */
+  --glow-text-primary-shadow: transparent;
   --scrollbar-thumb: rgba(31, 122, 77, 0.15);
   --scrollbar-thumb-hover: rgba(31, 122, 77, 0.35);
 }
