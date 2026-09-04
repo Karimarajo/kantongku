@@ -463,7 +463,7 @@ export default function App() {
       // 4. Tentukan Tipe Transaksi
       let type: 'incoming' | 'outgoing' = tipeRaw === 'pemasukan' ? 'incoming' : 'outgoing';
 
-      handleAddTransaction({
+      const savedTransaction = handleAddTransaction({
         title: catatan,
         amount: nominal,
         pocketId,
@@ -472,6 +472,9 @@ export default function App() {
         type,
         notes: `Dianalisis AI via Suara/Media: ${catatan}`
       });
+      // Kalau ditolak (mis. saldo akun tidak cukup), handleAddTransaction
+      // sudah menampilkan alert-nya sendiri — jangan timpa dengan "Sukses".
+      if (!savedTransaction) return;
 
       alert(`Sukses Menyimpan ke Perangkat!\nTransaksi: "${catatan}" senilai Rp ${nominal.toLocaleString('id-ID')} masuk ke Kantong ${pocketId.toUpperCase()} & Rekening ${accountId.toUpperCase()}.`);
     };
@@ -710,7 +713,7 @@ export default function App() {
   const handleAddTransaction = (
     newTransData: Omit<Transaction, 'id' | 'date'> & { id?: string; date?: string },
     extra?: { reminders?: Reminder[]; debts?: Debt[]; debtPayments?: DebtPayment[]; activityNote?: string }
-  ): Transaction => {
+  ): Transaction | null => {
     const newTransaction: Transaction = {
       ...newTransData,
       id: newTransData.id || `t-${Date.now()}`,
@@ -721,6 +724,22 @@ export default function App() {
       // POST /api/pocket-shares/:id/transactions in server.ts), never here.
       inputBy: newTransData.inputBy || currentUser?.email,
     };
+
+    // Task: "pengeluaran tidak boleh melebihi saldo akun" — sebelumnya
+    // Math.max(0, ...) di bawah cuma meng-clamp hasil negatif ke 0 tanpa
+    // pernah menolak transaksinya, jadi selisihnya hilang permanen. Efeknya
+    // baru kelihatan pas transaksi itu dihapus/diedit: reversal-nya
+    // menjumlahkan balik dari angka yang SUDAH ke-clamp (0), bukan dari
+    // saldo asli sebelum transaksi salah itu — makanya saldo bisa melambung
+    // jadi angka yang aneh. Solusinya: tolak dari awal SEBELUM state apa pun
+    // berubah, supaya kondisi negatif itu sendiri tidak akan pernah tercipta.
+    if (newTransaction.type === 'outgoing') {
+      const sourceAccount = accounts.find(a => a.id === newTransaction.accountId);
+      if (sourceAccount && newTransaction.amount > sourceAccount.balance) {
+        alert(`Saldo di akun "${sourceAccount.name}" tidak cukup.\nSaldo tersedia: ${formatRupiah(sourceAccount.balance)}\nDibutuhkan: ${formatRupiah(newTransaction.amount)}`);
+        return null;
+      }
+    }
 
     const nextTransactions = [newTransaction, ...transactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -1013,12 +1032,12 @@ export default function App() {
     setIsAddModalOpen(true);
   };
 
-  const handleEditTransaction = (editedTrans: Transaction) => {
+  const handleEditTransaction = (editedTrans: Transaction): boolean => {
     const originalTrans = transactions.find(t => t.id === editedTrans.id);
     if (!originalTrans) {
       const shared = findSharedPocketTransactionContext(editedTrans.id);
       if (shared) handleEditSharedPocketTransaction(shared.shareId, editedTrans);
-      return;
+      return true;
     }
 
     // 1. Revert original transaction balance changes
@@ -1046,6 +1065,18 @@ export default function App() {
       }
       return a;
     });
+
+    // Sama seperti handleAddTransaction: tolak kalau saldo akun TUJUAN tidak
+    // cukup — dicek terhadap nextAccounts yang SUDAH di-revert dari efek
+    // transaksi asli (bukan saldo saat ini), supaya edit transaksi yang sama
+    // tanpa mengubah nominal/akunnya sendiri tidak salah ikut ditolak.
+    if (editedTrans.type === 'outgoing') {
+      const targetAccountAfterRevert = nextAccounts.find(a => a.id === editedTrans.accountId);
+      if (targetAccountAfterRevert && editedTrans.amount > targetAccountAfterRevert.balance) {
+        alert(`Saldo di akun "${targetAccountAfterRevert.name}" tidak cukup untuk perubahan ini.\nSaldo tersedia: ${formatRupiah(targetAccountAfterRevert.balance)}\nDibutuhkan: ${formatRupiah(editedTrans.amount)}`);
+        return false;
+      }
+    }
 
     // 2. Apply edited transaction balance changes
     nextPockets = nextPockets.map(p => {
@@ -1192,6 +1223,7 @@ export default function App() {
       debtPayments: nextDebtPaymentsAfterEdit,
     });
     setEditingTransaction(null);
+    return true;
   };
 
   // Core add budget target logic

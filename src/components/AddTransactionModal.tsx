@@ -43,9 +43,14 @@ import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => void;
+  // Task: onAddTransaction/onEditTransaction sekarang bisa MENOLAK (saldo
+  // akun tidak cukup) — App.tsx mengembalikan null/false dan sudah
+  // menampilkan alert-nya sendiri. handleManualSubmit di bawah memeriksa
+  // hasil ini supaya modal TIDAK ikut ditutup/direset saat ditolak, biar
+  // user bisa langsung perbaiki nominal/akunnya tanpa mengetik ulang.
+  onAddTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => Transaction | null;
   editingTransaction?: Transaction | null;
-  onEditTransaction?: (transaction: Transaction) => void;
+  onEditTransaction?: (transaction: Transaction) => boolean;
   pockets: Pocket[];
   accounts: Account[];
   categories: Category[];
@@ -584,8 +589,10 @@ export default function AddTransactionModal({
       // as adding one below.
       if (activeShare && onEditSharedTransaction) {
         onEditSharedTransaction(activeShare.shareId, editedTransaction);
-      } else {
-        onEditTransaction(editedTransaction);
+      } else if (!onEditTransaction(editedTransaction)) {
+        // Ditolak (saldo akun tidak cukup) — alert sudah ditampilkan oleh
+        // pemanggilnya. Biarkan modal & form tetap terbuka apa adanya.
+        return;
       }
     } else if (activeShare && onAddSharedTransaction) {
       onAddSharedTransaction(activeShare.shareId, {
@@ -597,8 +604,7 @@ export default function AddTransactionModal({
         notes: notes || undefined,
         date: finalDate.toISOString()
       });
-    } else {
-      onAddTransaction({
+    } else if (!onAddTransaction({
         title,
         amount,
         pocketId,
@@ -607,7 +613,10 @@ export default function AddTransactionModal({
         type,
         notes: notes || undefined,
         date: finalDate.toISOString()
-      });
+      })) {
+      // Ditolak (saldo akun tidak cukup) — alert sudah ditampilkan oleh
+      // pemanggilnya. Biarkan modal & form tetap terbuka apa adanya.
+      return;
     }
 
     setTitle('');
