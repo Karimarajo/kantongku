@@ -6,6 +6,7 @@
 // unfiltered query.
 import { Transaction, Pocket, Account, Category } from '../types';
 import { formatRupiah } from '../utils';
+import logoImg from '../logo.png';
 
 export interface ExportRow {
   no: number;
@@ -13,6 +14,17 @@ export interface ExportRow {
   transaksi: string;
   nominal: number;
   tipe: string;
+  // Task (revisi export PDF): kolom ledger bergaya mutasi rekening —
+  // kredit = nominal kalau Pemasukan (0 kalau Pengeluaran), debit
+  // sebaliknya, balance = saldo BERJALAN (kredit - debit) diakumulasi
+  // KRONOLOGIS (tanggal lama -> baru) di seluruh baris yang di-export, lalu
+  // dipetakan balik ke urutan tampil `rows` apa adanya (biasanya baru -> lama,
+  // mengikuti Riwayat Transaksi). Ini saldo relatif terhadap data yang
+  // di-export saja (mengikuti filter aktif), bukan saldo akun mutlak —
+  // konsisten dengan prinsip export ini yang selalu "apa yang lagi tampil".
+  kredit: number;
+  debit: number;
+  balance: number;
   kantong: string;
   wallet: string;
   kategori: string;
@@ -34,12 +46,26 @@ export function buildExportRows(
   categories: Category[],
   currentUserEmail: string
 ): ExportRow[] {
+  // Saldo berjalan harus diakumulasi urut TANGGAL (lama -> baru) supaya
+  // masuk akal secara ledger, terlepas dari urutan tampil `transactions`
+  // yang masuk ke fungsi ini (Riwayat Transaksi selalu baru -> lama).
+  const chronological = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const runningBalanceById = new Map<string, number>();
+  let running = 0;
+  chronological.forEach(t => {
+    running += t.type === 'incoming' ? t.amount : -t.amount;
+    runningBalanceById.set(t.id, running);
+  });
+
   return transactions.map((t, idx) => ({
     no: idx + 1,
     tanggal: formatAbsoluteDate(t.date),
     transaksi: t.title,
     nominal: t.amount,
     tipe: t.type === 'incoming' ? 'Pemasukan' : 'Pengeluaran',
+    kredit: t.type === 'incoming' ? t.amount : 0,
+    debit: t.type === 'outgoing' ? t.amount : 0,
+    balance: runningBalanceById.get(t.id) ?? 0,
     kantong: pockets.find(p => p.id === t.pocketId)?.name || t.pocketId,
     wallet: accounts.find(a => a.id === t.accountId)?.name || t.accountId,
     kategori: categories.find(c => c.id === t.category)?.name || t.category,
@@ -124,29 +150,115 @@ export function exportTransactionsToCsv(rows: ExportRow[], title: string) {
   downloadBlob(blob, `${sanitizeFilename(title)}.csv`);
 }
 
+export interface ExportGeneratedBy {
+  name: string;
+  email: string;
+}
+
+const PDF_HEADERS = ['No', 'Tanggal', 'Transaksi', 'Kredit', 'Debit', 'Balance', 'Kategori', 'Catatan'];
+const BRAND_GREEN: [number, number, number] = [16, 185, 129];
+const CREDIT_GREEN: [number, number, number] = [22, 163, 74];
+const DEBIT_RED: [number, number, number] = [220, 38, 38];
+const BALANCE_BLACK: [number, number, number] = [17, 24, 39];
+
+// `logoImg` resolves (via Vite) to a served URL, not a data: URI — jsPDF's
+// addImage() needs actual image bytes, so it's fetched once and converted
+// here. Wrapped by the caller in try/catch: a logo that fails to load
+// (offline edge case, etc.) should never block the export itself.
+async function loadLogoAsDataUrl(): Promise<string> {
+  const res = await fetch(logoImg);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 // Dynamically imported so the ~200KB jsPDF bundle only loads if/when someone
 // actually clicks "Export PDF", not on every page load of Riwayat Transaksi.
-export async function exportTransactionsToPdf(rows: ExportRow[], title: string) {
+export async function exportTransactionsToPdf(rows: ExportRow[], title: string, generatedBy: ExportGeneratedBy) {
   const { jsPDF } = await import('jspdf');
   const { default: autoTable } = await import('jspdf-autotable');
   const summary = computeExportSummary(rows);
-  const doc = new jsPDF({ orientation: 'landscape' });
-  doc.setFontSize(14);
-  doc.text(title, 14, 15);
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 14;
+
+  // Task (revisi): kop surat logo + wordmark KantongKu di atas.
+  try {
+    const logoDataUrl = await loadLogoAsDataUrl();
+    doc.addImage(logoDataUrl, 'PNG', marginX, 10, 14, 14);
+  } catch {
+    // Gagal muat logo (mis. offline) — lanjut tanpa logo, jangan gagalkan export-nya.
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(17);
+  doc.setTextColor(...BRAND_GREEN);
+  doc.text('KantongKu', marginX + 17, 19);
+
+  doc.setDrawColor(225, 225, 225);
+  doc.line(marginX, 27, pageWidth - marginX, 27);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(30, 30, 30);
+  doc.text(title, marginX, 35);
+
+  // Task (revisi): "Generated pada tanggal dan jam berapa, oleh siapa".
+  const now = new Date();
+  const generatedDate = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+  const generatedTime = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(110, 110, 110);
+  doc.text(
+    `Dibuat pada ${generatedDate}, pukul ${generatedTime} WIB oleh ${generatedBy.name} (${generatedBy.email})`,
+    marginX,
+    40.5
+  );
 
   doc.setFontSize(9);
   doc.setTextColor(90, 90, 90);
-  const summaryLine = `Total Transaksi: ${summary.totalTransaksi}   |   Total Pemasukan: ${formatRupiah(summary.totalPemasukan)}   |   Total Pengeluaran: ${formatRupiah(summary.totalPengeluaran)}   |   Selisih: ${formatRupiah(summary.selisih)}`;
-  doc.text(summaryLine, 14, 21);
+  const summaryLine = `Total Transaksi: ${summary.totalTransaksi}   |   Pemasukan: ${formatRupiah(summary.totalPemasukan)}   |   Pengeluaran: ${formatRupiah(summary.totalPengeluaran)}   |   Selisih: ${formatRupiah(summary.selisih)}`;
+  doc.text(summaryLine, marginX, 46.5);
   doc.setTextColor(0, 0, 0);
 
   autoTable(doc, {
-    startY: 26,
-    head: [EXPORT_HEADERS],
-    body: rows.map(r => [r.no, r.tanggal, r.transaksi, formatRupiah(r.nominal), r.tipe, r.kantong, r.wallet, r.kategori, r.catatan, r.inputOleh]),
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [16, 185, 129] },
-    columnStyles: { 2: { cellWidth: 40 }, 8: { cellWidth: 35 } },
+    startY: 51,
+    head: [PDF_HEADERS],
+    body: rows.map(r => [
+      r.no,
+      r.tanggal,
+      r.transaksi,
+      r.kredit > 0 ? formatRupiah(r.kredit) : '',
+      r.debit > 0 ? formatRupiah(r.debit) : '',
+      formatRupiah(r.balance),
+      r.kategori,
+      r.catatan,
+    ]),
+    styles: { fontSize: 7.5, cellPadding: 1.8, overflow: 'linebreak' },
+    headStyles: { fillColor: BRAND_GREEN },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 20 },
+      3: { cellWidth: 22, halign: 'right' },
+      4: { cellWidth: 22, halign: 'right' },
+      5: { cellWidth: 24, halign: 'right' },
+      6: { cellWidth: 20 },
+    },
+    // Kredit hijau, Debit merah, Balance hitam tegas — sesuai konvensi
+    // warna buku kas/mutasi rekening yang diminta.
+    didParseCell: (data: any) => {
+      if (data.section !== 'body') return;
+      if (data.column.index === 3) data.cell.styles.textColor = CREDIT_GREEN;
+      else if (data.column.index === 4) data.cell.styles.textColor = DEBIT_RED;
+      else if (data.column.index === 5) {
+        data.cell.styles.textColor = BALANCE_BLACK;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
   });
   doc.save(`${sanitizeFilename(title)}.pdf`);
 }

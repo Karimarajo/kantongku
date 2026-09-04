@@ -20,6 +20,8 @@ interface TransactionHistoryPageProps {
   walletTransferLogs?: WalletTransferLog[];
   initialFilter?: { category?: string };
   currentUserEmail?: string;
+  // Task (revisi export PDF): "Generated ... oleh siapa (nama dan email)".
+  currentUserName?: string;
   onEditTransactionSelect: (transaction: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
   onBack: () => void;
@@ -37,6 +39,7 @@ export default function TransactionHistoryPage({
   walletTransferLogs = [],
   initialFilter,
   currentUserEmail = '',
+  currentUserName = '',
   onEditTransactionSelect,
   onDeleteTransaction,
   onBack,
@@ -135,7 +138,10 @@ export default function TransactionHistoryPage({
     if (format === 'csv') {
       exportTransactionsToCsv(rows, exportTitle);
     } else {
-      exportTransactionsToPdf(rows, exportTitle);
+      exportTransactionsToPdf(rows, exportTitle, {
+        name: currentUserName || 'Pengguna KantongKu',
+        email: currentUserEmail || '-',
+      });
     }
   };
 
