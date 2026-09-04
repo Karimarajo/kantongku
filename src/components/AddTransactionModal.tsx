@@ -674,8 +674,14 @@ export default function AddTransactionModal({
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0" />
               </button>
 
-              <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-xl bg-overlay/5 border border-overlay/10 hover:bg-overlay/10 transition-all text-left group active:scale-[0.98]">
-                <div className="w-12 h-12 rounded-full bg-overlay/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
+              {/* Task: "Foto Struk Belanja" & "Input Manual" pakai bg-overlay/X
+                  (highlight semi-transparan hitam di light theme) yang di
+                  light mode jadi terbaca abu-abu kusam/gelap dibanding kartu
+                  pastel primary/secondary di sebelahnya — ganti ke token
+                  surface-variant/outline yang memang dirancang jadi
+                  permukaan netral terang di kedua tema, bukan tint alpha. */}
+              <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-xl bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
+                <div className="w-12 h-12 rounded-full bg-outline flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Camera className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
@@ -696,8 +702,8 @@ export default function AddTransactionModal({
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-secondary transition-colors shrink-0" />
               </button>
 
-              <button onClick={() => setCurrentView('manual')} className="flex items-center gap-4 p-4 rounded-xl bg-overlay/5 border border-overlay/10 hover:bg-overlay/10 transition-all text-left group active:scale-[0.98]">
-                <div className="w-12 h-12 rounded-full bg-overlay/10 flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
+              <button onClick={() => setCurrentView('manual')} className="flex items-center gap-4 p-4 rounded-xl bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
+                <div className="w-12 h-12 rounded-full bg-outline flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Edit3 className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
