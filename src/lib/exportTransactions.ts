@@ -14,14 +14,17 @@ export interface ExportRow {
   transaksi: string;
   nominal: number;
   tipe: string;
-  // Task (revisi export PDF): kolom ledger bergaya mutasi rekening —
-  // kredit = nominal kalau Pemasukan (0 kalau Pengeluaran), debit
-  // sebaliknya, balance = saldo BERJALAN (kredit - debit) diakumulasi
-  // KRONOLOGIS (tanggal lama -> baru) di seluruh baris yang di-export, lalu
-  // dipetakan balik ke urutan tampil `rows` apa adanya (biasanya baru -> lama,
-  // mengikuti Riwayat Transaksi). Ini saldo relatif terhadap data yang
-  // di-export saja (mengikuti filter aktif), bukan saldo akun mutlak —
-  // konsisten dengan prinsip export ini yang selalu "apa yang lagi tampil".
+  // Task (revisi export PDF, lalu dikoreksi): kolom ledger bergaya mutasi
+  // rekening — kredit = nominal kalau Pemasukan (0 kalau Pengeluaran),
+  // debit sebaliknya, balance = akumulasi BERJALAN (kredit - debit) baris
+  // demi baris mengikuti urutan tampil `rows` apa adanya (No 1, lalu No 2,
+  // dst) — BUKAN diurutkan ulang berdasarkan tanggal, dan BUKAN mulai dari
+  // saldo akun yang sesungguhnya (selalu mulai dari 0 untuk data yang
+  // di-export ini saja). Percobaan awal sempat meng-akumulasi berdasarkan
+  // urutan tanggal (lama -> baru) lalu dipetakan balik ke urutan tampil —
+  // ini SALAH karena Riwayat Transaksi tampil baru -> lama, jadi baris
+  // "No 1" (transaksi terbaru) malah menunjukkan saldo akhir, bukan saldo
+  // setelah baris itu sendiri.
   kredit: number;
   debit: number;
   balance: number;
@@ -46,36 +49,30 @@ export function buildExportRows(
   categories: Category[],
   currentUserEmail: string
 ): ExportRow[] {
-  // Saldo berjalan harus diakumulasi urut TANGGAL (lama -> baru) supaya
-  // masuk akal secara ledger, terlepas dari urutan tampil `transactions`
-  // yang masuk ke fungsi ini (Riwayat Transaksi selalu baru -> lama).
-  const chronological = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const runningBalanceById = new Map<string, number>();
   let running = 0;
-  chronological.forEach(t => {
-    running += t.type === 'incoming' ? t.amount : -t.amount;
-    runningBalanceById.set(t.id, running);
-  });
 
-  return transactions.map((t, idx) => ({
-    no: idx + 1,
-    tanggal: formatAbsoluteDate(t.date),
-    transaksi: t.title,
-    nominal: t.amount,
-    tipe: t.type === 'incoming' ? 'Pemasukan' : 'Pengeluaran',
-    kredit: t.type === 'incoming' ? t.amount : 0,
-    debit: t.type === 'outgoing' ? t.amount : 0,
-    balance: runningBalanceById.get(t.id) ?? 0,
-    kantong: pockets.find(p => p.id === t.pocketId)?.name || t.pocketId,
-    wallet: accounts.find(a => a.id === t.accountId)?.name || t.accountId,
-    kategori: categories.find(c => c.id === t.category)?.name || t.category,
-    catatan: t.notes || '',
-    // Falls back to "me" (the viewer) for transactions with no stamped
-    // author — every transaction the CURRENT user's own client ever created
-    // predates or simply never needed this field; only shared-pocket
-    // transactions from someone else are ever explicitly stamped.
-    inputOleh: t.inputBy || currentUserEmail,
-  }));
+  return transactions.map((t, idx) => {
+    running += t.type === 'incoming' ? t.amount : -t.amount;
+    return {
+      no: idx + 1,
+      tanggal: formatAbsoluteDate(t.date),
+      transaksi: t.title,
+      nominal: t.amount,
+      tipe: t.type === 'incoming' ? 'Pemasukan' : 'Pengeluaran',
+      kredit: t.type === 'incoming' ? t.amount : 0,
+      debit: t.type === 'outgoing' ? t.amount : 0,
+      balance: running,
+      kantong: pockets.find(p => p.id === t.pocketId)?.name || t.pocketId,
+      wallet: accounts.find(a => a.id === t.accountId)?.name || t.accountId,
+      kategori: categories.find(c => c.id === t.category)?.name || t.category,
+      catatan: t.notes || '',
+      // Falls back to "me" (the viewer) for transactions with no stamped
+      // author — every transaction the CURRENT user's own client ever created
+      // predates or simply never needed this field; only shared-pocket
+      // transactions from someone else are ever explicitly stamped.
+      inputOleh: t.inputBy || currentUserEmail,
+    };
+  });
 }
 
 const EXPORT_HEADERS = ['No', 'Tanggal', 'Transaksi', 'Nominal', 'Tipe', 'Kantong', 'Wallet', 'Kategori', 'Catatan', 'Input Oleh'];
