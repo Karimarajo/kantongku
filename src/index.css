@@ -73,17 +73,22 @@
   --color-on-primary: #ffffff;
 
   --color-surface: #ffffff;
-  --color-surface-variant: #eef3ef;
+  /* Task revisi: "background masih terlalu gelap, terangin lagi" —
+     body-bg & surface-variant dinaikkan lagi lightness-nya (masih dengan
+     rona sage yang sama, cuma lebih pucat) supaya kartu netral yang
+     memakai surface-variant (mis. tombol "Foto Struk Belanja"/"Input
+     Manual" di AddTransactionModal) tidak lagi terbaca abu-abu gelap. */
+  --color-surface-variant: #eaf1ec;
   --color-on-surface: #10160f;
   --color-on-surface-variant: #59645d;
-  --color-outline: #dbe5de;
-  --color-outline-variant: #e9f0ea;
+  --color-outline: #d7e3da;
+  --color-outline-variant: #e6eee8;
 
   --color-overlay: #000000;
   --color-danger: #d1483f;
   --color-warning: #c1790f;
   --color-success: #1f7a4d;
-  --color-body-bg: #edf2ed;
+  --color-body-bg: #f2f6f2;
   --color-body-text: #10160f;
 }
 
@@ -116,7 +121,12 @@
   --glow-border-primary-shadow: rgba(31, 122, 77, 0.08);
   --glow-border-primary-border: rgba(31, 122, 77, 0.22);
   --glow-secondary-shadow: rgba(47, 102, 144, 0.1);
-  --glow-text-primary-shadow: rgba(31, 122, 77, 0.25);
+  /* Task revisi 4: glow hijau-terang (cocok utk teks di atas bg gelap)
+     nyaris tidak kelihatan di atas bg terang & malah bikin teks "KantongKu"
+     dan angka saldo (keduanya pakai .glow-text-primary) terlihat pudar —
+     di light mode glow-nya diganti jadi shadow GELAP tipis supaya teksnya
+     malah dapat kedalaman/ketegasan, bukan pudar. */
+  --glow-text-primary-shadow: rgba(8, 28, 18, 0.35);
   --scrollbar-thumb: rgba(31, 122, 77, 0.15);
   --scrollbar-thumb-hover: rgba(31, 122, 77, 0.35);
 }
