@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '6.5';
+export const APP_VERSION = '6.8';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,15 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '6.8',
+    date: '4 September 2026',
+    changes: [
+      'Perbaikan: palet warna mode Terang diperbarui ("Cool Sage") — kontras antara teks dan kartu yang sebelumnya samar sekarang jauh lebih tegas.',
+      'Perbaikan: pencatatan pengeluaran sekarang ditolak (dengan keterangan saldo tersedia vs dibutuhkan) kalau nominalnya melebihi saldo akun/wallet yang dipakai — mencegah saldo jadi salah hitung kalau transaksi yang salah input itu dihapus/diedit lagi.',
+      'Perbaikan: tombol "Add Dana" di Aksi Cepat Home diganti jadi "Add Transaksi" — fungsinya sekarang sama seperti tombol "+" di bawah layar (mobile), langsung membuka pilihan cara mencatat transaksi.',
+    ],
+  },
   {
     version: '6.5',
     date: '1 September 2026',
