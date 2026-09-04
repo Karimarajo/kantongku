@@ -2318,6 +2318,7 @@ export default function App() {
               walletTransferLogs={walletTransferLogs}
               initialFilter={historyInitialFilter}
               currentUserEmail={currentUser?.email}
+              currentUserName={currentUser?.name}
               onEditTransactionSelect={handleEditTransactionSelect}
               onDeleteTransaction={handleDeleteTransaction}
               onBack={() => setActiveTab('home')}
