@@ -334,7 +334,13 @@ export default function HomeDashboard({
   // Hapus Akun (aksi destruktif, sengaja tidak dijadikan tombol satu-tap).
   type QuickActionEntry = QuickActionMeta & { onClick: () => void };
   const ALL_ACTIONS: QuickActionEntry[] = useMemo(() => [
-    { id: 'add-dana', label: 'Add Dana', icon: Plus, onClick: () => setTopUpModalOpen(true) },
+    // Task revisi v6.8: "Add Dana" (Top Up Wallet) diganti jadi "Add
+    // Transaksi" — fungsinya sama persis dengan tombol "+" mengambang di
+    // bottom nav mobile (buka AddTransactionModal / sheet "Catat
+    // Pengeluaran"), lewat onOpenAddModal yang sudah di-passing dari
+    // App.tsx untuk tombol itu juga. id tetap 'add-dana' supaya urutan
+    // Aksi Cepat yang sudah di-custom user tidak berubah posisinya.
+    { id: 'add-dana', label: 'Add Transaksi', icon: Plus, onClick: onOpenAddModal },
     { id: 'transfer', label: 'Transfer', icon: Send, onClick: () => setTransferModalOpen(true) },
     { id: 'target-limit', label: 'Target & Limit', icon: Receipt, onClick: onOpenBudgetModal },
     { id: 'pengingat', label: 'Pengingat', icon: AlarmClock, onClick: onOpenReminderModal },
