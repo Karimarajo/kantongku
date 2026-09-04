@@ -524,8 +524,8 @@ export default function HomeDashboard({
                 <div 
                   key={p.id} 
                   onClick={() => setSelectedPocketId(isSelected ? null : p.id)}
-                  className={`glass-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-overlay/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? activeRingClass : 'border-overlay/5'}`}
-                  style={{ borderLeftColor: colorHex }}
+                  className={`glass-card pocket-color-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-overlay/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? activeRingClass : 'border-overlay/5'}`}
+                  style={{ borderLeftColor: colorHex, ['--pocket-color' as any]: colorHex }}
                 >
                   <div className="absolute top-3.5 right-3.5" style={{ color: colorHex + 'd1' }}>
                     <IconComponent className="w-4 h-4" />
@@ -555,8 +555,8 @@ export default function HomeDashboard({
                 <div
                   key={sp.shareId}
                   onClick={() => setSelectedPocketId(isSelected ? null : sp.shareId)}
-                  className={`glass-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-overlay/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? 'ring-2 ring-offset-2 ring-offset-[#0B111E] ring-indigo-400' : 'border-overlay/5'}`}
-                  style={{ borderLeftColor: colorHex }}
+                  className={`glass-card pocket-color-card rounded-xl p-3.5 flex flex-col gap-0.5 border-l-2 shrink-0 w-[155px] sm:w-[175px] relative snap-start hover:bg-overlay/5 cursor-pointer transition-all duration-200 select-none ${isSelected ? 'ring-2 ring-offset-2 ring-offset-[#0B111E] ring-indigo-400' : 'border-overlay/5'}`}
+                  style={{ borderLeftColor: colorHex, ['--pocket-color' as any]: colorHex }}
                 >
                   <div className="absolute top-3.5 right-3.5" style={{ color: colorHex + 'd1' }}>
                     <IconComponent className="w-4 h-4" />

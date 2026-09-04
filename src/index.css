@@ -57,27 +57,34 @@
    up automatically with zero per-component changes — Tailwind's generated
    utilities reference `var(--color-*)` at paint time, not at build time. */
 :root[data-theme="light"] {
-  --color-primary: #059669;
-  --color-primary-container: #10b981;
-  --color-secondary: #2563eb;
-  --color-secondary-container: #0566d9;
-  /* Light theme's primary is a deeper, more saturated green — light text
-     reads correctly on it here, the reverse of dark theme above. */
+  /* Task: repalet light theme ke "Cool Sage" (referensi desain user) —
+     HANYA nilai warna yang berubah di bawah ini, tidak ada token baru/
+     dihapus, tidak menyentuh font/icon/logo. Tujuannya memperbaiki kontras
+     huruf-vs-kartu yang sebelumnya "samar" (surface putih hampir menyatu
+     dengan body-bg abu netral, dan on-surface-variant terlalu terang) —
+     primary jadi hijau yang lebih dalam & sejuk, body-bg diberi rona sage
+     pucat supaya kartu putih benar-benar menonjol di atasnya, dan teks
+     utama/sekunder digelapkan untuk kontras yang jauh lebih tegas. */
+  --color-primary: #1f7a4d;
+  --color-primary-container: #dfeee4;
+  --color-secondary: #2f6690;
+  --color-secondary-container: #dce7f0;
+  /* Primary tetap cukup gelap sehingga teks putih di atasnya kontras baik. */
   --color-on-primary: #ffffff;
 
   --color-surface: #ffffff;
-  --color-surface-variant: #f3f4f6;
-  --color-on-surface: #111827;
-  --color-on-surface-variant: #4b5563;
-  --color-outline: #d1d5db;
-  --color-outline-variant: #e5e7eb;
+  --color-surface-variant: #eef3ef;
+  --color-on-surface: #10160f;
+  --color-on-surface-variant: #59645d;
+  --color-outline: #dbe5de;
+  --color-outline-variant: #e9f0ea;
 
   --color-overlay: #000000;
-  --color-danger: #dc2626;
-  --color-warning: #d97706;
-  --color-success: #059669;
-  --color-body-bg: #f3f4f6;
-  --color-body-text: #111827;
+  --color-danger: #d1483f;
+  --color-warning: #c1790f;
+  --color-success: #1f7a4d;
+  --color-body-bg: #edf2ed;
+  --color-body-text: #10160f;
 }
 
 /* Non-Tailwind-namespaced tokens (no bg-/text- utility generation wanted)
@@ -98,17 +105,20 @@
 }
 
 :root[data-theme="light"] {
-  --glass-strong: rgba(255, 255, 255, 0.75);
-  --glass-soft: rgba(255, 255, 255, 0.45);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glow-primary-shadow: rgba(5, 150, 105, 0.1);
-  --glow-primary-border: rgba(5, 150, 105, 0.25);
-  --glow-border-primary-shadow: rgba(5, 150, 105, 0.08);
-  --glow-border-primary-border: rgba(5, 150, 105, 0.2);
-  --glow-secondary-shadow: rgba(37, 99, 235, 0.1);
-  --glow-text-primary-shadow: rgba(5, 150, 105, 0.25);
-  --scrollbar-thumb: rgba(5, 150, 105, 0.15);
-  --scrollbar-thumb-hover: rgba(5, 150, 105, 0.35);
+  /* Diselaraskan dengan primary/secondary "Cool Sage" baru di atas
+     (#1f7a4d / #2f6690) + glass-strong dinaikkan opasitasnya (0.75 -> 0.92)
+     supaya kartu putih tidak lagi menyatu dengan body-bg bersemu sage. */
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-soft: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(16, 30, 22, 0.08);
+  --glow-primary-shadow: rgba(31, 122, 77, 0.12);
+  --glow-primary-border: rgba(31, 122, 77, 0.28);
+  --glow-border-primary-shadow: rgba(31, 122, 77, 0.08);
+  --glow-border-primary-border: rgba(31, 122, 77, 0.22);
+  --glow-secondary-shadow: rgba(47, 102, 144, 0.1);
+  --glow-text-primary-shadow: rgba(31, 122, 77, 0.25);
+  --scrollbar-thumb: rgba(31, 122, 77, 0.15);
+  --scrollbar-thumb-hover: rgba(31, 122, 77, 0.35);
 }
 
 .glow-border-primary {
@@ -158,6 +168,22 @@ body {
 .glow-primary {
   box-shadow: 0 0 20px var(--glow-primary-shadow);
   border: 1px solid var(--glow-primary-border);
+}
+
+/* Task (palet "Cool Sage"): kartu saldo (.glow-primary, satu-satunya
+   pemakai di HomeDashboard) & kartu kantong (.pocket-color-card, diberi
+   custom property --pocket-color per kantong lewat inline style) diberi
+   wash warna pucat HANYA di light mode, meniru referensi desain user —
+   di dark mode tetap glass-card polos seperti sebelumnya. Pakai
+   color-mix() supaya --pocket-color (hex apa pun) otomatis dapat versi
+   pucatnya tanpa perlu hardcode per warna. Ini murni background — icon,
+   teks, dan border-left berwarna yang sudah ada sama sekali tidak diubah. */
+:root[data-theme="light"] .glow-primary {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+}
+
+:root[data-theme="light"] .pocket-color-card {
+  background: color-mix(in srgb, var(--pocket-color, var(--color-primary)) 16%, var(--color-surface));
 }
 
 .glow-secondary {
