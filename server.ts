@@ -2697,11 +2697,18 @@ async function loadSharedPocketsFor(email: string): Promise<any[]> {
     // ALL of the owner's wallets/categories, not just ones already used in
     // this pocket's transactions — a freshly-shared pocket has zero
     // transactions yet, so deriving the pick-list from them would leave the
-    // invitee with nothing to choose when adding their very first one. Safe
-    // to expose every wallet regardless: the pocketId a shared-pocket
-    // transaction lands in is always forced to share.pocket_id server-side
-    // (see POST /api/pocket-shares/:id/transactions below), so picking any
-    // wallet here can never move money into/out of a DIFFERENT pocket.
+    // invitee with nothing to choose when adding their very first one.
+    //
+    // v13 revisi: dulu invitee bebas pilih SEMBARANG wallet OWNER untuk
+    // transaksinya — alasannya "aman karena pocketId dipaksa server", tapi
+    // itu melewatkan bug sesungguhnya: transaksi invitee jadi selalu
+    // membebani wallet OWNER, walau invitee sendiri tidak pernah
+    // mengalokasikan dana apa pun ke kantong ini. Sekarang invitee HANYA
+    // bisa transaksi dari akun kontribusi virtualnya sendiri (lihat
+    // CONTRIB_ACCOUNT_ID_PREFIX di bawah) — daftar accounts di sini tetap
+    // berisi SEMUA wallet owner (bukan cuma akun kontribusi) supaya
+    // riwayat transaksi LAMA (accountId ke wallet asli owner, dari sebelum
+    // revisi ini) masih bisa ditampilkan namanya dengan benar.
     const accounts = ownerData.accounts || [];
     const categories = ownerData.categories || [];
     bundles.push({
@@ -2723,6 +2730,39 @@ async function getActivePocketShare(shareId: string, inviteeEmail: string): Prom
     [shareId, inviteeEmail]
   );
   return result.rows[0] || null;
+}
+
+// v13 (revisi Kantong Bersama): setiap invitee yang berkontribusi dana ke
+// kantong bersama mendapat SATU "akun virtual" di dalam blob OWNER sendiri
+// (bukan tabel/kolom terpisah) — id-nya deterministik dari shareId. Ini
+// sengaja dipilih ketimbang menyimpan nominal kontribusi di kolom
+// pocket_shares terpisah: kalau disimpan terpisah, pocket.balance owner
+// bisa gampang tidak sinkron lagi setiap kali OWNER sendiri menambah
+// transaksi lewat jalur biasa (client owner menghitung ulang pocket.balance
+// murni dari account.allocations miliknya sendiri, tidak tahu-menahu soal
+// kontribusi invitee yang tersimpan di tempat lain). Dengan akun virtual
+// ini, kontribusi invitee otomatis ikut terhitung oleh logika rekomputasi
+// pocket.balance yang SAMA persis dipakai di App.tsx (handleAddTransaction
+// dkk) — satu mekanisme, satu sumber kebenaran, tidak mungkin drift lagi.
+function contribAccountId(shareId: string): string {
+  return `contrib-${shareId}`;
+}
+
+function findContribAccount(ownerData: any, shareId: string): any | undefined {
+  return (ownerData.accounts || []).find((a: any) => a.id === contribAccountId(shareId));
+}
+
+// Dipanggil setiap kali accounts OWNER berubah akibat aksi kantong bersama
+// (setor kontribusi / transaksi invitee / putus hubungan) — SAMA PERSIS
+// rumus rekomputasi yang dipakai App.tsx: pocket.balance = total
+// allocations[pocketId] di SELURUH accounts (termasuk akun kontribusi
+// virtual di atas, yang ikut ke-scan begitu saja karena strukturnya sama
+// seperti akun biasa).
+function recomputeOwnerPockets(pockets: any[], accounts: any[]): any[] {
+  return pockets.map((p) => ({
+    ...p,
+    balance: accounts.reduce((sum: number, a: any) => sum + (a.allocations?.[p.id] || 0), 0),
+  }));
 }
 
 // Body: { pocketId, email }. Owner-only (req.user.id, the LITERAL logged-in
@@ -2865,6 +2905,12 @@ app.post("/api/pocket-shares/:id/decline", requireSession, requireActiveStatus, 
 // Either side can end an ACTIVE share: the owner disconnecting the invitee,
 // or the invitee leaving on their own — same status transition either way,
 // just tagged with who did it.
+// v13 (revisi Kantong Bersama, poin 9): saat share yang lagi AKTIF diputus,
+// seluruh transaksi yang dibuat invitee di kantong ini dihapus dari blob
+// owner, dan sisa kontribusi dana invitee (akun virtual contrib-<shareId>)
+// dikembalikan utuh ke wallet asal invitee sendiri + notifikasi ke invitee.
+// Kalau yang diputus baru status 'pending' (belum pernah aktif), tidak ada
+// apa-apa untuk di-cascade — tinggal update status seperti biasa.
 app.post("/api/pocket-shares/:id/disconnect", requireSession, requireActiveStatus, async (req, res) => {
   try {
     const userId = (req as any).user.id;
@@ -2880,14 +2926,184 @@ app.post("/api/pocket-shares/:id/disconnect", requireSession, requireActiveStatu
     if (!isOwner && !isInvitee) {
       return res.status(403).json({ error: "Anda tidak punya akses ke berbagi kantong ini" });
     }
+
+    const wasActive = share.status === "active";
     const result = await pool.query(
-      `UPDATE pocket_shares SET status = 'revoked', disconnected_at = now(), disconnected_by = $2 WHERE id = $1 RETURNING *`,
+      `UPDATE pocket_shares SET status = 'revoked', disconnected_at = now(), disconnected_by = $2, invitee_account_id = NULL
+       WHERE id = $1 RETURNING *`,
       [id, isOwner ? "owner" : "invitee"]
     );
+
+    if (wasActive) {
+      try {
+        const ownerData = await loadOwnerBlob(share.owner_user_id);
+        const contribAcc = findContribAccount(ownerData, share.id);
+        const refundAmount = contribAcc?.balance || 0;
+
+        // 1. Hapus SELURUH transaksi invitee di kantong ini dari blob owner,
+        //    dan buang akun kontribusi virtualnya (sudah tidak relevan).
+        const nextTransactions = (ownerData.transactions || []).filter(
+          (t: any) => !(t.pocketId === share.pocket_id && t.inputBy === share.invited_email)
+        );
+        const nextAccounts = (ownerData.accounts || []).filter((a: any) => a.id !== contribAccountId(share.id));
+        const nextPockets = recomputeOwnerPockets(ownerData.pockets || [], nextAccounts);
+        const nextLog = [
+          {
+            id: `log-share-disconnect-${Date.now()}`,
+            message: `Berbagi kantong dengan ${share.invited_email} diputus — transaksi mereka di kantong ini dihapus & kontribusi dana (${refundAmount ? "Rp " + Number(refundAmount).toLocaleString("id-ID") : "0"}) dikembalikan.`,
+            timestamp: new Date().toISOString(),
+            category: "shared-pocket",
+            icon: "users",
+          },
+          ...(ownerData.activityLog || []),
+        ];
+        await saveOwnerBlob(share.owner_user_id, {
+          ...ownerData,
+          transactions: nextTransactions,
+          accounts: nextAccounts,
+          pockets: nextPockets,
+          activityLog: nextLog,
+        });
+
+        // 2. Kembalikan sisa kontribusi ke wallet ASLI invitee + kabari lewat notifikasi.
+        if (refundAmount > 0) {
+          const inviteeResult = await pool.query(`SELECT id FROM users WHERE email = $1`, [share.invited_email]);
+          const inviteeUserId = inviteeResult.rows[0]?.id;
+          if (inviteeUserId) {
+            const inviteeData = await loadOwnerBlob(inviteeUserId);
+            const refundAccountId = share.invitee_account_id;
+            const inviteeAccounts = inviteeData.accounts || [];
+            const targetAcc = inviteeAccounts.find((a: any) => a.id === refundAccountId) || inviteeAccounts[0];
+            const nextInviteeAccounts = targetAcc
+              ? inviteeAccounts.map((a: any) => {
+                  if (a.id !== targetAcc.id) return a;
+                  const defaultPocketId = (inviteeData.pockets || [])[0]?.id || "pribadi";
+                  const currentAllocations = a.allocations || {};
+                  const oldAlloc = currentAllocations[defaultPocketId] || 0;
+                  return {
+                    ...a,
+                    balance: a.balance + Number(refundAmount),
+                    allocations: { ...currentAllocations, [defaultPocketId]: oldAlloc + Number(refundAmount) },
+                  };
+                })
+              : inviteeAccounts;
+            const nextInviteePockets = recomputeOwnerPockets(inviteeData.pockets || [], nextInviteeAccounts);
+            const ownerNameResult = await pool.query(`SELECT name FROM users WHERE id = $1`, [share.owner_user_id]);
+            const ownerName = ownerNameResult.rows[0]?.name || "pemilik kantong";
+            const pocketLabel = (ownerData.pockets || []).find((p: any) => p.id === share.pocket_id)?.name || share.pocket_id;
+            const refundNotif = {
+              id: `n-share-disconnect-${Date.now()}`,
+              title: "Kantong Bersama Diputus",
+              message: `${ownerName} telah memutus berbagi kantong "${pocketLabel}". Transaksi Anda di kantong ini telah dihapus dan kontribusi dana Rp ${Number(refundAmount).toLocaleString("id-ID")} sudah dikembalikan ke wallet Anda.`,
+              time: new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
+              isRead: false,
+              type: "warning",
+            };
+            await saveOwnerBlob(inviteeUserId, {
+              ...inviteeData,
+              accounts: targetAcc ? nextInviteeAccounts : inviteeAccounts,
+              pockets: targetAcc ? nextInviteePockets : inviteeData.pockets,
+              notifications: [refundNotif, ...(inviteeData.notifications || [])],
+            });
+          }
+        }
+      } catch (cascadeErr) {
+        // Cascade gagal (mis. blob owner/invitee korup) tidak boleh
+        // membatalkan disconnect-nya sendiri — status sudah kadung 'revoked'
+        // di atas. Dicatat supaya bisa ditindaklanjuti manual kalau perlu.
+        console.error("Gagal menjalankan cascade putus kantong bersama:", cascadeErr);
+      }
+    }
+
     res.json(result.rows[0]);
   } catch (error: any) {
     console.error("Gagal memutus berbagi kantong:", error);
     res.status(500).json({ error: error.message || "Gagal memutus berbagi kantong" });
+  }
+});
+
+// v13 (revisi Kantong Bersama, poin 9): invitee menyetor dana dari SALAH
+// SATU wallet mereka sendiri ke kantong bersama ini — dipindah ke akun
+// kontribusi virtual di blob OWNER (lihat contribAccountId di atas), BUKAN
+// wallet owner yang lain. Wajib dilakukan dulu sebelum invitee bisa catat
+// transaksi pengeluaran (lihat POST .../transactions di bawah).
+app.post("/api/pocket-shares/:id/my-allocation", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const email = (req as any).user.email;
+    const userId = (req as any).user.id;
+    const { id } = req.params;
+    const share = await getActivePocketShare(id, email);
+    if (!share) {
+      return res.status(404).json({ error: "Kantong bersama tidak ditemukan atau akses sudah dicabut" });
+    }
+    const { accountId, amount } = req.body || {};
+    if (!accountId || typeof accountId !== "string") {
+      return res.status(400).json({ error: "Wallet wajib dipilih" });
+    }
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      return res.status(400).json({ error: "Nominal harus lebih dari 0" });
+    }
+
+    const inviteeData = await loadOwnerBlob(userId);
+    const inviteeAccounts = inviteeData.accounts || [];
+    const sourceAccount = inviteeAccounts.find((a: any) => a.id === accountId);
+    if (!sourceAccount) {
+      return res.status(400).json({ error: "Wallet tidak ditemukan" });
+    }
+    if (sourceAccount.balance < amount) {
+      return res.status(400).json({ error: `Saldo di wallet "${sourceAccount.name}" tidak cukup.` });
+    }
+
+    // 1. Potong dari wallet invitee sendiri (mirror pola transfer/top-up:
+    //    balance & alokasi default-pocket wallet itu turun bersamaan).
+    const defaultPocketId = (inviteeData.pockets || [])[0]?.id || "pribadi";
+    const nextInviteeAccounts = inviteeAccounts.map((a: any) => {
+      if (a.id !== accountId) return a;
+      const currentAllocations = a.allocations || {};
+      const oldAlloc = currentAllocations[defaultPocketId] || 0;
+      return {
+        ...a,
+        balance: a.balance - amount,
+        allocations: { ...currentAllocations, [defaultPocketId]: Math.max(0, oldAlloc - amount) },
+      };
+    });
+    const nextInviteePockets = recomputeOwnerPockets(inviteeData.pockets || [], nextInviteeAccounts);
+    await saveOwnerBlob(userId, { ...inviteeData, accounts: nextInviteeAccounts, pockets: nextInviteePockets });
+
+    // 2. Tambahkan ke akun kontribusi virtual di blob OWNER.
+    const ownerData = await loadOwnerBlob(share.owner_user_id);
+    const cAccId = contribAccountId(share.id);
+    const existingContrib = findContribAccount(ownerData, share.id);
+    const nextOwnerAccounts = existingContrib
+      ? (ownerData.accounts || []).map((a: any) =>
+          a.id === cAccId
+            ? {
+                ...a,
+                balance: a.balance + amount,
+                allocations: { ...(a.allocations || {}), [share.pocket_id]: (a.allocations?.[share.pocket_id] || 0) + amount },
+              }
+            : a
+        )
+      : [
+          ...(ownerData.accounts || []),
+          {
+            id: cAccId,
+            name: `Kontribusi ${email}`,
+            balance: amount,
+            icon: "users",
+            color: "indigo",
+            allocations: { [share.pocket_id]: amount },
+          },
+        ];
+    const nextOwnerPockets = recomputeOwnerPockets(ownerData.pockets || [], nextOwnerAccounts);
+    await saveOwnerBlob(share.owner_user_id, { ...ownerData, accounts: nextOwnerAccounts, pockets: nextOwnerPockets });
+
+    await pool.query(`UPDATE pocket_shares SET invitee_account_id = $2 WHERE id = $1`, [id, accountId]);
+
+    res.json({ ok: true });
+  } catch (error: any) {
+    console.error("Gagal menyetor alokasi dana kantong bersama:", error);
+    res.status(500).json({ error: error.message || "Gagal menyetor alokasi dana" });
   }
 });
 
@@ -2924,6 +3140,14 @@ app.delete("/api/pocket-shares/:id", requireSession, requireActiveStatus, async 
 // PUT /api/data, which stays exactly as before for a user's own data).
 // Stamps `inputBy` so the owner can later see who actually entered it (see
 // the Riwayat Transaksi export's "Siapa yang input" column).
+//
+// v13 (revisi Kantong Bersama, poin 9): `accountId` dari client TIDAK
+// dipercaya lagi di sini — dipaksa selalu jadi akun kontribusi virtual
+// invitee sendiri (contribAccountId), bukan wallet owner mana pun. Kalau
+// invitee belum pernah setor (lihat POST .../my-allocation), atau
+// kontribusinya tidak cukup untuk pengeluaran ini, ditolak dengan pesan
+// jelas — persis pola validasi alokasi wallet↔kantong di App.tsx
+// (handleAddTransaction, poin 5).
 app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveStatus, async (req, res) => {
   try {
     const email = (req as any).user.email;
@@ -2933,8 +3157,8 @@ app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveSta
       return res.status(404).json({ error: "Kantong bersama tidak ditemukan atau akses sudah dicabut" });
     }
 
-    const { title, amount, type, accountId, category, date, notes } = req.body || {};
-    if (!title || !amount || !type || !accountId || !category) {
+    const { title, amount, type, category, date, notes } = req.body || {};
+    if (!title || !amount || !type || !category) {
       return res.status(400).json({ error: "Data transaksi tidak lengkap" });
     }
     if (!["incoming", "outgoing"].includes(type)) {
@@ -2943,9 +3167,20 @@ app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveSta
 
     const ownerData = await loadOwnerBlob(share.owner_user_id);
     const accounts = ownerData.accounts || [];
+    const accountId = contribAccountId(share.id);
     const account = accounts.find((a: any) => a.id === accountId);
     if (!account) {
-      return res.status(400).json({ error: "Wallet tidak ditemukan" });
+      return res.status(400).json({
+        error: "Anda belum mengalokasikan dana ke kantong bersama ini. Setor dulu dari salah satu wallet Anda (menu Kantong Bersama) sebelum mencatat transaksi.",
+      });
+    }
+    if (type === "outgoing") {
+      const allocated = account.allocations?.[share.pocket_id] || 0;
+      if (amount > allocated) {
+        return res.status(400).json({
+          error: `Kontribusi Anda ke kantong ini tidak cukup.\nKontribusi tersisa: Rp ${Number(allocated).toLocaleString("id-ID")}\nDibutuhkan: Rp ${Number(amount).toLocaleString("id-ID")}\n\nSetor tambahan dana dulu dari menu Kantong Bersama.`,
+        });
+      }
     }
 
     const newTransaction = {
@@ -2966,9 +3201,6 @@ app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveSta
     );
 
     const delta = type === "incoming" ? amount : -amount;
-    const nextPockets = (ownerData.pockets || []).map((p: any) =>
-      p.id === share.pocket_id ? { ...p, balance: Math.max(0, p.balance + delta) } : p
-    );
     const nextAccounts = accounts.map((a: any) => {
       if (a.id !== accountId) return a;
       const currentAllocations = a.allocations || {};
@@ -2979,6 +3211,7 @@ app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveSta
         allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + delta) },
       };
     });
+    const nextPockets = recomputeOwnerPockets(ownerData.pockets || [], nextAccounts);
     const nextBudgets = (ownerData.budgets || []).map((b: any) => {
       if (!budgetCategoriesOf(b).includes(category)) return b;
       const nextSpent = recomputeBudgetSpent(b, nextTransactions);
@@ -3012,6 +3245,10 @@ app.post("/api/pocket-shares/:id/transactions", requireSession, requireActiveSta
   }
 });
 
+// v13 (revisi Kantong Bersama, poin 9): hanya PEMBUAT transaksi ini
+// (oldTx.inputBy) yang boleh mengeditnya — "transaksi yang dibuat Y hanya
+// bisa dihapus/diedit Y". accountId tidak lagi diterima dari body — tetap
+// akun kontribusi virtual invitee ini, tidak bisa dipindah ke wallet lain.
 app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireActiveStatus, async (req, res) => {
   try {
     const email = (req as any).user.email;
@@ -3021,8 +3258,8 @@ app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireAc
       return res.status(404).json({ error: "Kantong bersama tidak ditemukan atau akses sudah dicabut" });
     }
 
-    const { title, amount, type, accountId, category, date, notes } = req.body || {};
-    if (!title || !amount || !type || !accountId || !category) {
+    const { title, amount, type, category, date, notes } = req.body || {};
+    if (!title || !amount || !type || !category) {
       return res.status(400).json({ error: "Data transaksi tidak lengkap" });
     }
 
@@ -3032,10 +3269,14 @@ app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireAc
     if (!oldTx) {
       return res.status(404).json({ error: "Transaksi tidak ditemukan" });
     }
+    if (oldTx.inputBy !== email) {
+      return res.status(403).json({ error: "Transaksi ini dibuat orang lain — hanya pembuatnya sendiri yang bisa mengeditnya." });
+    }
 
-    // Reverse the old delta on its original account, then apply the new
-    // delta on its (possibly different) account — correct even if the edit
-    // moves the transaction to another wallet.
+    const accountId = contribAccountId(share.id);
+    // Reverse the old delta first, THEN check the new amount fits within the
+    // reverted contribution balance — sama pola dengan handleEditTransaction
+    // di App.tsx (poin 5).
     const oldDelta = oldTx.type === "incoming" ? -oldTx.amount : oldTx.amount;
     let nextAccounts = (ownerData.accounts || []).map((a: any) => {
       if (a.id !== oldTx.accountId) return a;
@@ -3047,6 +3288,17 @@ app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireAc
         allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + oldDelta) },
       };
     });
+
+    if (type === "outgoing") {
+      const revertedContrib = nextAccounts.find((a: any) => a.id === accountId);
+      const allocated = revertedContrib?.allocations?.[share.pocket_id] || 0;
+      if (amount > allocated) {
+        return res.status(400).json({
+          error: `Kontribusi Anda ke kantong ini tidak cukup untuk perubahan ini.\nKontribusi tersisa: Rp ${Number(allocated).toLocaleString("id-ID")}\nDibutuhkan: Rp ${Number(amount).toLocaleString("id-ID")}`,
+        });
+      }
+    }
+
     const newDelta = type === "incoming" ? amount : -amount;
     nextAccounts = nextAccounts.map((a: any) => {
       if (a.id !== accountId) return a;
@@ -3059,10 +3311,7 @@ app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireAc
       };
     });
 
-    const netPocketDelta = (oldTx.type === "incoming" ? -oldTx.amount : oldTx.amount) + newDelta;
-    const nextPockets = (ownerData.pockets || []).map((p: any) =>
-      p.id === share.pocket_id ? { ...p, balance: Math.max(0, p.balance + netPocketDelta) } : p
-    );
+    const nextPockets = recomputeOwnerPockets(ownerData.pockets || [], nextAccounts);
 
     const updatedTx = { ...oldTx, title, amount, type, accountId, category, date: date || oldTx.date, notes: notes || undefined };
     const nextTransactions = transactions.map((t: any) => (t.id === txId ? updatedTx : t));
@@ -3089,6 +3338,8 @@ app.patch("/api/pocket-shares/:id/transactions/:txId", requireSession, requireAc
   }
 });
 
+// v13 (revisi Kantong Bersama, poin 9): hanya pembuat transaksi ini yang
+// boleh menghapusnya.
 app.delete("/api/pocket-shares/:id/transactions/:txId", requireSession, requireActiveStatus, async (req, res) => {
   try {
     const email = (req as any).user.email;
@@ -3104,12 +3355,12 @@ app.delete("/api/pocket-shares/:id/transactions/:txId", requireSession, requireA
     if (!target) {
       return res.status(404).json({ error: "Transaksi tidak ditemukan" });
     }
+    if (target.inputBy !== email) {
+      return res.status(403).json({ error: "Transaksi ini dibuat orang lain — hanya pembuatnya sendiri yang bisa menghapusnya." });
+    }
 
     const nextTransactions = transactions.filter((t: any) => t.id !== txId);
     const delta = target.type === "incoming" ? -target.amount : target.amount; // reverse
-    const nextPockets = (ownerData.pockets || []).map((p: any) =>
-      p.id === share.pocket_id ? { ...p, balance: Math.max(0, p.balance + delta) } : p
-    );
     const nextAccounts = (ownerData.accounts || []).map((a: any) => {
       if (a.id !== target.accountId) return a;
       const currentAllocations = a.allocations || {};
@@ -3120,6 +3371,7 @@ app.delete("/api/pocket-shares/:id/transactions/:txId", requireSession, requireA
         allocations: { ...currentAllocations, [share.pocket_id]: Math.max(0, pocketAlloc + delta) },
       };
     });
+    const nextPockets = recomputeOwnerPockets(ownerData.pockets || [], nextAccounts);
     const nextBudgets = (ownerData.budgets || []).map((b: any) => {
       if (!budgetCategoriesOf(b).includes(target.category)) return b;
       const nextSpent = recomputeBudgetSpent(b, nextTransactions);

@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '6.10';
+export const APP_VERSION = '7.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,15 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '7.0',
+    date: '6 September 2026',
+    changes: [
+      'Perbaikan besar: pencatatan transaksi sekarang WAJIB memakai wallet yang sudah dialokasikan ke kantong yang dipilih — mencegah data saldo & alokasi jadi tidak sinkron antar wallet/kantong. Ditolak dengan info jelas kalau belum, mengarahkan ke "Atur Alokasi Saldo" di menu Wallet.',
+      'Perbaikan besar: Kantong Bersama dirombak — transaksi yang dibuat rekan sekarang memakai kontribusi dana MEREKA SENDIRI (wajib disetor dulu dari wallet mereka lewat menu Kantong Bersama), bukan lagi otomatis membebani wallet pemilik kantong. Transaksi juga cuma bisa diedit/dihapus oleh pembuatnya sendiri.',
+      'Baru: saat berbagi kantong diputus, seluruh transaksi yang dibuat rekan tersebut di kantong itu terhapus otomatis dan sisa kontribusi dananya dikembalikan penuh ke wallet mereka, lengkap dengan notifikasi pemberitahuan. Tombol putus hubungan juga sekarang menampilkan peringatan dulu sebelum dieksekusi.',
+    ],
+  },
   {
     version: '6.10',
     date: '6 September 2026',

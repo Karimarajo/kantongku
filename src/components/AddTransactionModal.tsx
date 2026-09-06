@@ -64,8 +64,8 @@ interface AddTransactionModalProps {
   onAddSharedTransaction?: (
     shareId: string,
     tx: { title: string; amount: number; type: 'incoming' | 'outgoing'; accountId: string; category: string; date?: string; notes?: string }
-  ) => void;
-  onEditSharedTransaction?: (shareId: string, transaction: Transaction) => void;
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onEditSharedTransaction?: (shareId: string, transaction: Transaction) => Promise<boolean>;
 }
 
 type ModalViewType = 'options' | 'camera' | 'voice' | 'manual' | 'parser';
@@ -554,7 +554,7 @@ export default function AddTransactionModal({
     { text: '"Ada omset grosiran masuk dua juta ke kas bisnis"', catatan: 'Omset Grosir', nominal: 2000000, kategori: 'pendapatan', tipe: 'pemasukan', sumber_dana: 'Bank_BCA', kepemilikan: 'Uang Bisnis' },
   ];
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) return alert('Mohon isi judul transaksi');
     if (amount <= 0) return alert('Nominal harus lebih besar dari 0');
@@ -588,14 +588,18 @@ export default function AddTransactionModal({
       // "never trust a client-sent document for someone else's data" rule
       // as adding one below.
       if (activeShare && onEditSharedTransaction) {
-        onEditSharedTransaction(activeShare.shareId, editedTransaction);
+        if (!(await onEditSharedTransaction(activeShare.shareId, editedTransaction))) {
+          // Ditolak (mis. kontribusi tidak cukup, atau bukan pembuat
+          // transaksi ini) — alert sudah ditampilkan oleh pemanggilnya.
+          return;
+        }
       } else if (!onEditTransaction(editedTransaction)) {
         // Ditolak (saldo akun tidak cukup) — alert sudah ditampilkan oleh
         // pemanggilnya. Biarkan modal & form tetap terbuka apa adanya.
         return;
       }
     } else if (activeShare && onAddSharedTransaction) {
-      onAddSharedTransaction(activeShare.shareId, {
+      const result = await onAddSharedTransaction(activeShare.shareId, {
         title,
         amount,
         type,
@@ -604,6 +608,13 @@ export default function AddTransactionModal({
         notes: notes || undefined,
         date: finalDate.toISOString()
       });
+      if (!result.ok) {
+        // Ditolak (mis. belum pernah setor kontribusi ke kantong ini, atau
+        // kontribusinya tidak cukup) — tampilkan alasannya, biarkan modal
+        // & form tetap terbuka.
+        alert((result as { ok: false; error: string }).error);
+        return;
+      }
     } else if (!onAddTransaction({
         title,
         amount,
@@ -924,21 +935,44 @@ export default function AddTransactionModal({
                 </div>
               </div>
 
-              {/* Selector Rekening */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Rekening / Dompet Fisik</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {effectiveAccounts.map(acc => {
-                    const isSelected = accountId === acc.id;
-                    let IconComponent = acc.icon === 'bank' ? CreditCard : acc.icon === 'smartphone' ? Smartphone : Coins;
+              {/* Selector Rekening — Task (revisi Kantong Bersama, poin 9):
+                  untuk kantong BERSAMA, invitee TIDAK lagi memilih wallet
+                  owner (itu penyebab bug "dibebankan ke X") — dananya
+                  otomatis dari kontribusi sendiri yang sudah disetor lewat
+                  menu Kantong Bersama. Wallet sendiri tetap pakai picker
+                  biasa seperti sebelumnya. */}
+              {activeShare ? (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">Sumber Dana</label>
+                  {(() => {
+                    const contribAcc = activeShare.accounts.find(a => a.id === `contrib-${activeShare.shareId}`);
+                    const contribBalance = contribAcc?.allocations?.[activeShare.pocket.id] ?? 0;
                     return (
-                      <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
-                        <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{acc.name}</span>
-                      </button>
+                      <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-on-surface flex flex-col gap-1">
+                        <span>Dana dari kontribusi Anda sendiri: <b className="font-mono-data">{formatRupiah(contribBalance)}</b></span>
+                        {contribBalance <= 0 && (
+                          <span className="text-on-surface-variant">Anda belum menyetor dana ke kantong ini — buka menu <b className="text-on-surface">Kantong Bersama</b> untuk menyetor dulu sebelum mencatat transaksi pengeluaran.</span>
+                        )}
+                      </div>
                     );
-                  })}
+                  })()}
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">Rekening / Dompet Fisik</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {effectiveAccounts.map(acc => {
+                      const isSelected = accountId === acc.id;
+                      let IconComponent = acc.icon === 'bank' ? CreditCard : acc.icon === 'smartphone' ? Smartphone : Coins;
+                      return (
+                        <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
+                          <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{acc.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Selector Kategori */}
               <div className="flex flex-col gap-1.5">
