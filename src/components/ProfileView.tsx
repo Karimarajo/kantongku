@@ -2,9 +2,10 @@ import React, { useState, useRef } from 'react';
 import { UserProfile } from '../types';
 import { APP_VERSION } from '../version';
 import { CURRENCY_OPTIONS } from '../utils';
+import { t, getActiveLanguage } from '../i18n';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
-  CreditCard, Moon, Sun, Coins,
+  CreditCard, Moon, Sun, Coins, Languages,
   Camera, Edit3, Save, X, Check,
   Wallet, Tag, Receipt, History, ChevronRight,
   Users, LifeBuoy, BookOpen
@@ -29,6 +30,10 @@ export interface AppSettings {
   // array id aksi, 5 pertama yang tampil langsung. Undefined/kosong = urutan
   // bawaan (lihat DEFAULT_QUICK_ACTION_ORDER di HomeDashboard.tsx).
   quickActionOrder?: string[];
+  // Task (revisi, poin 11): 'id' (default) atau 'en' — lihat src/i18n.ts
+  // untuk mekanisme lengkapnya (module-level, sama pola dengan currency di
+  // atas) dan cakupan terjemahan yang sudah ada saat ini.
+  language?: 'id' | 'en';
 }
 
 interface ProfileViewProps {
@@ -218,7 +223,7 @@ export default function ProfileView({
 
         <div className="w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/70 border-t border-overlay/5 pt-3 mt-1">
           <Calendar className="w-4 h-4 text-primary" />
-          <span>Terdaftar Sejak: {new Date(userProfile.joinedAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
+          <span>{t('Terdaftar Sejak:')} {new Date(userProfile.joinedAt).toLocaleDateString(getActiveLanguage() === 'en' ? 'en-US' : 'id-ID', { month: 'long', year: 'numeric' })}</span>
         </div>
       </section>
 
@@ -226,11 +231,11 @@ export default function ProfileView({
           sliding-knob switch visual as ReminderModal's active/inactive
           toggle, reused here for consistency. */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Tampilan</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Tampilan')}</span>
         <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4">
           <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
             {settings.theme === 'light' ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-primary" />}
-            Mode {settings.theme === 'light' ? 'Terang' : 'Gelap'}
+            {settings.theme === 'light' ? t('Mode Terang') : t('Mode Gelap')}
           </span>
           <button
             type="button"
@@ -248,17 +253,44 @@ export default function ProfileView({
         </div>
       </section>
 
+      {/* Task (revisi, poin 11): toggle Bahasa ID/EN — geser tombol,
+          persis model switch Tampilan di atas tapi dua posisi berlabel
+          (bukan satu ikon), supaya kedua pilihan selalu kelihatan. Lihat
+          src/i18n.ts untuk cakupan terjemahan yang berlaku saat ini. */}
+      <section className="flex flex-col gap-2.5 mt-2">
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Bahasa')}</span>
+        <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4">
+          <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
+            <Languages className="w-4 h-4 text-primary" />
+            {settings.language === 'en' ? 'English' : 'Bahasa Indonesia'}
+          </span>
+          <button
+            type="button"
+            onClick={() => updateSetting('language', settings.language === 'en' ? 'id' : 'en')}
+            className="w-16 h-7 rounded-full p-0.5 bg-overlay/10 relative flex items-center transition-colors"
+          >
+            <div
+              className={`w-7.5 h-6 rounded-full bg-primary shadow-md flex items-center justify-center text-[9px] font-bold text-on-primary transform transition-transform duration-200 ${
+                settings.language === 'en' ? 'translate-x-7.5' : 'translate-x-0'
+              }`}
+            >
+              {settings.language === 'en' ? 'EN' : 'ID'}
+            </div>
+          </button>
+        </div>
+      </section>
+
       {/* Task (revisi, poin 12): pilihan mata uang tampilan — dropdown,
           langsung berlaku ke SELURUH nominal di app begitu disimpan (lihat
           setActiveCurrency di utils.ts, dipanggil dari handleSaveSettings
           App.tsx). Murni ganti simbol/format angka, BUKAN konversi kurs —
           nominal yang tersimpan tetap angka yang sama persis. */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Mata Uang</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Mata Uang')}</span>
         <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4 gap-3">
           <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs shrink-0">
             <Coins className="w-4 h-4 text-primary" />
-            Tampilkan Sebagai
+            {t('Tampilkan Sebagai')}
           </span>
           <select
             value={settings.currency}
@@ -273,13 +305,13 @@ export default function ProfileView({
           </select>
         </div>
         <p className="text-[10px] text-on-surface-variant/50 leading-relaxed px-1">
-          Hanya mengganti simbol & format angka tampilan, bukan konversi kurs — nominal yang tersimpan tetap sama.
+          {t('Hanya mengganti simbol & format angka tampilan, bukan konversi kurs — nominal yang tersimpan tetap sama.')}
         </p>
       </section>
 
       {/* Settings / Pengaturan Menu */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Pengaturan</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Pengaturan')}</span>
 
         <div className="flex flex-col gap-2.5">
           <button
@@ -411,7 +443,7 @@ export default function ProfileView({
             className="w-full h-12 rounded-xl bg-danger/10 border border-danger/20 text-danger font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-danger/20 active:scale-[0.98] transition-all"
           >
             <LogOut className="w-4 h-4" />
-            Keluar dari Aplikasi
+            {t('Keluar dari Aplikasi')}
           </button>
         </div>
       </section>
