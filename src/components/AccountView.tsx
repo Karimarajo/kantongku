@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Account, Pocket, Transaction } from '../types';
 import { formatRupiah } from '../utils';
+import { t as tr } from '../i18n';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
 import {
   Plus,
@@ -266,7 +267,7 @@ export default function AccountView({
     const targetAcc = accounts.find(a => a.id === selectedAccountId);
     if (!selectedAccountId || !targetAcc) return;
     if (totalAllocatedInput !== targetAcc.balance) {
-      return alert('Total alokasi harus sama dengan total saldo wallet.');
+      return alert(tr('Total alokasi harus sama dengan total saldo wallet.'));
     }
     onSaveAllocations(selectedAccountId, allocationInputs);
     setIsEditingAllocation(false);
@@ -318,7 +319,7 @@ export default function AccountView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Nama rekening tidak boleh kosong');
+    if (!name.trim()) return alert(tr('Nama rekening tidak boleh kosong'));
 
     if (formMode === 'add') {
       onAddAccount({
@@ -464,9 +465,9 @@ export default function AccountView({
 
   const handleDeleteCheck = (accId: string, accName: string) => {
     const hasTransactions = transactions.some(t => t.accountId === accId);
-    const msg = hasTransactions 
-      ? `Apakah Anda yakin ingin menghapus rekening "${accName}"? Peringatan: Semua riwayat transaksi yang menggunakan rekening ini juga akan dihapus secara permanen!`
-      : `Apakah Anda yakin ingin menghapus rekening "${accName}"?`;
+    const msg = hasTransactions
+      ? `${tr('Apakah Anda yakin ingin menghapus rekening')} "${accName}"? ${tr('Peringatan: Semua riwayat transaksi yang menggunakan rekening ini juga akan dihapus secara permanen!')}`
+      : `${tr('Apakah Anda yakin ingin menghapus rekening')} "${accName}"?`;
 
     if (confirm(msg)) {
       onDeleteAccount(accId);
@@ -547,19 +548,19 @@ export default function AccountView({
       {/* Title Header */}
       <div className="flex justify-between items-center w-full">
         <div>
-          <h1 className="font-headline-md text-2xl text-on-surface font-bold leading-tight">Dompet &amp; Wallet</h1>
+          <h1 className="font-headline-md text-2xl text-on-surface font-bold leading-tight">{tr('Dompet & Wallet')}</h1>
           <p className="text-sm text-on-surface-variant mt-1.5 leading-relaxed">
-            Kelola simpanan fisik (Bank/E-Wallet/Dompet) dan pantau alokasi kantong di dalamnya.
+            {tr('Kelola simpanan fisik (Bank/E-Wallet/Dompet) dan pantau alokasi kantong di dalamnya.')}
           </p>
         </div>
-        
+
         {formMode === 'list' && (
           <button
             onClick={handleOpenAdd}
             className="flex items-center gap-1.5 px-4 h-11 bg-primary text-on-primary rounded-xl text-xs font-bold transition-all active:scale-95 shadow-[0_4px_15px_rgba(78,222,163,0.2)]"
           >
             <Plus className="w-4 h-4" />
-            Tambah Wallet
+            {tr('Tambah Wallet')}
           </button>
         )}
       </div>
@@ -568,14 +569,14 @@ export default function AccountView({
         <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 flex gap-2 items-start animate-shake">
           <Info className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold mb-0.5">Tidak Dapat Dihapus</p>
+            <p className="font-semibold mb-0.5">{tr('Tidak Dapat Dihapus')}</p>
             <p className="leading-relaxed">{deleteWarning}</p>
-            <button 
+            <button
               type="button"
               onClick={() => setDeleteWarning(null)}
               className="mt-2 text-on-surface bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1 rounded text-[10px] font-bold"
             >
-              Saya Mengerti
+              {tr('Saya Mengerti')}
             </button>
           </div>
         </div>
@@ -583,13 +584,13 @@ export default function AccountView({
 
       {formMode === 'list' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
-          
+
           {/* LEFT COLUMN: Accounts List */}
           <div className="lg:col-span-7 flex flex-col gap-4 w-full">
             {accounts.length === 0 ? (
               <div className="glass-card rounded-xl p-8 text-center text-on-surface-variant/40 flex flex-col items-center gap-2">
                 <Landmark className="w-10 h-10 text-on-surface-variant/30" />
-                <p className="text-xs">Belum ada rekening dibuat. Silakan tambah rekening baru.</p>
+                <p className="text-xs">{tr('Belum ada rekening dibuat. Silakan tambah rekening baru.')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -662,13 +663,13 @@ export default function AccountView({
 
                       {acc.type === 'paylater' ? (
                         <div>
-                          <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">Tagihan Berjalan</p>
+                          <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">{tr('Tagihan Berjalan')}</p>
                           <p className="font-mono-data text-xl font-bold text-amber-400 mt-0.5">{formatRupiah(acc.balance)}</p>
-                          <p className="text-[10px] text-on-surface-variant/50 mt-0.5">dari limit {formatRupiah(acc.limit || 0)}</p>
+                          <p className="text-[10px] text-on-surface-variant/50 mt-0.5">{tr('dari limit')} {formatRupiah(acc.limit || 0)}</p>
                         </div>
                       ) : (
                         <div>
-                          <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">Saldo Total</p>
+                          <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">{tr('Saldo Total')}</p>
                           <p className="font-mono-data text-xl font-bold text-on-surface mt-0.5">{formatRupiah(acc.balance)}</p>
                         </div>
                       )}
@@ -677,11 +678,11 @@ export default function AccountView({
                         <div className="flex flex-col min-w-0">
                           <span className="text-[10px] text-on-surface-variant/60 font-mono-data truncate max-w-[150px]">{acc.accountNumber || '-'}</span>
                           {acc.ownerName && (
-                            <span className="text-[9px] text-on-surface-variant/40 italic truncate max-w-[150px]">a.n. {acc.ownerName}</span>
+                            <span className="text-[9px] text-on-surface-variant/40 italic truncate max-w-[150px]">{tr('a.n.')} {acc.ownerName}</span>
                           )}
                         </div>
                         <span className="text-[9px] font-label-caps font-bold text-primary flex items-center gap-1 shrink-0">
-                          Pemberian Alokasi
+                          {tr('Pemberian Alokasi')}
                           <ChevronRight className="w-3 h-3" />
                         </span>
                       </div>
@@ -721,46 +722,46 @@ export default function AccountView({
                     return (
                       <>
                         <div className="border-b border-overlay/5 pb-3">
-                          <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Bayar Tagihan</span>
+                          <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Bayar Tagihan')}</span>
                           <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
                             {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
                             {selectedAccount.name}
                           </h3>
                           <p className="text-[11px] text-on-surface-variant/70 mt-1">
-                            Tagihan berjalan {formatRupiah(selectedAccount.balance)} dari limit {formatRupiah(selectedAccount.limit || 0)}.
+                            {tr('Tagihan berjalan')} {formatRupiah(selectedAccount.balance)} {tr('dari limit')} {formatRupiah(selectedAccount.limit || 0)}.
                           </p>
                         </div>
 
                         {unpaidTx.length === 0 ? (
                           <div className="text-center py-8 text-on-surface-variant/40 flex flex-col items-center gap-1">
                             <Info className="w-8 h-8 text-on-surface-variant/20 mb-1" />
-                            <p className="text-xs">Tidak ada tagihan yang belum dibayar.</p>
+                            <p className="text-xs">{tr('Tidak ada tagihan yang belum dibayar.')}</p>
                           </div>
                         ) : (
                           <>
                             <div className="flex flex-col gap-2 max-h-[35vh] overflow-y-auto pr-1 no-scrollbar">
-                              {unpaidTx.map(t => (
-                                <label key={t.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-overlay/5 border border-overlay/5 cursor-pointer text-xs">
-                                  <input type="checkbox" checked={selectedPayTxIds.has(t.id)} onChange={() => toggleTx(t.id)} className="accent-primary w-4 h-4 shrink-0" />
-                                  <span className="flex-1 min-w-0 truncate text-on-surface">{t.title}</span>
-                                  <span className="font-mono-data font-bold text-on-surface shrink-0">{formatRupiah(t.amount)}</span>
+                              {unpaidTx.map(ptx => (
+                                <label key={ptx.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-overlay/5 border border-overlay/5 cursor-pointer text-xs">
+                                  <input type="checkbox" checked={selectedPayTxIds.has(ptx.id)} onChange={() => toggleTx(ptx.id)} className="accent-primary w-4 h-4 shrink-0" />
+                                  <span className="flex-1 min-w-0 truncate text-on-surface">{ptx.title}</span>
+                                  <span className="font-mono-data font-bold text-on-surface shrink-0">{formatRupiah(ptx.amount)}</span>
                                 </label>
                               ))}
                             </div>
 
                             <div className="p-3 bg-surface-variant/30 border border-overlay/5 rounded-xl text-xs flex flex-col gap-2">
                               <div className="flex justify-between font-mono-data font-bold text-on-surface">
-                                <span>Total Terpilih:</span>
+                                <span>{tr('Total Terpilih:')}</span>
                                 <span>{formatRupiah(selectedTotal)}</span>
                               </div>
                               <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-label-caps text-on-surface-variant uppercase">Bayar Dengan Wallet</label>
+                                <label className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Bayar Dengan Wallet')}</label>
                                 <select
                                   value={payFromAccountId}
                                   onChange={(e) => setPayFromAccountId(e.target.value)}
                                   className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface"
                                 >
-                                  {payableAccounts.length === 0 && <option value="">Belum ada wallet biasa</option>}
+                                  {payableAccounts.length === 0 && <option value="">{tr('Belum ada wallet biasa')}</option>}
                                   {payableAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatRupiah(a.balance)})</option>)}
                                 </select>
                               </div>
@@ -772,7 +773,7 @@ export default function AccountView({
                               disabled={selectedPayTxIds.size === 0 || !payFromAccountId}
                               className="w-full h-11 bg-primary text-on-primary rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all active:scale-[0.98]"
                             >
-                              <Save className="w-4 h-4" /> Bayar {selectedPayTxIds.size > 0 ? formatRupiah(selectedTotal) : ''}
+                              <Save className="w-4 h-4" /> {tr('Bayar')} {selectedPayTxIds.size > 0 ? formatRupiah(selectedTotal) : ''}
                             </button>
                           </>
                         )}
@@ -782,13 +783,13 @@ export default function AccountView({
                 ) : isEditingAllocation ? (
                   <form onSubmit={handleAllocationSubmit} className="flex flex-col gap-4 text-left">
                     <div className="border-b border-overlay/5 pb-2">
-                      <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Atur Alokasi Saldo</span>
+                      <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Atur Alokasi Saldo')}</span>
                       <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
                         {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
                         {selectedAccount.name}
                       </h3>
                       <p className="text-[11px] text-on-surface-variant/70 mt-1">
-                        Tentukan alokasi saldo {formatRupiah(selectedAccount.balance)} ke kantong-kantong.
+                        {tr('Tentukan alokasi saldo')} {formatRupiah(selectedAccount.balance)} {tr('ke kantong-kantong.')}
                       </p>
                     </div>
 
@@ -800,7 +801,7 @@ export default function AccountView({
                         return (
                           <div key={p.id} className="flex flex-col gap-1.5">
                             <label className="text-[11px] text-on-surface/80 font-medium">
-                              {p.name} {isPribadi && <span className="text-[10px] text-on-surface-variant">(Terhitung Otomatis)</span>}
+                              {p.name} {isPribadi && <span className="text-[10px] text-on-surface-variant">({tr('Terhitung Otomatis')})</span>}
                             </label>
                             <div className="relative flex items-center">
                               <span className="absolute left-3 font-mono-data text-primary text-xs font-bold">Rp</span>
@@ -846,15 +847,15 @@ export default function AccountView({
                     {/* Totals check */}
                     <div className="p-3 bg-surface-variant/30 border border-overlay/5 rounded-xl text-xs flex flex-col gap-1.5 font-mono-data">
                       <div className="flex justify-between text-on-surface-variant">
-                        <span>Total Saldo Wallet:</span>
+                        <span>{tr('Total Saldo Wallet:')}</span>
                         <span>{formatRupiah(selectedAccount.balance)}</span>
                       </div>
                       <div className="flex justify-between text-on-surface font-bold">
-                        <span>Total Dialokasikan:</span>
+                        <span>{tr('Total Dialokasikan:')}</span>
                         <span>{formatRupiah(totalAllocatedInput)}</span>
                       </div>
                       <div className={`flex justify-between ${totalAllocatedInput === selectedAccount.balance ? 'text-primary font-bold' : 'text-rose-400 font-bold'}`}>
-                        <span>Sisa Saldo:</span>
+                        <span>{tr('Sisa Saldo:')}</span>
                         <span>{formatRupiah(selectedAccount.balance - totalAllocatedInput)}</span>
                       </div>
                     </div>
@@ -866,21 +867,21 @@ export default function AccountView({
                         className="flex-1 h-10 bg-primary text-on-primary rounded-xl font-bold text-xs flex items-center justify-center gap-1 hover:opacity-95 disabled:opacity-50 transition-all shadow-[0_4px_12px_rgba(78,222,163,0.15)] active:scale-[0.98]"
                       >
                         <Save className="w-4 h-4" />
-                        Simpan Alokasi
+                        {tr('Simpan Alokasi')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setIsEditingAllocation(false)}
                         className="px-3 h-10 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold hover:bg-overlay/10 transition-all"
                       >
-                        Batal
+                        {tr('Batal')}
                       </button>
                     </div>
                   </form>
                 ) : (
                   <>
                     <div className="border-b border-overlay/5 pb-3">
-                      <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Rincian Alokasi Uang</span>
+                      <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Rincian Alokasi Uang')}</span>
                       <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
                         {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
                         {selectedAccount.name}
@@ -891,8 +892,8 @@ export default function AccountView({
                       {activeAllocations.length === 0 ? (
                         <div className="text-center py-8 text-on-surface-variant/40 flex flex-col items-center gap-1">
                           <Sliders className="w-8 h-8 text-on-surface-variant/20 mb-1" />
-                          <p className="text-xs">Uang di wallet ini belum teralokasi ke kantong mana pun.</p>
-                          <p className="text-[10px] leading-relaxed mt-1 text-on-surface-variant/30">Klik tombol di bawah untuk menetapkan alokasi awal.</p>
+                          <p className="text-xs">{tr('Uang di wallet ini belum teralokasi ke kantong mana pun.')}</p>
+                          <p className="text-[10px] leading-relaxed mt-1 text-on-surface-variant/30">{tr('Klik tombol di bawah untuk menetapkan alokasi awal.')}</p>
                         </div>
                       ) : (
                         <>
@@ -922,7 +923,7 @@ export default function AccountView({
                                   </div>
                                   <div className="text-right">
                                     <p className="font-mono-data text-xs font-bold text-on-surface">{formatRupiah(alloc.balance)}</p>
-                                    <p className="text-[10px] text-on-surface-variant font-mono-data mt-0.5">{alloc.percentage}% dari saldo wallet</p>
+                                    <p className="text-[10px] text-on-surface-variant font-mono-data mt-0.5">{alloc.percentage}% {tr('dari saldo wallet')}</p>
                                   </div>
                                 </div>
                               );
@@ -939,12 +940,12 @@ export default function AccountView({
                           className="w-full h-11 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 mt-2 active:scale-[0.98]"
                         >
                           <Sliders className="w-4 h-4" />
-                          Sesuaikan Alokasi Dana
+                          {tr('Sesuaikan Alokasi Dana')}
                         </button>
                       ) : (
                         <div className="p-3 bg-overlay/5 border border-overlay/5 rounded-xl text-xs text-on-surface-variant/60 flex items-center gap-2 mt-2">
                           <Info className="w-4 h-4 shrink-0 text-primary" />
-                          <span>Saldo wallet Rp 0. Catat pemasukan baru di wallet ini terlebih dahulu untuk mengalokasikan dana.</span>
+                          <span>{tr('Saldo wallet Rp 0. Catat pemasukan baru di wallet ini terlebih dahulu untuk mengalokasikan dana.')}</span>
                         </div>
                       )}
                     </div>
@@ -954,9 +955,9 @@ export default function AccountView({
             ) : (
               <div className="glass-card rounded-xl p-6 text-center border border-overlay/5 text-on-surface-variant/40 flex flex-col items-center gap-2 py-12">
                 <Sliders className="w-9 h-9 text-on-surface-variant/25" />
-                <h3 className="text-sm font-semibold text-on-surface/80">Pilih Wallet</h3>
+                <h3 className="text-sm font-semibold text-on-surface/80">{tr('Pilih Wallet')}</h3>
                 <p className="text-xs leading-relaxed max-w-[200px] mx-auto text-on-surface-variant/50">
-                  Klik salah satu kartu wallet di samping untuk melihat rincian alokasi kantong di dalamnya.
+                  {tr('Klik salah satu kartu wallet di samping untuk melihat rincian alokasi kantong di dalamnya.')}
                 </p>
               </div>
             )}
@@ -970,7 +971,7 @@ export default function AccountView({
             
             {/* Account Name */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama Wallet / Dompet</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nama Wallet / Dompet')}</label>
               <input
                 type="text"
                 required
@@ -987,18 +988,18 @@ export default function AccountView({
                 accountType di atas). */}
             {formMode === 'add' && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Jenis Wallet</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Jenis Wallet')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => setAccountType('normal')} className={`h-11 rounded-lg border text-xs font-semibold transition-all ${accountType === 'normal' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
-                    Wallet Biasa
+                    {tr('Wallet Biasa')}
                   </button>
                   <button type="button" onClick={() => setAccountType('paylater')} className={`h-11 rounded-lg border text-xs font-semibold transition-all ${accountType === 'paylater' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
-                    Paylater / Kartu Kredit
+                    {tr('Paylater / Kartu Kredit')}
                   </button>
                 </div>
                 {accountType === 'paylater' && (
                   <p className="text-[10px] text-on-surface-variant/60 leading-relaxed mt-0.5">
-                    Transaksi lewat wallet ini tercatat "belum dibayar" dan tidak mengurangi Total Saldo — baru terhitung setelah dilunasi lewat "Bayar Tagihan".
+                    {tr('Transaksi lewat wallet ini tercatat "belum dibayar" dan tidak mengurangi Total Saldo — baru terhitung setelah dilunasi lewat "Bayar Tagihan".')}
                   </p>
                 )}
               </div>
@@ -1008,7 +1009,7 @@ export default function AccountView({
             {accountType !== 'paylater' && (
             <>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">No Rekening</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('No Rekening')}</label>
               <input
                 type="text"
                 maxLength={32}
@@ -1021,7 +1022,7 @@ export default function AccountView({
 
             {/* Account Owner Name */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama Pemilik Rekening</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nama Pemilik Rekening')}</label>
               <input
                 type="text"
                 maxLength={40}
@@ -1037,7 +1038,7 @@ export default function AccountView({
             {/* Wallet Balance / Limit Input (visible in both Add and Edit modes) */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">
-                {accountType === 'paylater' ? 'Limit Kredit (Rp)' : formMode === 'add' ? 'Saldo Awal Wallet (Rp)' : 'Saldo Wallet (Rp)'}
+                {accountType === 'paylater' ? tr('Limit Kredit (Rp)') : formMode === 'add' ? tr('Saldo Awal Wallet (Rp)') : tr('Saldo Wallet (Rp)')}
               </label>
               <div className="relative flex items-center">
                 <span className="absolute left-3 font-mono-data text-primary text-xs font-bold">Rp</span>
@@ -1070,7 +1071,7 @@ export default function AccountView({
 
             {/* Accent Color selection */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tema Warna Aksen</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Tema Warna Aksen')}</label>
               <div className="grid grid-cols-6 gap-2">
                 {COLORS.map(c => (
                   <button
@@ -1089,14 +1090,14 @@ export default function AccountView({
 
             {/* Icon Selection */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Pilih Ikon Wallet</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Pilih Ikon Wallet')}</label>
               <div className="grid grid-cols-4 gap-2">
                 {ICONS.map(i => {
                   const IconComp = i.icon;
                   const isSelected = icon === i.value;
                   const foundColor = COLORS.find(c => c.value === color);
                   const activeStyle = foundColor ? { color: foundColor.hex, borderColor: foundColor.hex, backgroundColor: foundColor.hex + '15' } : {};
-                  
+
                   return (
                     <button
                       key={i.value}
@@ -1106,7 +1107,7 @@ export default function AccountView({
                       style={isSelected ? activeStyle : {}}
                     >
                       <IconComp className="w-4 h-4 shrink-0" />
-                      {i.label}
+                      {tr(i.label)}
                     </button>
                   );
                 })}
@@ -1120,7 +1121,7 @@ export default function AccountView({
                 className="flex-1 h-11 bg-primary text-on-primary rounded-xl font-headline-sm text-sm font-bold flex items-center justify-center gap-1.5 hover:opacity-95 transition-all shadow-[0_4px_15px_rgba(78,222,163,0.15)] active:scale-[0.98]"
               >
                 <Save className="w-4 h-4" />
-                Simpan Wallet
+                {tr('Simpan Wallet')}
               </button>
               <button
                 type="button"
@@ -1128,7 +1129,7 @@ export default function AccountView({
                 className="px-4 h-11 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-overlay/10 active:scale-[0.98]"
               >
                 <Undo2 className="w-4 h-4" />
-                Batal
+                {tr('Batal')}
               </button>
             </div>
 

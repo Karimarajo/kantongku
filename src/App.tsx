@@ -11,7 +11,7 @@ import {
   INITIAL_ACTIVITY_LOG
 } from './mockData';
 import { getDefaultProfile, formatRupiah, setActiveCurrency } from './utils';
-import { t, setActiveLanguage } from './i18n';
+import { t as tr, setActiveLanguage } from './i18n';
 import { disablePushNotifications } from './lib/pushNotifications';
 
 // Import Views
@@ -2542,7 +2542,7 @@ export default function App() {
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'home' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Home className="w-5 h-5 shrink-0" />
-            {!isSidebarCollapsed && <span className="text-sm font-semibold">{t("Home")}</span>}
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Home")}</span>}
           </button>
 
           {/* TAB: Wallet */}
@@ -2552,7 +2552,7 @@ export default function App() {
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'wallet' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Wallet className="w-5 h-5 shrink-0" />
-            {!isSidebarCollapsed && <span className="text-sm font-semibold">{t("Wallet")}</span>}
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Wallet")}</span>}
           </button>
 
           {/* TAB: Riwayat / History (termasuk grafik & analisis) */}
@@ -2562,7 +2562,7 @@ export default function App() {
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'history' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <Receipt className="w-5 h-5 shrink-0" />
-            {!isSidebarCollapsed && <span className="text-sm font-semibold">{t("Riwayat")}</span>}
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Riwayat")}</span>}
           </button>
 
           {/* TAB: Profile Settings */}
@@ -2572,7 +2572,7 @@ export default function App() {
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'profile' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
           >
             <User className="w-5 h-5 shrink-0" />
-            {!isSidebarCollapsed && <span className="text-sm font-semibold">{t("Profil")}</span>}
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Profil")}</span>}
           </button>
         </nav>
 
@@ -2863,7 +2863,7 @@ export default function App() {
             className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'home' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <Home className="w-5 h-5" />
-            <span className="font-label-caps text-[9px] uppercase tracking-wider">{t("Home")}</span>
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Home")}</span>
           </button>
 
           {/* TAB: Wallet */}
@@ -2872,7 +2872,7 @@ export default function App() {
             className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'wallet' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <Wallet className="w-5 h-5" />
-            <span className="font-label-caps text-[9px] uppercase tracking-wider">{t("Wallet")}</span>
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Wallet")}</span>
           </button>
 
           {/* TAB ACTION EMBED: Add Float trigger */}
@@ -2893,7 +2893,7 @@ export default function App() {
             className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'history' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <Receipt className="w-5 h-5" />
-            <span className="font-label-caps text-[9px] uppercase tracking-wider">{t("Riwayat")}</span>
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Riwayat")}</span>
           </button>
 
           {/* TAB: Profile Settings */}
@@ -2902,7 +2902,7 @@ export default function App() {
             className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'profile' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <User className="w-5 h-5" />
-            <span className="font-label-caps text-[9px] uppercase tracking-wider">{t("Profil")}</span>
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Profil")}</span>
           </button>
 
         </div>
