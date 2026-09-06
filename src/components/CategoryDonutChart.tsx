@@ -3,6 +3,7 @@ import { Transaction, Category } from '../types';
 import { getCategoryColorHex } from '../utils';
 import DonutChart, { DonutDatum } from './DonutChart';
 import { X } from 'lucide-react';
+import { t as tr } from '../i18n';
 
 export interface CategoryDonutFilter {
   type: 'incoming' | 'outgoing';
@@ -37,10 +38,10 @@ interface CategoryDonutChartProps {
 export default function CategoryDonutChart({
   transactions,
   categories,
-  expenseTitle = 'Pengeluaran',
-  incomeTitle = 'Pemasukan',
-  expenseEmptyLabel = 'Belum ada pengeluaran.',
-  incomeEmptyLabel = 'Belum ada pemasukan.',
+  expenseTitle,
+  incomeTitle,
+  expenseEmptyLabel,
+  incomeEmptyLabel,
   value,
   onChange,
 }: CategoryDonutChartProps) {
@@ -56,7 +57,7 @@ export default function CategoryDonutChart({
         const catInfo = categories.find(c => c.id === catId);
         return {
           id: catId,
-          category: catInfo?.name || 'Lain-lain',
+          category: catInfo?.name || tr('Lain-lain'),
           amount: totals[catId],
           color: getCategoryColorHex(catInfo?.color || 'slate'),
         };
@@ -76,16 +77,16 @@ export default function CategoryDonutChart({
     <div className="flex flex-col gap-2.5 w-full min-w-0">
       <div className="grid grid-cols-2 gap-3">
         <DonutChart
-          title={expenseTitle}
+          title={expenseTitle ?? tr('Pengeluaran')}
           data={expenseByCategory}
-          emptyLabel={expenseEmptyLabel}
+          emptyLabel={expenseEmptyLabel ?? tr('Belum ada pengeluaran.')}
           selectedId={value?.type === 'outgoing' ? value.id : null}
           onSelect={(d) => handleSelect('outgoing', d)}
         />
         <DonutChart
-          title={incomeTitle}
+          title={incomeTitle ?? tr('Pemasukan')}
           data={incomeByCategory}
-          emptyLabel={incomeEmptyLabel}
+          emptyLabel={incomeEmptyLabel ?? tr('Belum ada pemasukan.')}
           selectedId={value?.type === 'incoming' ? value.id : null}
           onSelect={(d) => handleSelect('incoming', d)}
         />
@@ -95,7 +96,7 @@ export default function CategoryDonutChart({
           onClick={() => onChange(null)}
           className="self-start flex items-center gap-1.5 text-[11px] font-label-caps text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1 hover:bg-primary/20 transition-all"
         >
-          Filter: {value.name} <X className="w-3 h-3" />
+          {tr('Filter')}: {value.name} <X className="w-3 h-3" />
         </button>
       )}
     </div>

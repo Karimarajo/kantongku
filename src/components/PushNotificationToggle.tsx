@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BellRing, Loader, CheckCircle2 } from 'lucide-react';
 import { enablePushNotifications, isPushEnabled, isPushSupported } from '../lib/pushNotifications';
+import { t as tr } from '../i18n';
 
 // "Aktifkan Notifikasi" (cicilan-ai-notifikasi Task 5) — lives inside the
 // notification dropdown itself (this app's closest equivalent to a
@@ -36,7 +37,7 @@ export default function PushNotificationToggle() {
   if (status === 'on') {
     return (
       <div className="flex items-center gap-2 text-[11px] text-primary bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
-        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Notifikasi push aktif di perangkat ini
+        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> {tr('Notifikasi push aktif di perangkat ini')}
       </div>
     );
   }
@@ -44,7 +45,7 @@ export default function PushNotificationToggle() {
   if (status === 'unsupported') {
     return (
       <p className="text-[10px] text-on-surface-variant/50 px-1 leading-relaxed">
-        Notifikasi push belum didukung di browser ini. Di iPhone, tambahkan KantongKu ke Layar Utama dulu (keterbatasan Apple, bukan bug).
+        {tr('Notifikasi push belum didukung di browser ini. Di iPhone, tambahkan KantongKu ke Layar Utama dulu (keterbatasan Apple, bukan bug).')}
       </p>
     );
   }
@@ -57,7 +58,7 @@ export default function PushNotificationToggle() {
         className="w-full h-9 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-bold flex items-center justify-center gap-1.5 hover:bg-primary/20 active:scale-[0.98] transition-all disabled:opacity-50"
       >
         {status === 'loading' ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5" />}
-        Aktifkan Notifikasi
+        {tr('Aktifkan Notifikasi')}
       </button>
       {status === 'error' && <p className="text-[10px] text-rose-400 px-1">{error}</p>}
     </div>

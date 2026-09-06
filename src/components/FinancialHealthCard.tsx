@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HeartPulse, Loader, AlertTriangle, Sparkles } from 'lucide-react';
+import { t as tr } from '../i18n';
 
 interface RatioResult {
   percent?: number;
@@ -61,10 +62,10 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
         body: JSON.stringify({ startDate: startDate || undefined, endDate: endDate || undefined }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal menganalisis kesehatan keuangan');
+      if (!res.ok) throw new Error(data.error || tr('Gagal menganalisis kesehatan keuangan'));
       setResult(data);
     } catch (err: any) {
-      setError(err.message || 'Gagal menganalisis kesehatan keuangan. Coba lagi nanti.');
+      setError(err.message || tr('Gagal menganalisis kesehatan keuangan. Coba lagi nanti.'));
     } finally {
       setLoading(false);
     }
@@ -78,11 +79,11 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
         className="w-full h-12 rounded-xl bg-primary/10 border border-primary/30 text-primary font-bold text-xs font-label-caps uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary/20 active:scale-[0.98] transition-all disabled:opacity-50"
       >
         {loading ? <Loader className="w-4 h-4 animate-spin" /> : <HeartPulse className="w-4 h-4" />}
-        {loading ? 'Menganalisis...' : 'Analisis Kesehatan Keuangan'}
+        {loading ? tr('Menganalisis...') : tr('Analisis Kesehatan Keuangan')}
       </button>
       {(startDate || endDate) && (
         <p className="text-[10px] text-on-surface-variant/50 -mt-1 px-1">
-          Memakai rentang tanggal dari filter di atas{startDate ? ` (${startDate}` : ''}{endDate ? ` s/d ${endDate})` : startDate ? ')' : ''}.
+          {tr('Memakai rentang tanggal dari filter di atas')}{startDate ? ` (${startDate}` : ''}{endDate ? ` ${tr('s/d')} ${endDate})` : startDate ? ')' : ''}.
         </p>
       )}
 
@@ -96,28 +97,28 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
         <div className="flex flex-col gap-4 p-4 glass-card rounded-xl border border-overlay/5">
           <div className={`self-start flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${CATEGORY_STYLE[result.category].badge}`}>
             <span className={`w-2 h-2 rounded-full ${CATEGORY_STYLE[result.category].dot}`} />
-            {result.category}
+            {tr(result.category)}
           </div>
 
           {result.aiUnavailable && (
-            <p className="text-[11px] text-amber-300/80 -mt-2">⚠️ Narasi AI tidak tersedia saat ini — kategori di atas dihitung langsung dari ambang batas rasio.</p>
+            <p className="text-[11px] text-amber-300/80 -mt-2">⚠️ {tr('Narasi AI tidak tersedia saat ini — kategori di atas dihitung langsung dari ambang batas rasio.')}</p>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div className="bg-overlay/5 border border-overlay/10 rounded-lg p-3 flex flex-col gap-0.5">
-              <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">Cicilan/Utang</span>
+              <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">{tr('Cicilan/Utang')}</span>
               <span className="text-lg font-bold text-on-surface font-mono-data">{result.ratios.debt.percent}%</span>
-              <span className="text-[10px] text-on-surface-variant/50">sehat: {result.ratios.debt.healthyThreshold}</span>
+              <span className="text-[10px] text-on-surface-variant/50">{tr('sehat')}: {result.ratios.debt.healthyThreshold}</span>
             </div>
             <div className="bg-overlay/5 border border-overlay/10 rounded-lg p-3 flex flex-col gap-0.5">
-              <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">Menabung</span>
+              <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">{tr('Menabung')}</span>
               <span className="text-lg font-bold text-on-surface font-mono-data">{result.ratios.savings.percent}%</span>
-              <span className="text-[10px] text-on-surface-variant/50">sehat: {result.ratios.savings.healthyThreshold}</span>
+              <span className="text-[10px] text-on-surface-variant/50">{tr('sehat')}: {result.ratios.savings.healthyThreshold}</span>
             </div>
             <div className="bg-overlay/5 border border-overlay/10 rounded-lg p-3 flex flex-col gap-0.5">
-              <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">Likuiditas</span>
+              <span className="text-[10px] text-on-surface-variant/70 font-label-caps uppercase">{tr('Likuiditas')}</span>
               <span className="text-lg font-bold text-on-surface font-mono-data">{result.ratios.liquidity.multiplier !== null ? `${result.ratios.liquidity.multiplier}x` : '—'}</span>
-              <span className="text-[10px] text-on-surface-variant/50">sehat: {result.ratios.liquidity.healthyThreshold}</span>
+              <span className="text-[10px] text-on-surface-variant/50">{tr('sehat')}: {result.ratios.liquidity.healthyThreshold}</span>
             </div>
           </div>
 
@@ -127,7 +128,7 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
 
           {result.suggestions.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-label-caps text-primary uppercase flex items-center gap-1"><Sparkles className="w-3 h-3" /> Saran</span>
+              <span className="text-xs font-label-caps text-primary uppercase flex items-center gap-1"><Sparkles className="w-3 h-3" /> {tr('Saran')}</span>
               <ul className="flex flex-col gap-1.5">
                 {result.suggestions.map((s, i) => (
                   <li key={i} className="text-xs text-on-surface-variant flex items-start gap-2">
@@ -138,7 +139,7 @@ export default function FinancialHealthCard({ startDate, endDate }: FinancialHea
             </div>
           )}
 
-          <p className="text-[10px] text-on-surface-variant/40">Hasil ini hanya terlihat oleh Anda (dan kolaborator jika ada) — tidak dibagikan ke pihak luar.</p>
+          <p className="text-[10px] text-on-surface-variant/40">{tr('Hasil ini hanya terlihat oleh Anda (dan kolaborator jika ada) — tidak dibagikan ke pihak luar.')}</p>
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import {
   BrainCircuit, History, Bell, LifeBuoy, HelpCircle, Share, MoreVertical,
   Download, MoonStar,
 } from 'lucide-react';
+import { t as tr } from '../i18n';
 
 interface GuideViewProps {
   onBack: () => void;
@@ -363,12 +364,12 @@ export default function GuideView({ onBack }: GuideViewProps) {
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
-          Panduan Pengguna
+          {tr('Panduan Pengguna')}
         </h1>
       </div>
 
       <p className="text-xs text-on-surface-variant leading-relaxed -mt-2">
-        Rangkuman cara pakai semua fitur KantongKu, plus catatan pembaruan setiap kali ada versi baru.
+        {tr('Rangkuman cara pakai semua fitur KantongKu, plus catatan pembaruan setiap kali ada versi baru.')}
       </p>
 
       {/* Update Terbaru — Task: cuma badge versi + tanggal, TANPA daftar
@@ -379,7 +380,7 @@ export default function GuideView({ onBack }: GuideViewProps) {
       {CHANGELOG.length > 0 && (
         <section className="flex flex-col gap-2.5">
           <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary" /> Update Terbaru
+            <Sparkles className="w-3.5 h-3.5 text-primary" /> {tr('Update Terbaru')}
           </span>
           <div className="glass-card rounded-xl p-3.5 border border-overlay/5 flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold font-mono-data">
@@ -393,7 +394,7 @@ export default function GuideView({ onBack }: GuideViewProps) {
       {/* Panduan Fitur — daftar accordion, satu section terbuka per waktu */}
       <section className="flex flex-col gap-2.5 mt-1">
         <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">
-          Panduan Fitur
+          {tr('Panduan Fitur')}
         </span>
         <div className="flex flex-col gap-2">
           {GUIDE_SECTIONS.map((section) => {
@@ -407,7 +408,7 @@ export default function GuideView({ onBack }: GuideViewProps) {
                 >
                   <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
                     <Icon className="w-4 h-4 text-primary shrink-0" />
-                    {section.title}
+                    {tr(section.title)}
                   </span>
                   <ChevronDown className={`w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
