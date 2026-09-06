@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Reminder, Debt, Pocket, Account, Category } from '../types';
 import { formatRupiah } from '../utils';
+import { t as tr } from '../i18n';
 import { X, Plus, Trash2, Bell, AlarmClock, CalendarDays, Clock, RefreshCw, Edit3, CheckCircle2, Save, Link2 } from 'lucide-react';
 
 interface ReminderModalProps {
@@ -144,10 +145,10 @@ export default function ReminderModal({
 
   const getRepeatLabel = (type: string) => {
     switch (type) {
-      case 'once': return 'Sekali Saja';
-      case 'every_day': return 'Setiap Hari';
-      case 'every_week': return 'Setiap Minggu';
-      case 'every_month': return 'Setiap Bulan';
+      case 'once': return tr('Sekali Saja');
+      case 'every_day': return tr('Setiap Hari');
+      case 'every_week': return tr('Setiap Minggu');
+      case 'every_month': return tr('Setiap Bulan');
       default: return type;
     }
   };
@@ -162,7 +163,7 @@ export default function ReminderModal({
           <div className="flex items-center gap-2">
             <AlarmClock className="w-5 h-5 text-primary" />
             <h3 className="font-headline-sm text-lg text-on-surface font-bold">
-              Pengingat & Alarm Agenda
+              {tr('Pengingat & Alarm Agenda')}
             </h3>
           </div>
           <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-all">
@@ -177,17 +178,17 @@ export default function ReminderModal({
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 bg-overlay/5 p-4 rounded-xl border border-overlay/5">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-label-caps text-primary uppercase font-semibold tracking-wider">
-                {editingId ? 'Edit Pengingat' : 'Buat Pengingat Baru'}
+                {editingId ? tr('Edit Pengingat') : tr('Buat Pengingat Baru')}
               </h4>
               {editingId && (
                 <button type="button" onClick={resetForm} className="text-[10px] text-on-surface-variant hover:text-on-surface flex items-center gap-1">
-                  <X className="w-3 h-3" /> Batal Edit
+                  <X className="w-3 h-3" /> {tr('Batal Edit')}
                 </button>
               )}
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-on-surface-variant/70 font-medium">Judul Rencana / Agenda</label>
+              <label className="text-xs text-on-surface-variant/70 font-medium">{tr('Judul Rencana / Agenda')}</label>
               <input
                 type="text"
                 maxLength={40}
@@ -202,7 +203,7 @@ export default function ReminderModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-on-surface-variant/70 font-medium flex items-center gap-1">
-                  <CalendarDays className="w-3.5 h-3.5 text-primary" /> Atur Tanggal & Jam
+                  <CalendarDays className="w-3.5 h-3.5 text-primary" /> {tr('Atur Tanggal & Jam')}
                 </label>
                 <input
                   type="datetime-local"
@@ -215,17 +216,17 @@ export default function ReminderModal({
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-on-surface-variant/70 font-medium flex items-center gap-1">
-                  <RefreshCw className="w-3.5 h-3.5 text-primary" /> Tipe Pengulangan
+                  <RefreshCw className="w-3.5 h-3.5 text-primary" /> {tr('Tipe Pengulangan')}
                 </label>
                 <select
                   value={repeatType}
                   onChange={(e) => setRepeatType(e.target.value as any)}
                   className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-sm text-on-surface focus:outline-none focus:border-primary/60 cursor-pointer"
                 >
-                  <option value="once" className="bg-surface text-on-surface">Sekali Saja</option>
-                  <option value="every_day" className="bg-surface text-on-surface">Setiap Hari</option>
-                  <option value="every_week" className="bg-surface text-on-surface">Setiap Minggu</option>
-                  <option value="every_month" className="bg-surface text-on-surface">Setiap Bulan</option>
+                  <option value="once" className="bg-surface text-on-surface">{tr('Sekali Saja')}</option>
+                  <option value="every_day" className="bg-surface text-on-surface">{tr('Setiap Hari')}</option>
+                  <option value="every_week" className="bg-surface text-on-surface">{tr('Setiap Minggu')}</option>
+                  <option value="every_month" className="bg-surface text-on-surface">{tr('Setiap Bulan')}</option>
                 </select>
               </div>
             </div>
@@ -234,7 +235,7 @@ export default function ReminderModal({
                 Bayar" muncul di daftar dan otomatis mencatat transaksi ini. */}
             <div className="flex flex-col gap-1.5 pt-1 border-t border-overlay/5">
               <label className="text-xs text-on-surface-variant/70 font-medium flex items-center gap-1 mt-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Detail Transaksi (opsional — untuk tombol "Sudah Bayar")
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> {tr('Detail Transaksi (opsional — untuk tombol "Sudah Bayar")')}
               </label>
               <div className="relative flex items-center">
                 <span className="absolute left-3 font-bold text-primary font-mono-data text-xs">Rp</span>
@@ -271,18 +272,18 @@ export default function ReminderModal({
               type="submit"
               className="mt-2 h-10 w-full bg-primary text-on-primary font-bold text-xs font-label-caps uppercase tracking-wider rounded-lg flex items-center justify-center gap-1.5 transition-all hover:opacity-90 active:scale-[0.98]"
             >
-              {editingId ? <><Save className="w-4 h-4" /> Simpan Perubahan</> : <><Plus className="w-4 h-4 stroke-[3]" /> Tambah Rencana Pengingat</>}
+              {editingId ? <><Save className="w-4 h-4" /> {tr('Simpan Perubahan')}</> : <><Plus className="w-4 h-4 stroke-[3]" /> {tr('Tambah Rencana Pengingat')}</>}
             </button>
           </form>
 
           {/* List of Reminders */}
           <div className="flex flex-col gap-3">
-            <h4 className="text-xs font-label-caps text-primary uppercase font-semibold tracking-wider">Daftar Pengingat Aktif ({reminders.length})</h4>
+            <h4 className="text-xs font-label-caps text-primary uppercase font-semibold tracking-wider">{tr('Daftar Pengingat Aktif')} ({reminders.length})</h4>
 
             {reminders.length === 0 ? (
               <div className="text-center py-8 text-on-surface-variant/30 text-xs border border-dashed border-overlay/5 rounded-xl flex flex-col items-center gap-2">
                 <Bell className="w-8 h-8 opacity-25 animate-pulse" />
-                <span>Belum ada rencana pengingat yang dibuat.</span>
+                <span>{tr('Belum ada rencana pengingat yang dibuat.')}</span>
               </div>
             ) : (
               <div className="flex flex-col gap-2.5 max-h-64 overflow-y-auto no-scrollbar">
@@ -359,7 +360,7 @@ export default function ReminderModal({
                               type="button"
                               onClick={() => handleOpenEdit(reminder)}
                               className="w-8 h-8 rounded-lg bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-overlay/10 active:scale-95 transition-all"
-                              title="Edit pengingat"
+                              title={tr('Edit pengingat')}
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
@@ -371,7 +372,7 @@ export default function ReminderModal({
                             onClick={() => onDeleteReminder(reminder.id)}
                             disabled={isDebtLinked}
                             className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={isDebtLinked ? 'Kelola dari menu Cicilan/Hutang' : 'Hapus'}
+                            title={isDebtLinked ? tr('Kelola dari menu Cicilan/Hutang') : tr('Hapus')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -380,7 +381,7 @@ export default function ReminderModal({
 
                       {isDebtLinked && (
                         <span className="flex items-center gap-1.5 text-[10px] text-indigo-300/80 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2.5 py-1.5 w-fit">
-                          <Link2 className="w-3 h-3" /> Terhubung Cicilan/Hutang — kelola &amp; "Sudah Bayar" dari menu Cicilan/Hutang
+                          <Link2 className="w-3 h-3" /> {tr('Terhubung Cicilan/Hutang — kelola & "Sudah Bayar" dari menu Cicilan/Hutang')}
                         </span>
                       )}
 
@@ -390,13 +391,13 @@ export default function ReminderModal({
                           onClick={() => onMarkPaid(reminder.id)}
                           className="h-9 w-full rounded-lg bg-primary text-on-primary text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition-all"
                         >
-                          <CheckCircle2 className="w-4 h-4" /> Bayar ({formatRupiah(reminder.amount!)})
+                          <CheckCircle2 className="w-4 h-4" /> {tr('Bayar')} ({formatRupiah(reminder.amount!)})
                         </button>
                       )}
 
                       {isPaidThisCycle && (
                         <div className="h-9 w-full rounded-lg bg-overlay/5 border border-primary/20 text-primary text-xs font-bold flex items-center justify-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4" /> Sudah Bayar
+                          <CheckCircle2 className="w-4 h-4" /> {tr('Sudah Bayar')}
                         </div>
                       )}
                     </div>

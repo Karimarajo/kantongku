@@ -4,6 +4,7 @@ import { formatDate } from '../utils';
 import {
   ChevronLeft, Trash2, History, Receipt, Wallet, Tag, Send, PiggyBank, Info
 } from 'lucide-react';
+import { t as tr } from '../i18n';
 
 interface ActivityLogViewProps {
   activityLog: ActivityLogEntry[];
@@ -32,7 +33,7 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
 
   const handleClear = () => {
     if (activityLog.length === 0) return;
-    if (confirm('Apakah Anda yakin ingin membersihkan seluruh Log Activity? Riwayat ini tidak dapat dikembalikan.')) {
+    if (confirm(tr('Apakah Anda yakin ingin membersihkan seluruh Log Activity? Riwayat ini tidak dapat dikembalikan.'))) {
       onClearLog();
     }
   };
@@ -46,12 +47,12 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <History className="w-5 h-5 text-primary" />
-          Log Activity
+          {tr('Log Activity')}
         </h1>
       </div>
 
       <p className="text-xs text-on-surface-variant leading-relaxed -mt-2">
-        Catatan riwayat aktivitas Anda di KantongKu. Log ini bersifat informatif saja dan tidak memengaruhi saldo maupun laporan.
+        {tr('Catatan riwayat aktivitas Anda di KantongKu. Log ini bersifat informatif saja dan tidak memengaruhi saldo maupun laporan.')}
       </p>
 
       <button
@@ -60,14 +61,14 @@ export default function ActivityLogView({ activityLog, onBack, onClearLog }: Act
         className="w-full h-11 rounded-xl bg-danger/10 border border-danger/20 text-danger font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-danger/20 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
       >
         <Trash2 className="w-4 h-4" />
-        Bersihkan Log
+        {tr('Bersihkan Log')}
       </button>
 
       <div className="flex flex-col gap-2 mt-1">
         {sortedLog.length === 0 ? (
           <div className="text-center py-12 text-on-surface/30 flex flex-col items-center gap-2">
             <History className="w-10 h-10 text-on-surface/20" />
-            <p className="text-xs">Belum ada aktivitas yang tercatat.</p>
+            <p className="text-xs">{tr('Belum ada aktivitas yang tercatat.')}</p>
           </div>
         ) : (
           sortedLog.map(entry => {

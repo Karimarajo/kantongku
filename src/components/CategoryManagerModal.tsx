@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Category, Transaction } from '../types';
 import CategoryIcon from './CategoryIcon';
+import { t as tr } from '../i18n';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -133,7 +134,7 @@ export default function CategoryManagerModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Nama kategori tidak boleh kosong');
+    if (!name.trim()) return alert(tr('Nama kategori tidak boleh kosong'));
 
     if (formMode === 'add') {
       onAddCategory({
@@ -153,10 +154,10 @@ export default function CategoryManagerModal({
   };
 
   const handleDeleteCheck = (catId: string, catName: string) => {
-    const hasTransactions = transactions.some(t => t.category === catId);
+    const hasTransactions = transactions.some(tx => tx.category === catId);
     const msg = hasTransactions
-      ? `Apakah Anda yakin ingin menghapus kategori "${catName}"? Peringatan: Semua riwayat transaksi dengan kategori ini juga akan dihapus secara permanen!`
-      : `Apakah Anda yakin ingin menghapus kategori "${catName}"?`;
+      ? `${tr('Apakah Anda yakin ingin menghapus kategori')} "${catName}"? ${tr('Peringatan: Semua riwayat transaksi dengan kategori ini juga akan dihapus secara permanen!')}`
+      : `${tr('Apakah Anda yakin ingin menghapus kategori')} "${catName}"?`;
 
     if (confirm(msg)) {
       onDeleteCategory(catId);
@@ -218,9 +219,9 @@ export default function CategoryManagerModal({
           <div className="flex items-center gap-2">
             <CircleDollarSign className="w-5 h-5 text-primary" />
             <h3 className="font-headline-sm text-base font-bold">
-              {formMode === 'list' && 'Kelola Kategori Transaksi'}
-              {formMode === 'add' && 'Tambah Kategori Baru'}
-              {formMode === 'edit' && 'Ubah Kategori'}
+              {formMode === 'list' && tr('Kelola Kategori Transaksi')}
+              {formMode === 'add' && tr('Tambah Kategori Baru')}
+              {formMode === 'edit' && tr('Ubah Kategori')}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-overlay/5 rounded-full transition-colors text-on-surface-variant hover:text-on-surface">
@@ -236,14 +237,14 @@ export default function CategoryManagerModal({
             <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 flex gap-2 items-start animate-shake">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold mb-0.5">Peringatan Penghapusan</p>
+                <p className="font-semibold mb-0.5">{tr('Peringatan Penghapusan')}</p>
                 <p className="leading-relaxed text-[11px]">{deleteWarning}</p>
-                <button 
+                <button
                   type="button"
                   onClick={() => setDeleteWarning(null)}
                   className="mt-2 text-on-surface bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1 rounded text-[10px] font-bold"
                 >
-                  Batal
+                  {tr('Batal')}
                 </button>
               </div>
             </div>
@@ -257,18 +258,18 @@ export default function CategoryManagerModal({
                 className="w-full h-11 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
               >
                 <Plus className="w-4 h-4" />
-                Tambah Kategori Baru
+                {tr('Tambah Kategori Baru')}
               </button>
 
               {/* Hint drag */}
               <p className="text-[10px] text-on-surface-variant/50 text-center flex items-center justify-center gap-1">
                 <GripVertical className="w-3 h-3" />
-                Seret ikon <GripVertical className="w-3 h-3 inline" /> untuk mengubah urutan
+                {tr('Seret ikon')} <GripVertical className="w-3 h-3 inline" /> {tr('untuk mengubah urutan')}
               </p>
 
               <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto pr-1 no-scrollbar">
                 {categories.length === 0 ? (
-                  <p className="text-xs text-on-surface-variant/40 py-8 text-center">Belum ada kategori yang ditambahkan.</p>
+                  <p className="text-xs text-on-surface-variant/40 py-8 text-center">{tr('Belum ada kategori yang ditambahkan.')}</p>
                 ) : (
                   categories.map(cat => {
                     const borderHex = getBorderColorHex(cat.color);
@@ -335,7 +336,7 @@ export default function CategoryManagerModal({
                             }}
                             disabled={categories.findIndex(c => c.id === cat.id) === 0}
                             className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface disabled:opacity-40"
-                            title="Naik"
+                            title={tr('Naik')}
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
@@ -352,7 +353,7 @@ export default function CategoryManagerModal({
                             }}
                             disabled={categories.findIndex(c => c.id === cat.id) === categories.length - 1}
                             className="p-1.5 bg-overlay/5 hover:bg-overlay/10 border border-overlay/5 rounded-lg text-on-surface-variant hover:text-on-surface disabled:opacity-40"
-                            title="Turun"
+                            title={tr('Turun')}
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>
@@ -367,12 +368,12 @@ export default function CategoryManagerModal({
               
               {/* Category Name */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama Kategori</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nama Kategori')}</label>
                 <input
                   type="text"
                   required
                   maxLength={18}
-                  placeholder="Contoh: Belanja Bulanan, Jajan Anak"
+                  placeholder={tr('Contoh: Belanja Bulanan, Jajan Anak')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60"
@@ -381,7 +382,7 @@ export default function CategoryManagerModal({
 
               {/* Accent Color Selection */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tema Warna Kategori (Pilih 1 dari 15)</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Tema Warna Kategori (Pilih 1 dari 15)')}</label>
                 <div className="grid grid-cols-5 gap-2">
                   {COLORS.map(c => (
                     <button
@@ -400,7 +401,7 @@ export default function CategoryManagerModal({
 
               {/* Icon Selection */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Pilih Ikon Kategori (Pilih 1 dari 30)</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Pilih Ikon Kategori (Pilih 1 dari 30)')}</label>
                 <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto no-scrollbar pr-1">
                   {ICONS.map(i => {
                     const IconComp = i.icon;
@@ -415,7 +416,7 @@ export default function CategoryManagerModal({
                         onClick={() => setIcon(i.value)}
                         className={`h-10 rounded-lg flex items-center justify-center transition-all border ${isSelected ? '' : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
                         style={isSelected ? activeStyle : {}}
-                        title={i.label}
+                        title={tr(i.label)}
                       >
                         <IconComp className="w-5 h-5 shrink-0" />
                       </button>
@@ -431,7 +432,7 @@ export default function CategoryManagerModal({
                   className="flex-1 h-11 bg-primary text-on-primary rounded-xl font-headline-sm text-sm font-bold flex items-center justify-center gap-1.5 hover:opacity-95 transition-all shadow-[0_4px_15px_rgba(78,222,163,0.15)] active:scale-[0.98]"
                 >
                   <Save className="w-4 h-4" />
-                  Simpan Kategori
+                  {tr('Simpan Kategori')}
                 </button>
                 <button
                   type="button"
@@ -439,7 +440,7 @@ export default function CategoryManagerModal({
                   className="px-4 h-11 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-overlay/10 active:scale-[0.98]"
                 >
                   <Undo2 className="w-4 h-4" />
-                  Batal
+                  {tr('Batal')}
                 </button>
               </div>
 

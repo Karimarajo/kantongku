@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { formatRupiah } from '../utils';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
+import { t as tr } from '../i18n';
 
 interface PocketManagerModalProps {
   isOpen: boolean;
@@ -202,7 +203,7 @@ export default function PocketManagerModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Nama kantong tidak boleh kosong');
+    if (!name.trim()) return alert(tr('Nama kantong tidak boleh kosong'));
 
     if (formMode === 'add') {
       const newPocket = {
@@ -231,10 +232,10 @@ export default function PocketManagerModal({
   };
 
   const handleDeleteCheck = (pocketId: string, pocketName: string) => {
-    const hasTransactions = transactions.some(t => t.pocketId === pocketId);
+    const hasTransactions = transactions.some(tx => tx.pocketId === pocketId);
     const msg = hasTransactions
-      ? `Apakah Anda yakin ingin menghapus kantong "${pocketName}"? Peringatan: Semua riwayat transaksi yang menggunakan kantong ini juga akan dihapus secara permanen!`
-      : `Apakah Anda yakin ingin menghapus kantong "${pocketName}"?`;
+      ? `${tr('Apakah Anda yakin ingin menghapus kantong')} "${pocketName}"? ${tr('Peringatan: Semua riwayat transaksi yang menggunakan kantong ini juga akan dihapus secara permanen!')}`
+      : `${tr('Apakah Anda yakin ingin menghapus kantong')} "${pocketName}"?`;
 
     if (confirm(msg)) {
       onDeletePocket(pocketId);
@@ -273,9 +274,9 @@ export default function PocketManagerModal({
           <div className="flex items-center gap-2">
             <CircleDollarSign className="w-5 h-5 text-primary" />
             <h3 className="font-headline-sm text-lg text-on-surface">
-              {formMode === 'list' && 'Kelola Kantong Keuangan'}
-              {formMode === 'add' && 'Tambah Kantong Baru'}
-              {formMode === 'edit' && 'Ubah Detail Kantong'}
+              {formMode === 'list' && tr('Kelola Kantong Keuangan')}
+              {formMode === 'add' && tr('Tambah Kantong Baru')}
+              {formMode === 'edit' && tr('Ubah Detail Kantong')}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-overlay/5 rounded-full transition-colors text-on-surface-variant hover:text-on-surface">
@@ -291,14 +292,14 @@ export default function PocketManagerModal({
             <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-xs text-danger flex gap-2 items-start animate-shake">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold mb-0.5">Tidak Dapat Dihapus</p>
+                <p className="font-semibold mb-0.5">{tr('Tidak Dapat Dihapus')}</p>
                 <p className="leading-relaxed">{deleteWarning}</p>
-                <button 
+                <button
                   type="button"
                   onClick={() => setDeleteWarning(null)}
                   className="mt-2 text-on-surface bg-danger/20 hover:bg-danger/30 px-2.5 py-1 rounded text-[10px] font-bold"
                 >
-                  Saya Mengerti
+                  {tr('Saya Mengerti')}
                 </button>
               </div>
             </div>
@@ -337,7 +338,7 @@ export default function PocketManagerModal({
                             disabled={idx === 0}
                             onClick={() => handleMoveUp(idx)}
                             className="p-1 bg-overlay/5 border border-overlay/5 text-on-surface-variant hover:text-on-surface rounded-md hover:bg-overlay/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                            title="Pindahkan ke atas"
+                            title={tr('Pindahkan ke atas')}
                           >
                             <ArrowUp className="w-3 h-3" />
                           </button>
@@ -346,7 +347,7 @@ export default function PocketManagerModal({
                             disabled={idx === pockets.length - 1}
                             onClick={() => handleMoveDown(idx)}
                             className="p-1 bg-overlay/5 border border-overlay/5 text-on-surface-variant hover:text-on-surface rounded-md hover:bg-overlay/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                            title="Pindahkan ke bawah"
+                            title={tr('Pindahkan ke bawah')}
                           >
                             <ArrowDown className="w-3 h-3" />
                           </button>
@@ -356,7 +357,7 @@ export default function PocketManagerModal({
                           type="button"
                           onClick={() => handleOpenEdit(p)}
                           className="p-2 bg-overlay/5 border border-overlay/5 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-overlay/10 transition-all animate-fade-in"
-                          title="Edit kantong"
+                          title={tr('Edit kantong')}
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
@@ -365,7 +366,7 @@ export default function PocketManagerModal({
                             type="button"
                             onClick={() => handleDeleteCheck(p.id, p.name)}
                             className="p-2 bg-overlay/5 border border-overlay/5 text-on-surface-variant/60 hover:text-danger rounded-lg hover:bg-danger/5 hover:border-danger/20 transition-all animate-fade-in"
-                            title="Hapus kantong"
+                            title={tr('Hapus kantong')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -383,7 +384,7 @@ export default function PocketManagerModal({
                 className="w-full h-11 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all mt-2 active:scale-[0.98]"
               >
                 <Plus className="w-4 h-4" />
-                Tambah Kantong Baru
+                {tr('Tambah Kantong Baru')}
               </button>
             </>
           ) : (
@@ -391,12 +392,12 @@ export default function PocketManagerModal({
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
               {/* Pocket Name Input */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama Kantong</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nama Kantong')}</label>
                 <input
                   type="text"
                   required
                   maxLength={24}
-                  placeholder="Contoh: Tabungan Liburan, Belanja Mingguan"
+                  placeholder={tr('Contoh: Tabungan Liburan, Belanja Mingguan')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
@@ -405,11 +406,11 @@ export default function PocketManagerModal({
 
               {/* Tag / Description Input */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Catatan / Tagline Singkat</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Catatan / Tagline Singkat')}</label>
                 <input
                   type="text"
                   maxLength={32}
-                  placeholder="Contoh: Tabungan target akhir tahun"
+                  placeholder={tr('Contoh: Tabungan target akhir tahun')}
                   value={tag}
                   onChange={(e) => setTag(e.target.value)}
                   className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
@@ -419,7 +420,7 @@ export default function PocketManagerModal({
               {/* Initial Balance (Only visible on add mode) */}
               {formMode === 'add' && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">Saldo Awal (Rp)</label>
+                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Saldo Awal (Rp)')}</label>
                   <div className="relative flex items-center">
                     <span className="absolute left-3 font-mono-data text-primary text-xs font-bold">Rp</span>
                     <input
@@ -452,7 +453,7 @@ export default function PocketManagerModal({
 
               {/* Custom Accent Color Selection */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tema Warna</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Tema Warna')}</label>
                 <div className="grid grid-cols-6 gap-2">
                   {COLORS.map(c => (
                     <button
@@ -471,20 +472,20 @@ export default function PocketManagerModal({
 
               {/* Custom Icon Selection */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Pilih Ikon</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Pilih Ikon')}</label>
                 <div className="grid grid-cols-6 gap-2">
                   {ICONS.map(i => {
                     const IconComp = i.icon;
                     const isSelected = icon === i.value;
                     const cClass = getColorClass(color);
-                    
+
                     return (
                       <button
                         key={i.value}
                         type="button"
                         onClick={() => setIcon(i.value)}
                         className={`h-9 rounded-lg flex items-center justify-center transition-all border ${isSelected ? cClass + ' border-current' : 'bg-surface-variant/10 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}
-                        title={i.label}
+                        title={tr(i.label)}
                       >
                         <IconComp className="w-4 h-4" />
                       </button>
@@ -500,7 +501,7 @@ export default function PocketManagerModal({
                   className="flex-1 h-11 bg-primary text-on-primary rounded-xl font-headline-sm text-sm font-bold flex items-center justify-center gap-1.5 hover:opacity-95 transition-all shadow-[0_4px_15px_rgba(78,222,163,0.15)] active:scale-[0.98]"
                 >
                   <Save className="w-4 h-4" />
-                  Simpan Kantong
+                  {tr('Simpan Kantong')}
                 </button>
                 <button
                   type="button"
@@ -508,7 +509,7 @@ export default function PocketManagerModal({
                   className="px-4 h-11 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-semibold transition-all flex items-center gap-1 hover:bg-overlay/10 active:scale-[0.98]"
                 >
                   <Undo2 className="w-4 h-4" />
-                  Kembali
+                  {tr('Kembali')}
                 </button>
               </div>
             </form>
