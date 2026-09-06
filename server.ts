@@ -426,6 +426,64 @@ app.post("/api/push/unsubscribe", requireSession, requireActiveStatus, async (re
   }
 });
 
+// ==========================================
+// Admin Push Notifications (Task 7, prompt-admin-console-perbaikan.md)
+// ==========================================
+// Reuses the exact same lib/push.ts + sw.js + GET /api/push/vapid-public-key
+// infra as the customer reminder push above — only the subscription table
+// differs (admin_push_subscriptions, see db/schema.sql for why: admin auth
+// is a shared password behind a signed cookie, no users-table row to hang a
+// user_id off of). Every subscribed admin device gets every admin push —
+// there's no per-admin identity to target individually.
+
+app.post("/api/admin/push/subscribe", requireAdmin, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body || {};
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      return res.status(400).json({ error: "Data subscription tidak lengkap" });
+    }
+    await pool.query(
+      `INSERT INTO admin_push_subscriptions (endpoint, p256dh, auth)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (endpoint) DO UPDATE SET p256dh = $2, auth = $3`,
+      [String(endpoint), String(keys.p256dh), String(keys.auth)]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal menyimpan admin push subscription:", error);
+    res.status(500).json({ error: error.message || "Gagal menyimpan subscription notifikasi admin" });
+  }
+});
+
+app.post("/api/admin/push/unsubscribe", requireAdmin, async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: "endpoint wajib diisi" });
+    await pool.query(`DELETE FROM admin_push_subscriptions WHERE endpoint = $1`, [String(endpoint)]);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Gagal menghapus admin push subscription:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus subscription notifikasi admin" });
+  }
+});
+
+// Fire-and-forget by design, same footing as every other push call in this
+// file — an admin notification failing/being slow must never affect the
+// order/email flow that triggered it. Deliberately NOT awaited by callers.
+async function notifyAdminPush(title: string, body: string): Promise<void> {
+  if (!isPushConfigured()) return;
+  try {
+    const subRows = await pool.query(`SELECT id, endpoint, p256dh, auth FROM admin_push_subscriptions`);
+    if (subRows.rows.length === 0) return;
+    const { expiredIds } = await sendPushToSubscriptions(subRows.rows, { title, body, icon: "/logo.png" });
+    if (expiredIds.length > 0) {
+      await pool.query(`DELETE FROM admin_push_subscriptions WHERE id = ANY($1::uuid[])`, [expiredIds]);
+    }
+  } catch (err: any) {
+    console.error("Gagal mengirim push notification ke admin:", err.message);
+  }
+}
+
 // Same due-reminder matching semantics as the client-side checkAlarms effect
 // in App.tsx, just coarser (a poll tick, not an exact-minute match) since
 // this runs on a multi-minute server interval, not a live browser clock. Once
@@ -858,32 +916,15 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
     });
   }
 
-  const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || process.env.EMAIL_FROM;
-  if (adminEmail) {
-    const sourceLine = utm.source
-      ? `<p><b>Sumber:</b> ${utm.source}${utm.campaign ? ` / ${utm.campaign}` : ""}</p>`
-      : "";
-    const typeLine = orderType === "collaborator"
-      ? `<p><b>Jenis:</b> Kolaborator (untuk akun pemilik: ${name})</p>`
-      : "";
-    sendEmail(
-      adminEmail,
-      `[KantongKu] Order baru masuk${orderType === "collaborator" ? " (Kolaborator)" : ""} — ${orderCode}`,
-      `<h2>Order Baru${orderType === "collaborator" ? " — Kolaborator" : ""}</h2>
-       <p><b>Nama:</b> ${name}</p>
-       <p><b>Email:</b> ${email}</p>
-       ${typeLine}
-       <p><b>Metode Pembayaran:</b> Doku (otomatis) — akun akan aktif otomatis begitu Doku mengonfirmasi pembayaran, tidak perlu konfirmasi manual.</p>
-       <p><b>Total Tagihan:</b> Rp${totalAmount.toLocaleString("id-ID")}</p>
-       ${sourceLine}
-       <p><a href="${process.env.APP_URL}/admin">Buka Admin Console</a></p>`,
-      `Order baru${orderType === "collaborator" ? " (Kolaborator)" : ""}: ${orderCode}\nNama: ${name}\nEmail: ${email}\nMetode: Doku (otomatis)\nTotal: Rp${totalAmount.toLocaleString("id-ID")}\nAdmin Console: ${process.env.APP_URL}/admin`
-    ).catch((err: any) => {
-      console.error("Gagal mengirim email notifikasi order baru:", err.message);
-    });
-  } else {
-    console.warn("ADMIN_NOTIFY_EMAIL (dan EMAIL_FROM) belum diset — notifikasi order baru dilewati.");
-  }
+  // Task 2 (prompt-admin-console-perbaikan.md): admin notifications moved
+  // entirely from email to push (Task 7, item 1) — no more email to
+  // ADMIN_NOTIFY_EMAIL here. The env var itself is left alone (still read
+  // as a fallback for the CUSTOMER-facing "from" address in some paths;
+  // just no longer used to address an email TO the admin).
+  notifyAdminPush(
+    `Order Baru${orderType === "collaborator" ? " (Kolaborator)" : ""}: ${orderCode}`,
+    `${name} — Rp${totalAmount.toLocaleString("id-ID")}`
+  );
 
   // Customer-facing counterpart to the admin notification above — order
   // confirmation + how much to pay + the Doku payment link. See
@@ -1025,7 +1066,7 @@ app.post("/api/payment/doku/notification", async (req, res) => {
       // a retried/duplicate notification for an already-settlement order
       // just observes alreadyConfirmed:true and does nothing more (no
       // double email, no double activation).
-      const outcome = await confirmOrderRecord(invoiceNumber);
+      const outcome = await confirmOrderRecord(invoiceNumber, "webhook");
       if (outcome.ok === false) {
         // Order genuinely doesn't exist — nothing a retry will fix either,
         // but still ack 200 so Doku doesn't keep hammering us over it.
@@ -1090,6 +1131,88 @@ async function runActivityLogCleanup() {
     // Best-effort by design — same footing as runReminderPushSweep: a
     // failed sweep must never crash the server or block the next tick.
     console.error("Activity log cleanup gagal (akan dicoba lagi tick berikutnya):", error.message);
+  }
+}
+
+// Task 5 (prompt-admin-console-perbaikan.md) — app_open_logs retention: a
+// plain DELETE on an indexed opened_at column (idx_app_open_logs_opened_at),
+// nothing per-row to inspect like the JSONB activity-log cleanup above, so a
+// single query is enough. Every 3 hours per the prompt, not daily — this
+// table can grow much faster (every app open/resume, not just user actions).
+const APP_OPEN_LOG_RETENTION_DAYS = 7;
+const APP_OPEN_LOG_CLEANUP_INTERVAL_MS = 3 * 60 * 60 * 1000;
+
+async function runAppOpenLogCleanup() {
+  try {
+    const result = await pool.query(
+      `DELETE FROM app_open_logs WHERE opened_at < now() - interval '${APP_OPEN_LOG_RETENTION_DAYS} days'`
+    );
+    if ((result.rowCount || 0) > 0) {
+      console.log(`App-open log cleanup: menghapus ${result.rowCount} baris lebih dari ${APP_OPEN_LOG_RETENTION_DAYS} hari.`);
+    }
+  } catch (error: any) {
+    console.error("App-open log cleanup gagal (akan dicoba lagi tick berikutnya):", error.message);
+  }
+}
+
+// Task 3 + Task 4 (prompt-admin-console-perbaikan.md) — pending order
+// housekeeping: a 30-minute-ish "belum bayar?" nudge email for LICENSE
+// orders, and a proactive 2-hour auto-cancel for ANY still-unpaid order.
+// Run on the same tick, per the prompt's own suggestion ("bisa digabung
+// dengan job Task 3/4").
+const ORDER_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
+// Widened to a 30-40 minute window rather than the prompt's literal
+// "30-35" — a 5-minute sweep tick landing exactly inside a 5-minute-wide
+// window is fragile against any tick delay/jitter on a long-running
+// process. follow_up_sent_at already guarantees no double-send regardless
+// of window width, so the extra margin costs nothing.
+async function runOrderFollowUpSweep() {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM orders
+       WHERE status = 'pending' AND order_type = 'license' AND follow_up_sent_at IS NULL
+         AND created_at <= now() - interval '30 minutes'
+         AND created_at > now() - interval '40 minutes'`
+    );
+    for (const order of result.rows) {
+      sendOrderFollowUpEmail(order);
+      await pool.query(`UPDATE orders SET follow_up_sent_at = now() WHERE id = $1`, [order.id]);
+      notifyAdminPush(`Follow-up Terkirim: ${order.order_code}`, `Ke ${order.email}`);
+    }
+  } catch (error: any) {
+    console.error("Order follow-up sweep gagal (akan dicoba lagi tick berikutnya):", error.message);
+  }
+}
+
+// Distinct from (and firing well before) the existing LAZY 24-hour expiry in
+// GET /api/payment/status/:order_code — this is a proactive sweep so a push
+// notification actually has a "moment" to fire on, which the lazy path (only
+// checked when someone happens to poll) doesn't reliably have. Reuses the
+// SAME 'expired' status as that lazy path (Task 0 found no separate enum
+// value for "proactively timed out" vs "customer polled past deadline" —
+// 'cancelled' is reserved for the admin's own explicit Cancel button), and
+// is NOT scoped to order_type like Task 3's follow-up is — the prompt places
+// no such restriction on the auto-cancel. The UPDATE...WHERE is atomic: a
+// Doku webhook confirming this exact order at nearly the same instant either
+// wins the race (status already isn't 'pending' by the time this runs, 0
+// rows touched) or loses it (confirmOrderRecord's own `status != 'settlement'`
+// guard then no-ops) — a read-then-write here could double-apply, this can't.
+async function runOrderAutoCancelSweep() {
+  try {
+    const result = await pool.query(
+      `UPDATE orders SET status = 'expired'
+       WHERE status = 'pending' AND created_at <= now() - interval '2 hours'
+       RETURNING order_code, name, email, created_at`
+    );
+    for (const order of result.rows) {
+      notifyAdminPush(
+        `Order Dibatalkan Otomatis: ${order.order_code}`,
+        `${order.name || order.email} — dibuat ${new Date(order.created_at).toLocaleString("id-ID")}, 2 jam tanpa pembayaran`
+      );
+    }
+  } catch (error: any) {
+    console.error("Order auto-cancel sweep gagal (akan dicoba lagi tick berikutnya):", error.message);
   }
 }
 
@@ -1320,6 +1443,60 @@ app.post("/api/track/pageview", (req, res) => {
   })();
 });
 
+// Task 5 (prompt-admin-console-perbaikan.md) — "kapan & dari kota mana akun
+// ini membuka aplikasi", for the Admin Console's per-user history. Silent by
+// design (constraint: no browser geolocation permission prompt of any kind)
+// — purely server-side IP resolution, same ip-api.com service and
+// CF-Connecting-IP-first resolution as the landing-page analytics above,
+// just also asking for regionName (province) which that endpoint doesn't
+// need. Responds immediately, same fire-and-forget-after-response shape as
+// /api/track/pageview, so a slow/failed geo lookup can never delay the app
+// actually loading for the user who triggered it.
+app.post("/api/app-open", requireSession, (req, res) => {
+  res.json({ success: true });
+  const userId = (req as any).user.id;
+
+  (async () => {
+    try {
+      const ip = resolveVisitorIp(req);
+      let city: string | null = null;
+      let region: string | null = null;
+      if (isPrivateOrLocalIp(ip)) {
+        city = "Lokal/Dev";
+      } else {
+        try {
+          const geoController = new AbortController();
+          const geoTimeout = setTimeout(() => geoController.abort(), 3000);
+          const geoRes = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,city,regionName`, {
+            signal: geoController.signal,
+          });
+          clearTimeout(geoTimeout);
+          if (geoRes.ok) {
+            const geo: any = await geoRes.json();
+            if (geo.status === "success") {
+              city = geo.city || null;
+              region = geo.regionName || null;
+            } else {
+              console.warn(`Lookup geolokasi app-open gagal — ip-api.com: ${geo.message || geo.status} untuk IP ${ip}`);
+            }
+          } else {
+            console.warn(`Lookup geolokasi app-open gagal — ip-api.com merespons HTTP ${geoRes.status} untuk IP ${ip}`);
+          }
+        } catch (geoErr: any) {
+          console.warn(`Lookup geolokasi app-open gagal (timeout/exception) untuk IP ${ip}:`, geoErr.message);
+        }
+      }
+
+      await pool.query(
+        `INSERT INTO app_open_logs (user_id, city, region) VALUES ($1, $2, $3)`,
+        [userId, city, region]
+      );
+    } catch (error: any) {
+      console.error("Gagal mencatat app-open log:", error.message);
+    }
+  })();
+});
+
 // Aggregated + detail landing-page analytics for the Admin Console's
 // Analytics tab. `from`/`to` are optional YYYY-MM-DD query params (default:
 // last 30 days). "Unique visitor" = distinct (ip, day) pairs — a simple,
@@ -1437,28 +1614,12 @@ app.post("/api/support/submit", async (req, res) => {
 
     res.json({ success: true });
 
-    // Best-effort, fired-and-forgotten (not awaited) — same reasoning as the
-    // order-notification email: the visitor already got their success
-    // response, they shouldn't wait on an SMTP round-trip too.
-    const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || process.env.EMAIL_FROM;
-    if (adminEmail) {
-      sendEmail(
-        adminEmail,
-        `[KantongKu] Pesan Support baru — ${category}`,
-        `<h2>Pesan Support Baru</h2>
-         <p><b>Nama:</b> ${name}</p>
-         <p><b>Email:</b> ${email}</p>
-         <p><b>Kategori:</b> ${category}</p>
-         <p><b>Pesan:</b></p>
-         <p>${String(message).replace(/\n/g, "<br/>")}</p>
-         <p><a href="${process.env.APP_URL}/admin">Buka Admin Console</a></p>`,
-        `Pesan support baru (${category})\nNama: ${name}\nEmail: ${email}\nPesan: ${message}\nAdmin Console: ${process.env.APP_URL}/admin`
-      ).catch((err: any) => {
-        console.error("Gagal mengirim email notifikasi pesan support:", err.message);
-      });
-    } else {
-      console.warn("ADMIN_NOTIFY_EMAIL (dan EMAIL_FROM) belum diset — notifikasi pesan support dilewati.");
-    }
+    // Task 2 (prompt-admin-console-perbaikan.md): no more email to
+    // ADMIN_NOTIFY_EMAIL for an incoming support message — Task 7's admin
+    // push list is a specific enumerated set of 4 events (new order,
+    // auto-confirm, auto-cancel, follow-up sent) that deliberately does NOT
+    // include "support message received", so this simply stops the email
+    // with no replacement channel; admin sees it in the Support tab.
   } catch (error: any) {
     console.error("Gagal menyimpan pesan support:", error);
     res.status(500).json({ error: error.message || "Gagal mengirim pesan" });
@@ -1661,6 +1822,62 @@ function sendOrderPendingPaymentEmail(order: {
   });
 }
 
+// Task 3 (prompt-admin-console-perbaikan.md) — one-shot 30-minute "belum
+// selesai" nudge for a still-pending LICENSE order (see runOrderFollowUpSweep
+// for the actual scheduling). Subject/body are the exact copy given in the
+// prompt — do not reword without instruction. [Link Pembayaran] uses the
+// order's own doku_payment_url while it's still within its `expires_at`
+// window (same link Doku Checkout already gave the customer — reusable
+// until paid or expired, see the comment on doku_payment_url in
+// db/schema.sql); once that window has passed, there's no live link to
+// reuse, so it points back to the landing page to start a fresh order
+// instead. (The prompt calls this column "doku_expired_at" — Task 0
+// verification found no such column; `expires_at`, already on every order
+// for exactly this purpose, is what that name meant.)
+function sendOrderFollowUpEmail(order: {
+  name: string;
+  email: string;
+  order_code: string;
+  doku_payment_url: string | null;
+  expires_at: string | Date;
+}) {
+  const stillValid = order.doku_payment_url && new Date(order.expires_at).getTime() > Date.now();
+  const paymentUrl = stillValid ? order.doku_payment_url! : `${process.env.APP_URL || ""}/`;
+  const paymentLine = stillValid
+    ? `🔗 <a href="${paymentUrl}">${paymentUrl}</a>`
+    : `🔗 Link pembayaran order ini sudah kedaluwarsa — pesan ulang di sini: <a href="${paymentUrl}">${paymentUrl}</a>`;
+  const paymentLineText = stillValid
+    ? paymentUrl
+    : `Link pembayaran order ini sudah kedaluwarsa — pesan ulang di ${paymentUrl}`;
+  const supportUrl = `${process.env.APP_URL || ""}/support`;
+  const name = order.name || "";
+
+  sendEmail(
+    order.email,
+    "Pesananmu di KantongKu Belum Selesai, Yuk Lanjutkan 🚀",
+    `<p>Halo ${name},</p>
+     <p>Kami lihat kamu baru saja memesan KantongKu (kode order: <b>${order.order_code}</b>), tapi pembayarannya belum kami terima nih. Tenang, pesananmu masih kami tahan — tinggal selesaikan pembayarannya lewat link berikut:</p>
+     <p>${paymentLine}</p>
+     <p>Sekadar mengingatkan, dengan KantongKu kamu bisa:</p>
+     <ul>
+       <li>Catat transaksi secepat kilat cukup foto struk, rekam suara, atau ketik bebas — AI yang urus sisanya</li>
+       <li>Pisahkan uang bisnis, pribadi, dan titipan biar nggak kecampur lagi</li>
+       <li>Atur keuangan bareng pasangan/tim secara real-time</li>
+       <li>Dapat reminder otomatis + pelacakan cicilan/hutang</li>
+       <li>Tahu kondisi kesehatan keuanganmu lewat analisis AI</li>
+       <li>Sekali bayar Rp49.000, pakai selamanya — update fitur baru terus jalan gratis</li>
+     </ul>
+     <p>Kalau ada kendala pembayaran atau ada yang mau ditanyakan, jangan ragu hubungi kami:</p>
+     <p>📸 Instagram: <a href="https://instagram.com/marajotechid">@marajotechid</a><br/>
+        💬 Atau kirim pesan langsung lewat: <a href="${supportUrl}">${supportUrl}</a></p>
+     <p>Kami tunggu ya!</p>
+     <p>Tim KantongKu</p>`,
+    `Halo ${name},\n\nKami lihat kamu baru saja memesan KantongKu (kode order: ${order.order_code}), tapi pembayarannya belum kami terima nih. Tenang, pesananmu masih kami tahan — tinggal selesaikan pembayarannya lewat link berikut:\n\n${paymentLineText}\n\nSekadar mengingatkan, dengan KantongKu kamu bisa:\n- Catat transaksi secepat kilat cukup foto struk, rekam suara, atau ketik bebas — AI yang urus sisanya\n- Pisahkan uang bisnis, pribadi, dan titipan biar nggak kecampur lagi\n- Atur keuangan bareng pasangan/tim secara real-time\n- Dapat reminder otomatis + pelacakan cicilan/hutang\n- Tahu kondisi kesehatan keuanganmu lewat analisis AI\n- Sekali bayar Rp49.000, pakai selamanya — update fitur baru terus jalan gratis\n\nKalau ada kendala pembayaran atau ada yang mau ditanyakan, jangan ragu hubungi kami:\nInstagram: @marajotechid (https://instagram.com/marajotechid)\nAtau kirim pesan langsung lewat: ${supportUrl}\n\nKami tunggu ya!\n\nTim KantongKu`
+  ).catch((err: any) => {
+    console.error(`Gagal mengirim email follow-up untuk order ${order.order_code}:`, err.message);
+  });
+}
+
 // Task 6 — the actual "here's your login info" email to the paying customer.
 // Task 0 verification found this DIDN'T EXIST before this change: the only
 // customer-facing email anywhere in this codebase was the admin's manual
@@ -1704,7 +1921,11 @@ function sendOrderConfirmationEmail(order: any) {
 }
 
 async function confirmOrderRecord(
-  orderCode: string
+  orderCode: string,
+  // Task 7 (prompt-admin-console-perbaikan.md): admin push on auto-confirm
+  // must NOT fire when the admin manually clicked confirm themselves — this
+  // shared function is the only place that distinguishes the two callers.
+  source: "webhook" | "admin" = "admin"
 ): Promise<
   | { ok: true; order: any; alreadyConfirmed: boolean }
   | { ok: false; error: string; statusCode: number }
@@ -1722,7 +1943,7 @@ async function confirmOrderRecord(
     `UPDATE orders SET status = 'settlement', confirmed_at = now(), confirmed_by = $2
      WHERE order_code = $1 AND status != 'settlement'
      RETURNING *`,
-    [orderCode, "admin"]
+    [orderCode, source]
   );
   if (updateResult.rowCount === 0) {
     // Lost a race to a concurrent confirm (admin + webhook at nearly the same
@@ -1747,6 +1968,11 @@ async function confirmOrderRecord(
     // No Meta CAPI event here — an internal collaborator seat isn't part of
     // the ad-funnel "Lead" this event type represents.
     sendOrderConfirmationEmail(order);
+    // Task 7, item 2 — ONLY for auto-confirm via the Doku webhook, never for
+    // the admin's own manual confirm click (no notifying yourself).
+    if (source === "webhook") {
+      notifyAdminPush(`Order Dikonfirmasi Otomatis: ${orderCode}`, `Kolaborator — via Doku`);
+    }
     return { ok: true, order, alreadyConfirmed: false };
   }
 
@@ -1778,6 +2004,11 @@ async function confirmOrderRecord(
   });
 
   sendOrderConfirmationEmail(order);
+
+  // Task 7, item 2 — same "webhook only" rule as the collaborator branch above.
+  if (source === "webhook") {
+    notifyAdminPush(`Order Dikonfirmasi Otomatis: ${orderCode}`, `Rp${Number(order.total_amount).toLocaleString("id-ID")} — via Doku`);
+  }
 
   return { ok: true, order, alreadyConfirmed: false };
 }
@@ -1855,15 +2086,59 @@ app.delete("/api/admin/orders/:order_code", requireAdmin, async (req, res) => {
   }
 });
 
+// total_balance: SUM of pockets[].balance from this user's own JSONB blob —
+// deliberately summing POCKETS, not accounts, to match EXACTLY what the
+// client itself shows as "Total Saldo Seluruhnya" (HomeDashboard.tsx). A
+// paylater account never carries an `allocations` map (see types.ts), so it
+// never contributes to any pocket.balance and is automatically excluded
+// here too — summing accounts[].balance directly would have double-counted
+// real wallets AND wrongly included paylater's outstanding-bill balance.
+// last_open_city/last_open_at: most recent app_open_logs row (Task 5) —
+// the full history lives behind GET /api/admin/users/:id/app-open-logs
+// below, this is just the "at a glance" column in the users table.
 app.get("/api/admin/users", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, email, status, joined_at, activated_at, last_active_at FROM users ORDER BY joined_at DESC`
+      `SELECT u.id, u.email, u.status, u.joined_at, u.activated_at, u.last_active_at,
+              COALESCE((
+                SELECT SUM((p->>'balance')::numeric)
+                FROM jsonb_array_elements(COALESCE(uad.data->'pockets', '[]'::jsonb)) p
+              ), 0) AS total_balance,
+              lo.city AS last_open_city,
+              lo.region AS last_open_region,
+              lo.opened_at AS last_open_at
+       FROM users u
+       LEFT JOIN user_app_data uad ON uad.user_id = u.id
+       LEFT JOIN LATERAL (
+         SELECT city, region, opened_at FROM app_open_logs
+         WHERE user_id = u.id ORDER BY opened_at DESC LIMIT 1
+       ) lo ON true
+       ORDER BY u.joined_at DESC`
     );
     res.json(result.rows);
   } catch (error: any) {
     console.error("Gagal memuat daftar users:", error);
     res.status(500).json({ error: error.message || "Gagal memuat daftar users" });
+  }
+});
+
+// Full app-open history for one user (Task 5) — same read-only, requireAdmin-
+// only shape as the activity-log endpoint right below.
+app.get("/api/admin/users/:id/app-open-logs", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userResult = await pool.query(`SELECT id FROM users WHERE id = $1`, [id]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+    const result = await pool.query(
+      `SELECT city, region, opened_at FROM app_open_logs WHERE user_id = $1 ORDER BY opened_at DESC LIMIT 100`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error("Gagal memuat riwayat lokasi user:", error);
+    res.status(500).json({ error: error.message || "Gagal memuat riwayat lokasi user" });
   }
 });
 
@@ -3467,6 +3742,16 @@ async function setupVite() {
   // stale entries sitting for up to 24h before the first cleanup happens.
   runActivityLogCleanup();
   setInterval(runActivityLogCleanup, ACTIVITY_LOG_CLEANUP_INTERVAL_MS);
+
+  // prompt-admin-console-perbaikan.md Task 3/4 — pending-order follow-up
+  // email + 2-hour auto-cancel, same tick (see runOrderFollowUpSweep).
+  setInterval(runOrderFollowUpSweep, ORDER_SWEEP_INTERVAL_MS);
+  setInterval(runOrderAutoCancelSweep, ORDER_SWEEP_INTERVAL_MS);
+
+  // Task 5 — app_open_logs 7-day retention, run once immediately (same
+  // reasoning as the Activity Log sweep above) then every 3 hours.
+  runAppOpenLogCleanup();
+  setInterval(runAppOpenLogCleanup, APP_OPEN_LOG_CLEANUP_INTERVAL_MS);
 }
 
 setupVite();
