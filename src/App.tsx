@@ -757,20 +757,31 @@ export default function App() {
         alert(`Saldo di akun "${sourceAccount.name}" tidak cukup.\nSaldo tersedia: ${formatRupiah(sourceAccount.balance)}\nDibutuhkan: ${formatRupiah(newTransaction.amount)}`);
         return null;
       }
+
+      // Task: "wallet & kantong harus terintegrasi" — bug yang dilaporkan:
+      // wallet BCA sudah alokasikan 1jt ke kantong Bisnis, tapi transaksi
+      // Bisnis 100rb via wallet BRI (yang TIDAK punya alokasi ke Bisnis
+      // sama sekali) tetap diterima — pocket.balance ikut berkurang padahal
+      // BRI-nya sendiri tidak (dan tidak bisa, alokasinya 0) berkurang,
+      // datanya jadi tidak sinkron. Sekarang wallet yang dipakai WAJIB
+      // sudah punya alokasi ke kantong itu (>= nominal transaksi) —
+      // ditolak dengan info jelas kalau belum, mengarahkan ke Atur Alokasi
+      // Saldo di menu Wallet, bukan diam-diam membuat alokasi baru dari 0.
+      if (sourceAccount) {
+        const allocatedToPocket = (sourceAccount.allocations || {})[newTransaction.pocketId] || 0;
+        if (newTransaction.amount > allocatedToPocket) {
+          const pocketLabel = pockets.find(p => p.id === newTransaction.pocketId)?.name || newTransaction.pocketId;
+          alert(`Wallet "${sourceAccount.name}" tidak memiliki dana yang dialokasikan untuk kantong "${pocketLabel}".\nAlokasi saat ini: ${formatRupiah(allocatedToPocket)}\nDibutuhkan: ${formatRupiah(newTransaction.amount)}\n\nLakukan alokasi dana dari menu Wallet ("Atur Alokasi Saldo") terlebih dahulu.`);
+          return null;
+        }
+      }
     }
 
     const nextTransactions = [newTransaction, ...transactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
-    // Update pocket balance directly
     const delta = newTransaction.type === 'incoming' ? newTransaction.amount : -newTransaction.amount;
-    const nextPockets = pockets.map(p => {
-      if (p.id === newTransaction.pocketId) {
-        return { ...p, balance: Math.max(0, p.balance + delta) };
-      }
-      return p;
-    });
 
     // Update account balance and pocket allocation directly
     const nextAccounts = accounts.map(a => {
@@ -788,6 +799,19 @@ export default function App() {
       }
       return a;
     });
+
+    // Task: pocket.balance sekarang SELALU direkomputasi sebagai total
+    // sungguhan dari account.allocations di seluruh wallet (persis logika
+    // handleSaveAllocations di bawah), BUKAN delta terpisah seperti
+    // sebelumnya — itulah sumber drift-nya: dua mekanisme berbeda menjaga
+    // angka yang seharusnya sama, dan bisa saling tidak sinkron begitu ada
+    // wallet dengan alokasi 0 yang ke-clamp. Direkomputasi dari nextAccounts
+    // (bukan pockets lama), jadi pocket.balance tidak akan pernah bisa
+    // berbeda dari sum(allocations)-nya lagi.
+    const nextPockets = pockets.map(p => ({
+      ...p,
+      balance: nextAccounts.reduce((sum, a) => sum + (a.allocations?.[p.id] || 0), 0),
+    }));
 
     // Increment budget spending if it matches categories
     const nextBudgets = budgets.map((b) => {
@@ -971,16 +995,17 @@ export default function App() {
       return;
     }
 
-    const nextTransactions = transactions.filter(t => t.id !== id);
+    // Task (revisi Kantong Bersama, poin 9): transaksi ini hidup di blob
+    // SAYA SENDIRI (pemilik kantong), tapi bisa saja dibuat rekan lewat
+    // kantong bersama (inputBy = email rekan). "Transaksi yang dibuat Y
+    // hanya bisa dihapus Y" berlaku SIMETRIS — saya (pemilik) pun tidak
+    // boleh menghapus transaksi rekan sendiri lewat jalur biasa ini.
+    if (target.inputBy && currentUser?.email && target.inputBy !== currentUser.email) {
+      alert(`Transaksi ini dibuat oleh ${target.inputBy} — hanya yang bersangkutan yang bisa menghapusnya.`);
+      return;
+    }
 
-    // Revert pocket balance
-    const nextPockets = pockets.map(p => {
-      if (p.id === target.pocketId) {
-        const delta = target.type === 'incoming' ? -target.amount : target.amount;
-        return { ...p, balance: Math.max(0, p.balance + delta) };
-      }
-      return p;
-    });
+    const nextTransactions = transactions.filter(t => t.id !== id);
 
     // Revert account balance and pocket allocation
     const nextAccounts = accounts.map(a => {
@@ -999,6 +1024,13 @@ export default function App() {
       }
       return a;
     });
+
+    // pocket.balance direkomputasi dari nextAccounts — lihat komentar sama
+    // di handleAddTransaction.
+    const nextPockets = pockets.map(p => ({
+      ...p,
+      balance: nextAccounts.reduce((sum, a) => sum + (a.allocations?.[p.id] || 0), 0),
+    }));
 
     // Rollback budget spent counters
     const nextBudgets = budgets.map((b) => {
@@ -1058,15 +1090,15 @@ export default function App() {
       return true;
     }
 
-    // 1. Revert original transaction balance changes
-    let nextPockets = pockets.map(p => {
-      if (p.id === originalTrans.pocketId) {
-        const delta = originalTrans.type === 'incoming' ? -originalTrans.amount : originalTrans.amount;
-        return { ...p, balance: Math.max(0, p.balance + delta) };
-      }
-      return p;
-    });
+    // Task (revisi Kantong Bersama, poin 9): sama seperti handleDeleteTransaction
+    // di atas — simetris, pemilik kantong pun tidak boleh mengedit transaksi
+    // yang dibuat rekannya sendiri.
+    if (originalTrans.inputBy && currentUser?.email && originalTrans.inputBy !== currentUser.email) {
+      alert(`Transaksi ini dibuat oleh ${originalTrans.inputBy} — hanya yang bersangkutan yang bisa mengeditnya.`);
+      return false;
+    }
 
+    // 1. Revert original transaction balance changes
     let nextAccounts = accounts.map(a => {
       if (a.id === originalTrans.accountId) {
         const delta = originalTrans.type === 'incoming' ? -originalTrans.amount : originalTrans.amount;
@@ -1094,17 +1126,20 @@ export default function App() {
         alert(`Saldo di akun "${targetAccountAfterRevert.name}" tidak cukup untuk perubahan ini.\nSaldo tersedia: ${formatRupiah(targetAccountAfterRevert.balance)}\nDibutuhkan: ${formatRupiah(editedTrans.amount)}`);
         return false;
       }
+      // Task: sama seperti handleAddTransaction — wallet tujuan wajib
+      // sudah punya alokasi ke kantong tujuan (dicek terhadap alokasi yang
+      // SUDAH di-revert, bukan alokasi saat ini).
+      if (targetAccountAfterRevert) {
+        const allocatedToPocket = (targetAccountAfterRevert.allocations || {})[editedTrans.pocketId] || 0;
+        if (editedTrans.amount > allocatedToPocket) {
+          const pocketLabel = pockets.find(p => p.id === editedTrans.pocketId)?.name || editedTrans.pocketId;
+          alert(`Wallet "${targetAccountAfterRevert.name}" tidak memiliki dana yang dialokasikan untuk kantong "${pocketLabel}".\nAlokasi saat ini: ${formatRupiah(allocatedToPocket)}\nDibutuhkan: ${formatRupiah(editedTrans.amount)}\n\nLakukan alokasi dana dari menu Wallet ("Atur Alokasi Saldo") terlebih dahulu.`);
+          return false;
+        }
+      }
     }
 
     // 2. Apply edited transaction balance changes
-    nextPockets = nextPockets.map(p => {
-      if (p.id === editedTrans.pocketId) {
-        const delta = editedTrans.type === 'incoming' ? editedTrans.amount : -editedTrans.amount;
-        return { ...p, balance: Math.max(0, p.balance + delta) };
-      }
-      return p;
-    });
-
     nextAccounts = nextAccounts.map(a => {
       if (a.id === editedTrans.accountId) {
         const delta = editedTrans.type === 'incoming' ? editedTrans.amount : -editedTrans.amount;
@@ -1121,6 +1156,13 @@ export default function App() {
       }
       return a;
     });
+
+    // pocket.balance direkomputasi dari nextAccounts — lihat komentar sama
+    // di handleAddTransaction.
+    const nextPockets = pockets.map(p => ({
+      ...p,
+      balance: nextAccounts.reduce((sum, a) => sum + (a.allocations?.[p.id] || 0), 0),
+    }));
 
     // Update the transaction in the list
     const nextTransactions = transactions.map(t => t.id === editedTrans.id ? editedTrans : t).sort(
@@ -1788,7 +1830,7 @@ export default function App() {
     }
   };
 
-  const handleEditSharedPocketTransaction = async (shareId: string, transaction: Transaction) => {
+  const handleEditSharedPocketTransaction = async (shareId: string, transaction: Transaction): Promise<boolean> => {
     try {
       const res = await fetch(`/api/pocket-shares/${shareId}/transactions/${transaction.id}`, {
         method: 'PATCH',
@@ -1796,10 +1838,44 @@ export default function App() {
         credentials: 'include',
         body: JSON.stringify(transaction),
       });
-      if (res.ok) await loadSessionAndData();
-      else console.error('Gagal mengubah transaksi kantong bersama:', (await res.json().catch(() => ({}))).error);
-    } catch (err) {
-      console.error('Gagal mengubah transaksi kantong bersama:', err);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Task: surface alasan penolakan (kontribusi tidak cukup / bukan
+        // pembuat transaksi ini) ke user, sama seperti handleEditTransaction
+        // biasa — bukan cuma di-console.error diam-diam.
+        alert(data.error || 'Gagal mengubah transaksi kantong bersama');
+        return false;
+      }
+      await loadSessionAndData();
+      return true;
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengubah transaksi kantong bersama');
+      return false;
+    }
+  };
+
+  // Task (revisi Kantong Bersama, poin 9): saya (invitee) menyetor dana dari
+  // salah satu wallet SAYA SENDIRI ke kantong bersama ini — wajib dilakukan
+  // sebelum bisa mencatat transaksi di sana (lihat POST .../transactions di
+  // server.ts, yang sekarang menolak accountId milik owner sama sekali).
+  const handleContributeToSharedPocket = async (
+    shareId: string,
+    accountId: string,
+    amount: number
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch(`/api/pocket-shares/${shareId}/my-allocation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ accountId, amount }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data.error || 'Gagal menyetor dana' };
+      await loadSessionAndData();
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err.message || 'Gagal menyetor dana' };
     }
   };
 
@@ -2466,6 +2542,7 @@ export default function App() {
             <SharedPocketsView
               pockets={pockets}
               sharedPockets={sharedPockets}
+              myAccounts={accounts}
               pendingInvitations={pendingInvitations}
               myShares={myShares}
               onBack={() => setActiveTab(returnTab)}
@@ -2474,6 +2551,7 @@ export default function App() {
               onDeclineInvitation={handleDeclinePocketInvitation}
               onDisconnectShare={handleDisconnectPocketShare}
               onDeleteShare={handleDeletePocketShare}
+              onContribute={handleContributeToSharedPocket}
             />
           )}
 

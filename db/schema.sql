@@ -309,6 +309,19 @@ CREATE TABLE IF NOT EXISTS pocket_shares (
 CREATE INDEX IF NOT EXISTS idx_pocket_shares_invited_email_active ON pocket_shares(invited_email) WHERE status IN ('pending', 'active');
 CREATE INDEX IF NOT EXISTS idx_pocket_shares_owner ON pocket_shares(owner_user_id);
 
+-- v13: invitee-funded allocation for shared pockets (revisi "logic Kantong
+-- Bersama yang salah" — sebelumnya SETIAP transaksi yang dibuat invitee di
+-- kantong bersama selalu mendebit wallet OWNER, walau invitee sendiri sama
+-- sekali tidak punya alokasi dana ke kantong itu). Sekarang invitee wajib
+-- "menyetor" dana dari salah satu wallet MEREKA SENDIRI ke kantong bersama
+-- ini dulu (lihat POST /api/pocket-shares/:id/my-allocation di server.ts)
+-- sebelum bisa mencatat transaksi pengeluaran di sana — invitee_allocated_amount
+-- adalah saldo SISA setoran itu (berjalan naik/turun seiring setor/transaksi),
+-- invitee_account_id sekadar dicatat supaya saat diputus, sisa setorannya
+-- tahu harus dikembalikan ke wallet invitee yang mana.
+ALTER TABLE pocket_shares ADD COLUMN IF NOT EXISTS invitee_account_id TEXT;
+ALTER TABLE pocket_shares ADD COLUMN IF NOT EXISTS invitee_allocated_amount NUMERIC NOT NULL DEFAULT 0;
+
 -- v9: Web Push subscriptions (cicilan-ai-notifikasi Task 5). Kept as its own
 -- relational table (unlike Debt/DebtPayment, which the same prompt chose to
 -- store inside user_app_data — see the comment on those types in

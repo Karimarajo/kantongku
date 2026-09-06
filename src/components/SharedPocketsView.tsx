@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Pocket, PocketShare, SharedPocketBundle } from '../types';
+import { Account, Pocket, PocketShare, SharedPocketBundle } from '../types';
 import { formatRupiah } from '../utils';
-import { ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2, Trash2, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2, Trash2, RotateCcw, Wallet as WalletIcon, ChevronDown } from 'lucide-react';
 
 interface SharedPocketsViewProps {
   pockets: Pocket[]; // my own pockets, to share OUT and to resolve names for myShares
   sharedPockets: SharedPocketBundle[]; // pockets shared TO me
+  myAccounts: Account[]; // MY OWN wallets — sumber setor dana ke kantong bersama (poin 9)
   pendingInvitations: any[]; // invitations addressed to me (server-joined with pocket_name/owner_name)
   myShares: PocketShare[]; // shares I've created, across all my pockets
   onBack: () => void;
@@ -17,6 +18,10 @@ interface SharedPocketsViewProps {
   // netap selamanya di daftar — sekarang bisa dihapus permanen (riwayatnya
   // dibersihkan) atau disambungkan kembali (undang ulang ke email yang sama).
   onDeleteShare: (id: string) => void;
+  // Task (revisi Kantong Bersama, poin 9): setor dana dari wallet SAYA
+  // SENDIRI ke kantong bersama ini — wajib sebelum bisa mencatat transaksi
+  // pengeluaran di sana (lihat AddTransactionModal.tsx).
+  onContribute: (shareId: string, accountId: string, amount: number) => Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 // Pure management screen: accept/decline invitations, and share/manage my
@@ -28,6 +33,7 @@ interface SharedPocketsViewProps {
 export default function SharedPocketsView({
   pockets,
   sharedPockets,
+  myAccounts,
   pendingInvitations,
   myShares,
   onBack,
@@ -36,6 +42,7 @@ export default function SharedPocketsView({
   onDeclineInvitation,
   onDisconnectShare,
   onDeleteShare,
+  onContribute,
 }: SharedPocketsViewProps) {
   const [invitePocketId, setInvitePocketId] = useState(pockets[0]?.id || '');
   const [inviteEmail, setInviteEmail] = useState('');
@@ -44,11 +51,39 @@ export default function SharedPocketsView({
   // Baris mana (per share.id) yang lagi diproses "Sambungkan Kembali" —
   // dipakai untuk nonaktifkan tombolnya sementara request jalan.
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
+  // Form "Setor Dana" (poin 9) — dibuka per-shareId, satu saja aktif dalam
+  // satu waktu (cukup untuk kebutuhan sekarang, tidak perlu state per-baris).
+  const [contribShareId, setContribShareId] = useState<string | null>(null);
+  const [contribAccountId, setContribAccountId] = useState('');
+  const [contribAmount, setContribAmount] = useState<number>(0);
+  const [contribError, setContribError] = useState('');
+  const [contribLoading, setContribLoading] = useState(false);
 
   const handleReconnect = async (share: PocketShare) => {
     setReconnectingId(share.id);
     await onInvite(share.pocket_id, share.invited_email);
     setReconnectingId(null);
+  };
+
+  const openContribForm = (shareId: string) => {
+    setContribShareId(shareId);
+    setContribAccountId(myAccounts[0]?.id || '');
+    setContribAmount(0);
+    setContribError('');
+  };
+
+  const handleContribSubmit = async (e: React.FormEvent, shareId: string) => {
+    e.preventDefault();
+    if (!contribAccountId || contribAmount <= 0) return;
+    setContribError('');
+    setContribLoading(true);
+    const result = await onContribute(shareId, contribAccountId, contribAmount);
+    setContribLoading(false);
+    if (!result.ok) {
+      setContribError((result as { ok: false; error: string }).error);
+      return;
+    }
+    setContribShareId(null);
   };
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
@@ -107,20 +142,71 @@ export default function SharedPocketsView({
         ) : (
           <>
             <p className="text-[11px] text-on-surface-variant/60 -mt-1">Buka tab Home untuk lihat transaksi dan mencatat transaksi baru — kantong ini muncul di sana bersama kantong Anda sendiri.</p>
-            {sharedPockets.map((bundle) => (
-              <div key={bundle.shareId} className="flex items-center justify-between p-3 rounded-xl glass-card border border-overlay/5">
-                <div>
-                  <p className="text-sm font-semibold text-on-surface">{bundle.pocket.name}</p>
-                  <p className="text-[11px] text-on-surface-variant/60">milik {bundle.ownerName}</p>
+            {sharedPockets.map((bundle) => {
+              // Task (revisi Kantong Bersama, poin 9): "kontribusi saya" =
+              // akun virtual contrib-<shareId> di dalam accounts milik OWNER
+              // yang ikut ter-expose lewat bundle ini — lihat komentar
+              // contribAccountId di server.ts untuk kenapa modelnya begini.
+              const myContribution = bundle.accounts.find(a => a.id === `contrib-${bundle.shareId}`)?.allocations?.[bundle.pocket.id] ?? 0;
+              const isContribOpen = contribShareId === bundle.shareId;
+              return (
+                <div key={bundle.shareId} className="flex flex-col gap-2 p-3 rounded-xl glass-card border border-overlay/5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-on-surface">{bundle.pocket.name}</p>
+                      <p className="text-[11px] text-on-surface-variant/60">milik {bundle.ownerName}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono-data text-primary">{formatRupiah(bundle.pocket.balance)}</span>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Yakin ingin keluar dari kantong "${bundle.pocket.name}"? Transaksi yang Anda buat di kantong ini akan dihapus, dan sisa kontribusi dana Anda (${formatRupiah(myContribution)}) akan dikembalikan ke wallet Anda.`)) {
+                            onDisconnectShare(bundle.shareId);
+                          }
+                        }}
+                        title="Keluar dari kantong"
+                        className="w-8 h-8 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 flex items-center justify-center"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Kontribusi saya + tombol Setor Dana */}
+                  <div className="flex items-center justify-between text-[11px] bg-indigo-500/5 border border-indigo-500/10 rounded-lg px-2.5 py-2">
+                    <span className="text-on-surface-variant">Kontribusi saya: <b className="text-on-surface font-mono-data">{formatRupiah(myContribution)}</b></span>
+                    <button
+                      type="button"
+                      onClick={() => (isContribOpen ? setContribShareId(null) : openContribForm(bundle.shareId))}
+                      className="flex items-center gap-1 text-primary font-semibold hover:underline"
+                    >
+                      Setor Dana <ChevronDown className={`w-3 h-3 transition-transform ${isContribOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {isContribOpen && (
+                    <form onSubmit={(e) => handleContribSubmit(e, bundle.shareId)} className="flex flex-col gap-2 p-2.5 rounded-lg bg-overlay/5 border border-overlay/10">
+                      <label className="text-[10px] text-on-surface-variant uppercase font-label-caps flex items-center gap-1"><WalletIcon className="w-3 h-3" /> Dari Wallet Saya</label>
+                      <select value={contribAccountId} onChange={(e) => setContribAccountId(e.target.value)} className="h-9 bg-overlay/5 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface">
+                        {myAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatRupiah(a.balance)})</option>)}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        value={contribAmount || ''}
+                        onChange={(e) => setContribAmount(Number(e.target.value) || 0)}
+                        placeholder="Nominal setoran"
+                        className="h-9 bg-overlay/5 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface"
+                      />
+                      {contribError && <span className="text-[10px] text-rose-400">{contribError}</span>}
+                      <button type="submit" disabled={contribLoading || myAccounts.length === 0} className="h-9 rounded-lg bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
+                        {contribLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Setor'}
+                      </button>
+                    </form>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-mono-data text-primary">{formatRupiah(bundle.pocket.balance)}</span>
-                  <button onClick={() => onDisconnectShare(bundle.shareId)} title="Keluar dari kantong" className="w-8 h-8 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 flex items-center justify-center">
-                    <LogOut className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
       </section>
@@ -188,7 +274,15 @@ export default function SharedPocketsView({
                       </button>
                     </>
                   ) : (
-                    <button onClick={() => onDisconnectShare(share.id)} title="Putuskan" className="w-7 h-7 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all">
+                    <button
+                      onClick={() => {
+                        if (confirm(`Yakin memutus ${share.invited_email} dari kantong "${pocketName(share.pocket_id)}"? Transaksi yang mereka buat di kantong ini akan dihapus, dan sisa kontribusi dana mereka akan dikembalikan ke wallet mereka.`)) {
+                          onDisconnectShare(share.id);
+                        }
+                      }}
+                      title="Putuskan"
+                      className="w-7 h-7 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all"
+                    >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
