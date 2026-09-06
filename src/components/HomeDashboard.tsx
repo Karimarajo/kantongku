@@ -3,6 +3,7 @@ import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budg
 import type { AppSettings } from './ProfileView';
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
+import { t } from '../i18n';
 import { useHorizontalDragScroll } from '../hooks/useHorizontalDragScroll';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import CategoryIcon from './CategoryIcon';
@@ -342,17 +343,23 @@ export default function HomeDashboard({
     // Pengeluaran"), lewat onOpenAddModal yang sudah di-passing dari
     // App.tsx untuk tombol itu juga. id tetap 'add-dana' supaya urutan
     // Aksi Cepat yang sudah di-custom user tidak berubah posisinya.
-    { id: 'add-dana', label: 'Add Transaksi', icon: Plus, onClick: onOpenAddModal },
-    { id: 'transfer', label: 'Transfer', icon: Send, onClick: () => setTransferModalOpen(true) },
-    { id: 'target-limit', label: 'Target & Limit', icon: Receipt, onClick: onOpenBudgetModal },
-    { id: 'pengingat', label: 'Pengingat', icon: AlarmClock, onClick: onOpenReminderModal },
-    { id: 'kelola-kantong', label: 'Kelola Kantong', icon: Sliders, onClick: onOpenPocketManager },
-    { id: 'kantong-bersama', label: 'Kantong Bersama', icon: Users, onClick: () => onChangeTab('shared-pockets') },
-    { id: 'kelola-kategori', label: 'Kelola Kategori', icon: Tag, onClick: onOpenCategoryManager },
-    { id: 'riwayat-transaksi', label: 'Riwayat Transaksi', icon: Receipt, onClick: onOpenHistory },
-    { id: 'cicilan-hutang', label: 'Cicilan/Hutang', icon: CreditCard, onClick: () => onChangeTab('debts') },
+    { id: 'add-dana', label: t('Add Transaksi'), icon: Plus, onClick: onOpenAddModal },
+    { id: 'transfer', label: t('Transfer'), icon: Send, onClick: () => setTransferModalOpen(true) },
+    { id: 'target-limit', label: t('Target & Limit'), icon: Receipt, onClick: onOpenBudgetModal },
+    { id: 'pengingat', label: t('Pengingat'), icon: AlarmClock, onClick: onOpenReminderModal },
+    { id: 'kelola-kantong', label: t('Kelola Kantong'), icon: Sliders, onClick: onOpenPocketManager },
+    { id: 'kantong-bersama', label: t('Kantong Bersama'), icon: Users, onClick: () => onChangeTab('shared-pockets') },
+    { id: 'kelola-kategori', label: t('Kelola Kategori'), icon: Tag, onClick: onOpenCategoryManager },
+    { id: 'riwayat-transaksi', label: t('Riwayat Transaksi'), icon: Receipt, onClick: onOpenHistory },
+    { id: 'cicilan-hutang', label: t('Cicilan/Hutang'), icon: CreditCard, onClick: () => onChangeTab('debts') },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], []);
+    // Task (revisi, poin 11): appSettings.language ditambahkan ke deps
+    // (selain deps lain yang sengaja tetap di-skip via eslint-disable di
+    // atas) supaya label ikut update saat toggle bahasa — tanpa ini,
+    // useMemo([]) sebelumnya bikin label "beku" di bahasa saat render
+    // pertama selamanya, tidak pernah ikut berganti walau appSettings
+    // berubah.
+  ], [appSettings.language]);
 
   // Urutan tersimpan (appSettings.quickActionOrder) diikuti; id yang belum
   // pernah tersimpan (aksi baru) ditambahkan di akhir; id tersimpan yang
@@ -388,10 +395,10 @@ export default function HomeDashboard({
           </div>
           <div>
             <p className="font-label-caps text-[10px] text-on-surface-variant/60 uppercase tracking-widest">
-              Welcome back,
+              {t('Welcome back,')}
             </p>
             <h1 className="font-headline-sm text-on-surface text-base font-semibold leading-tight">
-              Halo, {userProfile.name}
+              {t('Halo,')} {userProfile.name}
             </h1>
           </div>
         </div>
@@ -418,13 +425,13 @@ export default function HomeDashboard({
           {isNotifOpen && (
             <div className="absolute right-0 mt-3 w-80 glass-card rounded-xl p-4 z-50 border border-overlay/10 shadow-2xl flex flex-col gap-3">
               <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
-                <span className="font-label-caps text-xs text-primary uppercase">Notifikasi</span>
-                <span className="text-[10px] text-on-surface-variant font-mono-data">{unreadNotifCount} baru</span>
+                <span className="font-label-caps text-xs text-primary uppercase">{t('Notifikasi')}</span>
+                <span className="text-[10px] text-on-surface-variant font-mono-data">{unreadNotifCount} {t('baru')}</span>
               </div>
               <PushNotificationToggle />
               <div className="flex flex-col gap-2 max-h-60 overflow-y-auto no-scrollbar">
                 {notifications.length === 0 ? (
-                  <p className="text-xs text-on-surface-variant/40 py-4 text-center">Tidak ada notifikasi baru</p>
+                  <p className="text-xs text-on-surface-variant/40 py-4 text-center">{t('Tidak ada notifikasi baru')}</p>
                 ) : (
                   notifications.map(notif => (
                     <div
@@ -461,7 +468,7 @@ export default function HomeDashboard({
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
             <p className="font-label-caps text-on-surface-variant uppercase flex items-center gap-[12px]">
               <Wallet className="w-5 h-5 text-primary" />
-              Total Saldo Seluruhnya
+              {t("Total Saldo Seluruhnya")}
             </p>
             <h2 className="font-display-lg text-primary tracking-tight glow-text-primary text-2xl font-bold">
               {formatRupiah(totalBalance)}
@@ -482,7 +489,7 @@ export default function HomeDashboard({
                   0.0%
                 </span>
               )}
-              <span className="text-on-surface-variant text-xs">dari bulan lalu</span>
+              <span className="text-on-surface-variant text-xs">{t("dari bulan lalu")}</span>
             </div>
           </section>
 
@@ -496,12 +503,12 @@ export default function HomeDashboard({
                 <TrendingDown className="w-4 h-4 text-rose-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">Total Pengeluaran Bulan Ini</p>
+                <p className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">{t("Total Pengeluaran Bulan Ini")}</p>
                 <p className="font-mono-data text-on-surface font-bold text-base truncate">{formatRupiah(monthlyExpenseTotal)}</p>
               </div>
             </div>
             <span className="flex items-center gap-0.5 text-[11px] text-primary font-label-caps shrink-0 group-hover:underline">
-              Lihat Detail <ChevronRight className="w-3.5 h-3.5" />
+              {t("Lihat Detail")} <ChevronRight className="w-3.5 h-3.5" />
             </span>
           </button>
 
@@ -587,13 +594,13 @@ export default function HomeDashboard({
               saja) dan aksi destruktif (Reset Data/Hapus Akun). */}
           <section className="py-2">
             <div className="flex justify-between items-center mb-2.5">
-              <span className="font-label-caps text-[10px] text-on-surface-variant/60 uppercase tracking-wider">Aksi Cepat</span>
+              <span className="font-label-caps text-[10px] text-on-surface-variant/60 uppercase tracking-wider">{t('Aksi Cepat')}</span>
               <button
                 onClick={() => setIsOrderModalOpen(true)}
                 className="flex items-center gap-1 text-[10px] text-on-surface-variant/60 hover:text-primary transition-colors"
                 title="Atur urutan Aksi Cepat"
               >
-                <Settings2 className="w-3 h-3" /> Atur
+                <Settings2 className="w-3 h-3" /> {t('Atur')}
               </button>
             </div>
             <div className="grid grid-cols-5 gap-1.5 w-full">
@@ -618,7 +625,7 @@ export default function HomeDashboard({
                 onClick={() => setShowAllActions(v => !v)}
                 className="w-full text-center text-[11px] text-primary hover:underline mt-3"
               >
-                {showAllActions ? 'Sembunyikan' : `Lihat Semua (${orderedActions.length})`}
+                {showAllActions ? t('Sembunyikan') : `${t('Lihat Semua')} (${orderedActions.length})`}
               </button>
             )}
           </section>
@@ -640,13 +647,13 @@ export default function HomeDashboard({
             <section className="flex flex-col gap-3">
               <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
                 <h3 className="font-headline-sm text-lg text-on-surface flex items-center gap-1.5">
-                  <Target className="w-4 h-4 text-primary" /> Target &amp; Limit
+                  <Target className="w-4 h-4 text-primary" /> {t('Target & Limit')}
                 </h3>
                 <button
                   onClick={onOpenBudgetModal}
                   className="font-label-caps text-xs text-primary hover:opacity-80 transition-opacity shrink-0"
                 >
-                  Lihat Semua
+                  {t('Lihat Semua')}
                 </button>
               </div>
 
@@ -694,7 +701,7 @@ export default function HomeDashboard({
             <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
               <div className="flex items-center gap-2 max-w-[70%]">
                 <h3 className="font-headline-sm text-lg text-on-surface truncate">
-                  {selectedPocketId ? 'Aktivitas Kantong' : 'Aktivitas Terakhir'}
+                  {selectedPocketId ? t('Aktivitas Kantong') : t('Aktivitas Terakhir')}
                 </h3>
                 {selectedPocketId && (
                   <button
@@ -714,7 +721,7 @@ export default function HomeDashboard({
                 onClick={onOpenHistory}
                 className="font-label-caps text-xs text-primary hover:opacity-80 transition-opacity shrink-0"
               >
-                Lihat Semua
+                {t('Lihat Semua')}
               </button>
             </div>
 
