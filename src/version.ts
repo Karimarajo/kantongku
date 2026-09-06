@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '7.3';
+export const APP_VERSION = '7.4';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,13 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '7.4',
+    date: '6 September 2026',
+    changes: [
+      'Peningkatan sistem back-end & Admin Console (tidak ada perubahan tampilan untuk pengguna) — notifikasi order/pembayaran ke tim kami sekarang lebih cepat lewat push notification, follow-up otomatis untuk pembayaran yang belum selesai, dan Log Aktivitas kini menampilkan nominal lama/baru saat mengedit transaksi.',
+    ],
+  },
   {
     version: '7.3',
     date: '6 September 2026',

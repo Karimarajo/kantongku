@@ -423,6 +423,40 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [currentUser]);
 
+  // Task 5 (prompt-admin-console-perbaikan.md) — silent app-open ping for
+  // the Admin Console's per-user location/time history. Fires on mount AND
+  // every time the tab/PWA comes back from background (visibilitychange →
+  // 'visible', which by definition only fires on an actual hidden→visible
+  // transition) — the whole point is catching a PWA resume, not just a cold
+  // login. Debounced via sessionStorage (survives a reload within the same
+  // tab, unlike a plain module variable) so rapid tab-switching or an
+  // immediate reload right after opening doesn't spam a fresh row each time.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const APP_OPEN_DEBOUNCE_MS = 2 * 60 * 1000;
+    const pingAppOpen = () => {
+      try {
+        const last = Number(sessionStorage.getItem('kk_last_app_open_ping') || '0');
+        if (Date.now() - last < APP_OPEN_DEBOUNCE_MS) return;
+        sessionStorage.setItem('kk_last_app_open_ping', String(Date.now()));
+      } catch {
+        // sessionStorage unavailable (private-mode edge case) — fall through
+        // and send anyway; worst case a slightly noisier log, never worth
+        // failing this silent, best-effort ping over.
+      }
+      fetch('/api/app-open', { method: 'POST', credentials: 'include' }).catch(() => {});
+    };
+
+    pingAppOpen();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') pingAppOpen();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [currentUser]);
+
   // Expose global firebase simpanTransaksiKeFirebase function as requested by guidelines
   useEffect(() => {
     (window as any).simpanTransaksiKeFirebase = (jsonParsed: any) => {
@@ -1153,7 +1187,13 @@ export default function App() {
       const nextTransactions = transactions.map(t => t.id === finalEditedTrans.id ? finalEditedTrans : t).sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
-      const editLog = logActivity(`Mengedit transaksi paylater '${finalEditedTrans.title}'`, 'transaction', 'receipt');
+      // Task 6 (prompt-admin-console-perbaikan.md) — sertakan nominal
+      // lama→baru di Log Aktivitas kalau memang berubah, bukan sekadar
+      // "mengedit transaksi" yang tidak informatif.
+      const amountNoteP = originalTrans.amount !== editedTrans.amount
+        ? ` dari ${formatRupiah(originalTrans.amount)} menjadi ${formatRupiah(editedTrans.amount)}`
+        : '';
+      const editLog = logActivity(`Mengedit transaksi paylater '${finalEditedTrans.title}'${amountNoteP}`, 'transaction', 'receipt');
       updateStateAndStorage(nextTransactions, pockets, nextAccounts, budgets, notifications, undefined, undefined, editLog);
       setEditingTransaction(null);
       return true;
@@ -1327,7 +1367,12 @@ export default function App() {
       }
     });
 
-    const editLog = logActivity(`Mengedit transaksi '${editedTrans.title}'`, 'transaction', 'receipt');
+    // Task 6 (prompt-admin-console-perbaikan.md) — same nominal old→new
+    // note as the paylater edit path above.
+    const amountNote = originalTrans.amount !== editedTrans.amount
+      ? ` dari ${formatRupiah(originalTrans.amount)} menjadi ${formatRupiah(editedTrans.amount)}`
+      : '';
+    const editLog = logActivity(`Mengedit transaksi '${editedTrans.title}'${amountNote}`, 'transaction', 'receipt');
 
     // Task 3: if this transaction is a Cicilan/Hutang payment (created via
     // "Sudah Bayar", or a pre-existing one that already had transactionId
@@ -2197,7 +2242,12 @@ export default function App() {
       : reminders;
     setDebts(nextDebts);
     setReminders(nextReminders);
-    const nextLog = logActivity(`Mengedit cicilan/hutang '${input.name}'`, 'debt', 'wallet');
+    // Task 6 (prompt-admin-console-perbaikan.md) — sertakan nominal cicilan
+    // per bulan lama→baru kalau berubah, sama seperti edit transaksi.
+    const installmentNote = debt.monthlyInstallment !== input.monthlyInstallment
+      ? ` (cicilan/bulan dari ${formatRupiah(debt.monthlyInstallment)} menjadi ${formatRupiah(input.monthlyInstallment)})`
+      : '';
+    const nextLog = logActivity(`Mengedit cicilan/hutang '${input.name}'${installmentNote}`, 'debt', 'wallet');
     persistUserData({ debts: nextDebts, reminders: nextReminders, activityLog: nextLog });
   };
 

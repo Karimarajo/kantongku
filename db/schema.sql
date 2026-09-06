@@ -347,3 +347,46 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+
+-- v14: Admin Console overhaul (prompt-admin-console-perbaikan.md).
+--
+-- follow_up_sent_at: marks a pending `license` order that already got its
+-- 30-minute "belum selesai" follow-up email (Task 3), so the sweep never
+-- double-sends for the same order.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS follow_up_sent_at TIMESTAMPTZ;
+
+-- app_open_logs: "kapan & dari kota mana akun ini membuka aplikasi" (Task 5).
+-- Deliberately its own table, not user_app_data JSONB — same reasoning as
+-- push_subscriptions above (infra/session data, needs cheap bulk DELETE for
+-- the 7-day retention sweep, not a JSONB rewrite). `user_id` here is the
+-- LITERAL logged-in account (req.user.id), unlike push_subscriptions'
+-- owner-id convention — this is "who opened the app on which device", a
+-- per-person session fact, not data a collaborator should inherit from the
+-- owner. Only city + region ever stored (never lat/long) — see Task 5
+-- constraint against precise geolocation.
+CREATE TABLE IF NOT EXISTS app_open_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  city TEXT,
+  region TEXT,
+  opened_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_open_logs_user_id ON app_open_logs(user_id, opened_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_open_logs_opened_at ON app_open_logs(opened_at);
+
+-- admin_push_subscriptions: push targets for the Admin Console (Task 7) —
+-- a SEPARATE table from push_subscriptions, not a shared `is_admin` flag
+-- column, because admin auth (see requireAdmin in server.ts) is a single
+-- shared password behind a signed cookie with NO users-table row behind it
+-- at all — there is no user_id to satisfy push_subscriptions' NOT NULL FK.
+-- Any device that completes /api/admin/login and enables notifications gets
+-- a row here; all of them receive every admin push (there's no concept of
+-- "which admin" beyond "someone who knows the password").
+CREATE TABLE IF NOT EXISTS admin_push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BrandLogo from './BrandLogo';
 import { ActivityLogEntry } from '../types';
+import { isPushSupported as isAdminPushSupported, isAdminPushEnabled, enableAdminPushNotifications, disableAdminPushNotifications } from '../lib/adminPushNotifications';
 import {
   Lock,
   ArrowRight,
@@ -26,6 +27,8 @@ import {
   Tablet,
   X,
   Mail,
+  MapPin,
+  BellRing,
 } from 'lucide-react';
 
 interface Order {
@@ -67,6 +70,18 @@ interface AdminUser {
   joined_at: string;
   activated_at: string | null;
   last_active_at: string | null;
+  total_balance: string | number;
+  last_open_city: string | null;
+  last_open_region: string | null;
+  last_open_at: string | null;
+}
+
+// Task 5 (prompt-admin-console-perbaikan.md) — one row of the per-user
+// app-open history behind "Lihat Riwayat Lokasi".
+interface AppOpenLogEntry {
+  city: string | null;
+  region: string | null;
+  opened_at: string;
 }
 
 interface AdminCollaborator {
@@ -231,6 +246,15 @@ export default function AdminConsole() {
   const [activityLogLoading, setActivityLogLoading] = useState(false);
   const [activityLogError, setActivityLogError] = useState('');
 
+  // Per-user app-open location history modal (Task 5, prompt-admin-console-perbaikan.md)
+  const [openLogModal, setOpenLogModal] = useState<{ email: string; entries: AppOpenLogEntry[] } | null>(null);
+  const [openLogLoading, setOpenLogLoading] = useState(false);
+  const [openLogError, setOpenLogError] = useState('');
+
+  // Admin push notification toggle (Task 7, prompt-admin-console-perbaikan.md)
+  const [adminPushStatus, setAdminPushStatus] = useState<'checking' | 'unsupported' | 'off' | 'on' | 'loading'>('checking');
+  const [adminPushError, setAdminPushError] = useState('');
+
   const loadOrders = async () => {
     const res = await fetch('/api/admin/orders?status=pending', { credentials: 'include' });
     if (res.status === 401) {
@@ -355,6 +379,22 @@ export default function AdminConsole() {
     }
   };
 
+  const handleViewOpenLog = async (id: string, email: string) => {
+    setOpenLogError('');
+    setOpenLogLoading(true);
+    setOpenLogModal({ email, entries: [] });
+    try {
+      const res = await fetch(`/api/admin/users/${id}/app-open-logs`, { credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal memuat riwayat lokasi');
+      const entries: AppOpenLogEntry[] = await res.json();
+      setOpenLogModal({ email, entries });
+    } catch (err: any) {
+      setOpenLogError(err.message || 'Gagal memuat riwayat lokasi');
+    } finally {
+      setOpenLogLoading(false);
+    }
+  };
+
   const handleUpdateSupportStatus = async (id: string, status: SupportMessage['status']) => {
     setActionError('');
     setBusyId(id);
@@ -425,6 +465,33 @@ export default function AdminConsole() {
     if (tab === 'support') loadSupportMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, tab]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    if (!isAdminPushSupported()) {
+      setAdminPushStatus('unsupported');
+      return;
+    }
+    isAdminPushEnabled().then((enabled) => setAdminPushStatus(enabled ? 'on' : 'off'));
+  }, [authenticated]);
+
+  const handleToggleAdminPush = async () => {
+    setAdminPushError('');
+    if (adminPushStatus === 'on') {
+      setAdminPushStatus('loading');
+      await disableAdminPushNotifications();
+      setAdminPushStatus('off');
+      return;
+    }
+    setAdminPushStatus('loading');
+    const result = await enableAdminPushNotifications();
+    if (result.ok === true) {
+      setAdminPushStatus('on');
+    } else {
+      setAdminPushStatus('off');
+      setAdminPushError(result.error);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -649,13 +716,34 @@ export default function AdminConsole() {
             <BrandLogo className="w-9 h-9" glow={false} />
             <h1 className="font-headline-md text-xl font-bold text-primary">Admin Console</h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs uppercase font-label-caps tracking-wider text-rose-400 hover:text-rose-300 font-bold px-3 py-2 bg-rose-500/10 border border-rose-500/20 rounded-lg transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Logout
-          </button>
+          <div className="flex items-center gap-2">
+            {adminPushStatus !== 'unsupported' && adminPushStatus !== 'checking' && (
+              <button
+                onClick={handleToggleAdminPush}
+                disabled={adminPushStatus === 'loading'}
+                title={adminPushStatus === 'on' ? 'Notifikasi admin aktif — klik untuk nonaktifkan' : 'Aktifkan notifikasi admin'}
+                className={`flex items-center gap-1.5 text-xs uppercase font-label-caps tracking-wider font-bold px-3 py-2 rounded-lg transition-colors disabled:opacity-50 ${
+                  adminPushStatus === 'on'
+                    ? 'text-primary bg-primary/10 border border-primary/20'
+                    : 'text-on-surface-variant bg-white/5 border border-white/10 hover:text-white'
+                }`}
+              >
+                <BellRing className="w-3.5 h-3.5" /> {adminPushStatus === 'on' ? 'Notifikasi Aktif' : 'Aktifkan Notifikasi'}
+              </button>
+            )}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs uppercase font-label-caps tracking-wider text-rose-400 hover:text-rose-300 font-bold px-3 py-2 bg-rose-500/10 border border-rose-500/20 rounded-lg transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Logout
+            </button>
+          </div>
         </div>
+        {adminPushError && (
+          <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10 -mt-3">
+            {adminPushError}
+          </span>
+        )}
 
         <div className="flex gap-2 border-b border-white/10">
           <button
@@ -946,16 +1034,18 @@ export default function AdminConsole() {
                   <tr className="bg-surface-variant/40 text-left text-on-surface-variant text-xs uppercase font-label-caps tracking-wider">
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Saldo Total</th>
                     <th className="px-4 py-3">Bergabung</th>
                     <th className="px-4 py-3">Aktif Sejak</th>
                     <th className="px-4 py-3">Terakhir Aktif</th>
+                    <th className="px-4 py-3">Lokasi Terakhir</th>
                     <th className="px-4 py-3">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-on-surface-variant/60">
+                      <td colSpan={8} className="px-4 py-6 text-center text-on-surface-variant/60">
                         Belum ada akun.
                       </td>
                     </tr>
@@ -976,9 +1066,21 @@ export default function AdminConsole() {
                           {u.status}
                         </span>
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap font-mono-data text-white">{formatCurrency(u.total_balance)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.joined_at)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.activated_at)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.last_active_at)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">
+                        {u.last_open_city ? (
+                          <>
+                            {u.last_open_city}{u.last_open_region ? `, ${u.last_open_region}` : ''}
+                            <br />
+                            <span className="text-[10px] text-on-surface-variant/50">{formatDateTime(u.last_open_at)}</span>
+                          </>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <button
@@ -986,6 +1088,12 @@ export default function AdminConsole() {
                             className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors"
                           >
                             <History className="w-3.5 h-3.5" /> Lihat Log Aktivitas
+                          </button>
+                          <button
+                            onClick={() => handleViewOpenLog(u.id, u.email)}
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors"
+                          >
+                            <MapPin className="w-3.5 h-3.5" /> Lihat Riwayat Lokasi
                           </button>
                           <button
                             onClick={() => handleSendLoginLink(u.id)}
@@ -1374,6 +1482,40 @@ export default function AdminConsole() {
                   <div key={entry.id} className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col gap-0.5">
                     <p className="text-sm text-white leading-snug">{entry.message}</p>
                     <p className="text-[10px] text-on-surface-variant/50 font-mono">{formatDateTime(entry.timestamp)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {openLogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenLogModal(null)} />
+          <div className="relative bg-[#0F172A] border border-white/10 rounded-2xl p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto z-10 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-primary" />
+                <h3 className="text-white font-bold text-sm">Riwayat Lokasi — {openLogModal.email}</h3>
+              </div>
+              <button onClick={() => setOpenLogModal(null)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {openLogLoading ? (
+              <p className="text-sm text-on-surface-variant/60 py-6 text-center">Memuat...</p>
+            ) : openLogError ? (
+              <p className="text-sm text-rose-400 py-6 text-center">{openLogError}</p>
+            ) : openLogModal.entries.length === 0 ? (
+              <p className="text-sm text-on-surface-variant/60 py-6 text-center">Belum ada riwayat buka aplikasi tercatat untuk user ini.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {openLogModal.entries.map((entry, idx) => (
+                  <div key={idx} className="bg-white/5 border border-white/5 rounded-xl p-3 flex items-center justify-between gap-2">
+                    <span className="text-sm text-white">{entry.city || 'Tidak diketahui'}{entry.region ? `, ${entry.region}` : ''}</span>
+                    <span className="text-[10px] text-on-surface-variant/50 font-mono whitespace-nowrap">{formatDateTime(entry.opened_at)}</span>
                   </div>
                 ))}
               </div>
