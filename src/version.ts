@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '7.2';
+export const APP_VERSION = '7.3';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,14 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '7.3',
+    date: '6 September 2026',
+    changes: [
+      'Selesai (tahap akhir): toggle Bahasa ID/EN kini mencakup hampir seluruh aplikasi — Wallet, Riwayat Transaksi, Kantong Bersama, Cicilan/Hutang, Target & Limit, Reminder, Kelola Kategori/Kantong, Detail Pengeluaran Bulanan, Log Aktivitas, Urutan Aksi Cepat, grafik Tren Mingguan & Analisis Kesehatan Keuangan, diagram donat, notifikasi push, dan Panduan Pengguna.',
+      'Sengaja tidak berubah bahasa: halaman sebelum login (Landing, Login, Bantuan & Dukungan publik) karena setting bahasa baru dimuat setelah masuk akun; isi detail Panduan Pengguna dan narasi AI tetap Indonesia; Log Aktivitas lama tetap tercatat dalam bahasa saat kejadian.',
+    ],
+  },
   {
     version: '7.2',
     date: '6 September 2026',
