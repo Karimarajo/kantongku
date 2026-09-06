@@ -87,6 +87,15 @@ const GUIDE_SECTIONS: GuideSection[] = [
           ]}
         />
         <P>Install ke layar utama <b className="text-on-surface">wajib</b> supaya notifikasi pengingat bisa berfungsi, terutama di iPhone.</P>
+
+        <H4>Cara Mendapatkan Update Fitur Terbaru</H4>
+        <P>KantongKu sekarang otomatis mendeteksi kalau ada versi baru — muncul banner hijau "Muat Ulang" di atas layar dan notifikasi di lonceng 🔔, tinggal ketuk sekali untuk memperbarui. Kalau belum muncul juga padahal sudah ada kabar update:</P>
+        <Bullets
+          items={[
+            <><b className="text-on-surface">Di HP (ikon di layar utama):</b> tutup dulu aplikasinya dari <i>app switcher</i> sebelum buka lagi — di iPhone: geser dari bawah layar lalu tahan sebentar di tengah untuk buka daftar aplikasi, lalu geser kartu KantongKu ke atas untuk menutupnya. Di Android caranya mirip lewat tombol/gestur "recent apps". Sekadar minimize (tombol Home biasa) tidak cukup, karena aplikasi yang di-install ke layar utama bisa tetap menyimpan versi lama di memori sampai benar-benar ditutup.</>,
+            <><b className="text-on-surface">Di browser (laptop/PC/tab biasa):</b> muat ulang seperti biasa (F5) sudah cukup — tidak perlu hard refresh, karena KantongKu memang dirancang supaya file lama tidak pernah "nyangkut" di cache browser.</>,
+          ]}
+        />
       </div>
     ),
   },

@@ -39,7 +39,7 @@ import SharedPocketsView from './components/SharedPocketsView';
 const TOPUP_CATEGORY: Category = { id: 'topup', name: 'Top Up Saldo', icon: 'piggy', color: 'teal' };
 
 // Icons for navigation
-import { Home, Wallet, PlusCircle, User, Receipt, Users, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
+import { Home, Wallet, PlusCircle, User, Receipt, Users, ChevronsLeft, ChevronsRight, LogOut, X } from 'lucide-react';
 
 
 // Task: pengingat/notifikasi push server-side harus mengikuti waktu
@@ -176,6 +176,17 @@ export default function App() {
   // tersimpan, itulah "otomatis terdeteksi ada push baru" yang dimaksud.
   const GUIDE_VERSION_STORAGE_KEY = 'kantongku_last_seen_guide_version';
   const [hasUnseenGuideUpdate, setHasUnseenGuideUpdate] = useState<boolean>(false);
+
+  // Task (revisi): DI LUAR mekanisme badge di atas — ini yang benar-benar
+  // nge-poll GET /api/app-version supaya setiap user AKTIF (tab masih
+  // terbuka) dapat notifikasi + banner "Muat Ulang" begitu server sudah
+  // di-deploy ulang dengan APP_VERSION baru, tanpa harus reload dulu untuk
+  // "menyadarinya". Satu notifikasi per versi baru (dedup via localStorage,
+  // device-local — sengaja BUKAN disimpan ke akun, supaya tiap device yang
+  // masih menjalankan versi lama tetap kebagian notifnya sendiri).
+  const UPDATE_NOTIFIED_VERSION_KEY = 'kantongku_last_notified_update_version';
+  const [updateAvailableVersion, setUpdateAvailableVersion] = useState<string | null>(null);
+  const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
 
   // Paint the cached theme BEFORE the browser's first paint (useLayoutEffect,
   // not useEffect) so there's no dark->light flash while loadSessionAndData
@@ -395,6 +406,13 @@ export default function App() {
       } catch {
         // Ignore transient network errors; next tick will retry.
       }
+      // Task (revisi Kantong Bersama): ajakan berbagi kantong baru sebelumnya
+      // cuma muncul setelah reload manual (loadPocketShareState() aslinya
+      // cuma dipanggil sekali saat login + di titik aksi seperti terima/
+      // tolak/putus). Ditumpangkan di interval yang sudah ada ini (bukan
+      // interval baru) supaya undangan baru & status share ikut nongol tanpa
+      // perlu refresh, dengan latensi maksimal ~45 detik.
+      loadPocketShareState();
     }, 45000);
 
     return () => clearInterval(intervalId);
@@ -1730,6 +1748,20 @@ export default function App() {
     }
   };
 
+  // Task (revisi): hapus permanen satu baris riwayat "Diputus" dari
+  // myShares (bukan disconnect lagi — itu sudah terjadi). "Sambungkan
+  // Kembali" TIDAK perlu handler baru — cukup panggil ulang
+  // handleInvitePocketShare dengan pocket_id + invited_email yang sama,
+  // endpoint invite-nya sudah upsert (ON CONFLICT -> balik ke 'pending').
+  const handleDeletePocketShare = async (id: string) => {
+    try {
+      const res = await fetch(`/api/pocket-shares/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) await loadPocketShareState();
+    } catch (err) {
+      console.error('Gagal menghapus data berbagi kantong:', err);
+    }
+  };
+
   // Add/edit/delete a transaction INSIDE a pocket shared to me — routed to
   // the owner's data server-side (see POST/PATCH/DELETE
   // /api/pocket-shares/:id/transactions* in server.ts), never through
@@ -2092,6 +2124,62 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [currentUser, reminders, notifications, debts]);
 
+  // Task (revisi): deteksi update versi baru dari server, tanpa perlu
+  // refresh manual — lihat komentar UPDATE_NOTIFIED_VERSION_KEY di atas.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const checkAppVersion = async () => {
+      try {
+        const res = await fetch('/api/app-version');
+        if (!res.ok) return;
+        const data = await res.json();
+        const liveVersion: string | undefined = data?.version;
+        if (!liveVersion || liveVersion === APP_VERSION) return;
+
+        setUpdateAvailableVersion(liveVersion);
+
+        let alreadyNotified = false;
+        try {
+          alreadyNotified = window.localStorage.getItem(UPDATE_NOTIFIED_VERSION_KEY) === liveVersion;
+        } catch {
+          // localStorage terblokir — anggap belum pernah dinotif, cukup
+          // best-effort (worst case: notif yang sama muncul lagi sesekali).
+        }
+        if (alreadyNotified) return;
+
+        const now = new Date();
+        const waktuSekarang = `${now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - Pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', '.')}`;
+        const updateNotif: Notification = {
+          id: `n-update-${liveVersion}`,
+          title: 'Update Tersedia',
+          message: `KantongKu versi ${liveVersion} sudah tersedia. Ketuk untuk muat ulang dan dapatkan pembaruan terbaru.`,
+          time: waktuSekarang,
+          isRead: false,
+          type: 'info',
+          link: { type: 'app-update' },
+        };
+        const nextNotifs = [updateNotif, ...notifications];
+        setNotifications(nextNotifs);
+        persistUserData({ notifications: nextNotifs });
+        try {
+          window.localStorage.setItem(UPDATE_NOTIFIED_VERSION_KEY, liveVersion);
+        } catch {
+          // Best-effort — gagal simpan cuma berarti notif yang sama bisa
+          // muncul lagi nanti, bukan hal fatal.
+        }
+      } catch {
+        // Jaringan gagal — coba lagi tick berikutnya.
+      }
+    };
+
+    checkAppVersion();
+    // 5 menit — update versi jarang terjadi, tidak perlu granularitas tinggi
+    // seperti polling sesi/undangan kantong (yang perlu terasa "langsung").
+    const intervalId = setInterval(checkAppVersion, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, [currentUser, notifications]);
+
   // Guard routing view: wait for the initial session check before deciding
   // between the app and the login screen, so we don't flash Login for a split
   // second while GET /api/me is still in flight.
@@ -2115,6 +2203,34 @@ export default function App() {
         <div className="absolute top-0 left-[-10%] w-[350px] h-[350px] rounded-full bg-primary/5 blur-[120px]" />
         <div className="absolute bottom-0 right-[-10%] w-[350px] h-[350px] rounded-full bg-secondary/5 blur-[120px]" />
       </div>
+
+      {/* Banner "Update Tersedia" — cara yang lebih efektif daripada
+          menjelaskan force-close/hard-refresh per platform: satu tombol,
+          langsung muat ulang. Notifikasi yang sama juga ada di lonceng
+          notifikasi (persisten sampai user muat ulang), banner ini cuma
+          pengingat visual yang lebih kentara & bisa ditutup sendiri. */}
+      {updateAvailableVersion && !updateBannerDismissed && (
+        <div className="fixed top-0 left-0 right-0 z-[70] flex justify-center px-3 pt-3 pointer-events-none">
+          <div className="pointer-events-auto max-w-md w-full bg-primary text-on-primary rounded-xl shadow-2xl px-4 py-3 flex items-center gap-3">
+            <span className="text-xs font-semibold flex-1">
+              Versi {updateAvailableVersion} sudah tersedia
+            </span>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs font-bold bg-on-primary/15 hover:bg-on-primary/25 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+            >
+              Muat Ulang
+            </button>
+            <button
+              onClick={() => setUpdateBannerDismissed(true)}
+              className="text-on-primary/70 hover:text-on-primary shrink-0"
+              title="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* DESKTOP SIDEBAR NAVIGATION — fixed (not sticky): a sticky element
           only stays put as long as no ancestor's overflow/height computation
@@ -2357,6 +2473,7 @@ export default function App() {
               onAcceptInvitation={handleAcceptPocketInvitation}
               onDeclineInvitation={handleDeclinePocketInvitation}
               onDisconnectShare={handleDisconnectPocketShare}
+              onDeleteShare={handleDeletePocketShare}
             />
           )}
 

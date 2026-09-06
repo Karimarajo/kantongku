@@ -14,6 +14,7 @@ import { PRODUCT_PRICE_IDR } from "./lib/constants";
 import { parseUserAgent } from "./lib/userAgent";
 import { createCheckoutPayment, verifyDokuNotificationSignature } from "./lib/doku";
 import { isPushConfigured, sendPushToSubscriptions } from "./lib/push";
+import { APP_VERSION } from "./src/version";
 
 dotenv.config();
 
@@ -2234,6 +2235,16 @@ app.post("/api/dev/login-as-test-user", async (req, res) => {
   }
 });
 
+// Task (revisi): dipoll berkala oleh client (App.tsx) supaya bisa
+// mendeteksi ada deploy versi baru TANPA perlu reload manual — server yang
+// baru saja di-deploy ulang otomatis melapor APP_VERSION barunya di sini
+// (diimpor langsung dari src/version.ts, satu sumber kebenaran yang sama
+// dipakai frontend). Publik, tanpa sesi — cuma sebuah string versi, tidak
+// ada data sensitif.
+app.get("/api/app-version", (req, res) => {
+  res.json({ version: APP_VERSION });
+});
+
 // Return the currently authenticated user
 app.get("/api/me", requireSession, (req, res) => {
   const user = (req as any).user;
@@ -2877,6 +2888,32 @@ app.post("/api/pocket-shares/:id/disconnect", requireSession, requireActiveStatu
   } catch (error: any) {
     console.error("Gagal memutus berbagi kantong:", error);
     res.status(500).json({ error: error.message || "Gagal memutus berbagi kantong" });
+  }
+});
+
+// Task (revisi Kantong Bersama): "Diputus" entries used to sit forever in
+// the owner's myShares list with no way to clear them out or reconnect.
+// Reconnecting reuses the existing invite endpoint's ON CONFLICT upsert
+// (same pocketId+email just goes back to 'pending') — this route only
+// covers permanent deletion of an already-revoked row. Owner-only (it's
+// their own share-management history) and restricted to 'revoked' so an
+// active/pending share can't be wiped without going through disconnect
+// first.
+app.delete("/api/pocket-shares/:id", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const ownerId = (req as any).user.id;
+    const { id } = req.params;
+    const result = await pool.query(
+      `DELETE FROM pocket_shares WHERE id = $1 AND owner_user_id = $2 AND status = 'revoked' RETURNING id`,
+      [id, ownerId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Data berbagi kantong tidak ditemukan, atau belum diputus" });
+    }
+    res.json({ ok: true });
+  } catch (error: any) {
+    console.error("Gagal menghapus data berbagi kantong:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus data berbagi kantong" });
   }
 });
 

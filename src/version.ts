@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '6.9';
+export const APP_VERSION = '6.10';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,16 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '6.10',
+    date: '6 September 2026',
+    changes: [
+      'Baru: KantongKu sekarang otomatis mendeteksi kalau ada versi baru — muncul notifikasi di lonceng dan banner "Muat Ulang" di atas layar, tidak perlu tebak-tebak kapan harus refresh. Panduan Pengguna juga ditambah cara update manual per platform kalau banner belum muncul.',
+      'Perbaikan: Riwayat Transaksi — transfer antar wallet digabung jadi satu daftar dengan transaksi biasa, diurutkan campur dari yang terbaru (sebelumnya dua blok terpisah). Tetap tidak dihitung sebagai pemasukan/pengeluaran, cuma perpindahan dana.',
+      'Perbaikan: Kantong Bersama — baris "Diputus" yang sebelumnya netap selamanya sekarang punya tombol Hapus Data dan Sambungkan Kembali (ikon, bukan kalimat). Undangan berbagi kantong baru juga otomatis muncul tanpa perlu refresh manual (dicek berkala setiap ±45 detik).',
+      'Perbaikan: kontras badge status "Diputus" di Kantong Bersama yang sempat samar di mode Terang (abu di atas abu) — sekarang pakai warna merah muda yang jelas terbaca di kedua tema.',
+    ],
+  },
   {
     version: '6.9',
     date: '4 September 2026',

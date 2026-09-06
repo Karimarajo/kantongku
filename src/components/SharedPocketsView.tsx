@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pocket, PocketShare, SharedPocketBundle } from '../types';
 import { formatRupiah } from '../utils';
-import { ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2 } from 'lucide-react';
+import { ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2, Trash2, RotateCcw } from 'lucide-react';
 
 interface SharedPocketsViewProps {
   pockets: Pocket[]; // my own pockets, to share OUT and to resolve names for myShares
@@ -13,6 +13,10 @@ interface SharedPocketsViewProps {
   onAcceptInvitation: (id: string) => void;
   onDeclineInvitation: (id: string) => void;
   onDisconnectShare: (id: string) => void;
+  // Task (revisi): baris "Diputus" sebelumnya tidak punya aksi apa pun dan
+  // netap selamanya di daftar — sekarang bisa dihapus permanen (riwayatnya
+  // dibersihkan) atau disambungkan kembali (undang ulang ke email yang sama).
+  onDeleteShare: (id: string) => void;
 }
 
 // Pure management screen: accept/decline invitations, and share/manage my
@@ -31,11 +35,21 @@ export default function SharedPocketsView({
   onAcceptInvitation,
   onDeclineInvitation,
   onDisconnectShare,
+  onDeleteShare,
 }: SharedPocketsViewProps) {
   const [invitePocketId, setInvitePocketId] = useState(pockets[0]?.id || '');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
+  // Baris mana (per share.id) yang lagi diproses "Sambungkan Kembali" —
+  // dipakai untuk nonaktifkan tombolnya sementara request jalan.
+  const [reconnectingId, setReconnectingId] = useState<string | null>(null);
+
+  const handleReconnect = async (share: PocketShare) => {
+    setReconnectingId(share.id);
+    await onInvite(share.pocket_id, share.invited_email);
+    setReconnectingId(null);
+  };
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,15 +157,38 @@ export default function SharedPocketsView({
                   <p className="text-on-surface-variant/60">{share.invited_email}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Task (revisi): badge "Diputus" sebelumnya bg-overlay/5 +
+                      text-on-surface-variant/50 — abu di atas abu, nyaris tak
+                      terbaca di light mode. Diganti pola warna tetap
+                      (rose, bukan token overlay) sama seperti Aktif/Menunggu
+                      di atasnya, supaya kontras terjamin di kedua tema. */}
                   <span className={`text-[10px] font-label-caps uppercase px-2 py-1 rounded-md ${
                     share.status === 'active' ? 'bg-emerald-500/10 text-emerald-300' :
                     share.status === 'pending' ? 'bg-amber-500/10 text-amber-300' :
-                    'bg-overlay/5 text-on-surface-variant/50'
+                    'bg-rose-500/10 text-rose-400'
                   }`}>
                     {share.status === 'active' ? 'Aktif' : share.status === 'pending' ? 'Menunggu' : 'Diputus'}
                   </span>
-                  {share.status !== 'revoked' && (
-                    <button onClick={() => onDisconnectShare(share.id)} className="text-on-surface-variant/50 hover:text-rose-400">
+                  {share.status === 'revoked' ? (
+                    <>
+                      <button
+                        onClick={() => handleReconnect(share)}
+                        disabled={reconnectingId === share.id}
+                        title="Sambungkan Kembali"
+                        className="w-7 h-7 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-primary hover:bg-primary/10 flex items-center justify-center transition-all disabled:opacity-40"
+                      >
+                        {reconnectingId === share.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => { if (confirm(`Hapus riwayat berbagi kantong ini dengan ${share.invited_email}? Tindakan ini tidak bisa dibatalkan.`)) onDeleteShare(share.id); }}
+                        title="Hapus Data"
+                        className="w-7 h-7 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => onDisconnectShare(share.id)} title="Putuskan" className="w-7 h-7 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}

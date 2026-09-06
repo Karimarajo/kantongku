@@ -77,7 +77,9 @@ export interface Notification {
     | { type: 'transaction'; transactionId: string }
     | { type: 'reminder' }
     | { type: 'debt' }
-    | { type: 'budget' };
+    | { type: 'budget' }
+    // Task (revisi): notifikasi "ada versi baru" — klik = muat ulang app.
+    | { type: 'app-update' };
 }
 
 export interface UserProfile {

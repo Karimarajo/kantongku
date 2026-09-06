@@ -101,12 +101,37 @@ export default function TransactionHistoryPage({
 
   const getAccountName = (id: string) => accounts.find(a => a.id === id)?.name || 'Wallet';
 
-  // Deliberately NOT part of `filteredTransactions` / the Masuk-Keluar-Netto
-  // totals below — a wallet transfer is an internal movement, not income or
-  // expense, and must stay excluded from those reports.
-  const sortedTransferLogs = useMemo(() => {
-    return [...walletTransferLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [walletTransferLogs]);
+  // Task (revisi): transfer antar wallet digabung ke SATU daftar dengan
+  // transaksi biasa, diurutkan campur dari yang terbaru (bukan dua blok
+  // terpisah seperti sebelumnya) — tapi tetap DIKECUALIKAN dari
+  // totalIncoming/totalOutgoing/netCashFlow di bawah (perpindahan dana
+  // internal, bukan pemasukan/pengeluaran). Kategori/Kantong tidak berlaku
+  // untuk transfer (tidak punya salah satunya) jadi kalau filter itu aktif,
+  // transfer otomatis hilang dari daftar — begitu juga saat typeFilter
+  // dipersempit ke Masuk/Keluar saja (transfer bukan keduanya).
+  const filteredTransferLogs = useMemo(() => {
+    if (selectedCategories.length > 0 || selectedPockets.length > 0 || typeFilter !== 'all') return [];
+    return walletTransferLogs.filter(log => {
+      if (dateFrom && new Date(log.date) < new Date(dateFrom)) return false;
+      if (dateTo && new Date(log.date) > new Date(dateTo)) return false;
+      if (selectedAccounts.length > 0 && !selectedAccounts.includes(log.fromAccountId) && !selectedAccounts.includes(log.toAccountId)) return false;
+      if (search) {
+        const haystack = `${getAccountName(log.fromAccountId)} ${getAccountName(log.toAccountId)} ${log.note || ''}`.toLowerCase();
+        if (!haystack.includes(search.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [walletTransferLogs, selectedCategories, selectedPockets, typeFilter, dateFrom, dateTo, selectedAccounts, search, accounts]);
+
+  type HistoryEntry =
+    | { kind: 'transaction'; date: string; transaction: Transaction }
+    | { kind: 'transfer'; date: string; transfer: WalletTransferLog };
+
+  const combinedHistory = useMemo((): HistoryEntry[] => {
+    const txItems: HistoryEntry[] = filteredTransactions.map(t => ({ kind: 'transaction' as const, date: t.date, transaction: t }));
+    const trItems: HistoryEntry[] = filteredTransferLogs.map(l => ({ kind: 'transfer' as const, date: l.date, transfer: l }));
+    return [...txItems, ...trItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filteredTransactions, filteredTransferLogs]);
 
   const totalIncoming = filteredTransactions.filter(t => t.type === 'incoming').reduce((s, t) => s + t.amount, 0);
   const totalOutgoing = filteredTransactions.filter(t => t.type === 'outgoing').reduce((s, t) => s + t.amount, 0);
@@ -288,45 +313,42 @@ export default function TransactionHistoryPage({
           (dateFrom/dateTo) yang sama dengan halaman ini). */}
       <FinancialHealthCard startDate={dateFrom || undefined} endDate={dateTo || undefined} />
 
-      {/* Riwayat Transfer Antar Wallet — dipisah dari daftar transaksi agar
-          tidak tertukar dengan transaksi biasa (bukan income/expense). */}
-      {sortedTransferLogs.length > 0 && (
-        <div className="flex flex-col gap-2 mt-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-on-surface">Transfer Antar Wallet</h2>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[9px] font-label-caps uppercase tracking-wider">
-              Bukan Transaksi
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {sortedTransferLogs.map(log => (
-              <div key={log.id} className="flex items-center p-3 gap-3 rounded-xl border border-indigo-500/10 bg-indigo-500/5 glass-card">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-indigo-500/15 border border-indigo-500/30">
-                  <ArrowLeftRight className="w-4 h-4 text-indigo-300" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-on-surface truncate">
-                    {getAccountName(log.fromAccountId)} → {getAccountName(log.toAccountId)}
-                  </p>
-                  <p className="text-[10px] text-on-surface/40 font-mono-data mt-0.5 truncate">
-                    {formatDate(log.date)}{log.note ? ` • ${log.note}` : ''}
-                  </p>
-                </div>
-                <span className="text-sm font-bold font-mono-data text-indigo-300 shrink-0">
-                  {formatRupiah(log.amount, false)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* List Rendering Transaksi */}
+      {/* List Rendering — transaksi & transfer antar wallet DIGABUNG satu
+          daftar, urut campur dari yang terbaru (Task revisi). Transfer
+          tetap dikasih tanda visual "Bukan Transaksi" (indigo, ikon panah
+          dua arah) supaya tidak tertukar dengan transaksi biasa secara
+          sekilas, tapi tidak lagi dikelompokkan terpisah. */}
       <div className="flex flex-col gap-2 mt-2">
-        {filteredTransactions.length === 0 ? (
+        {combinedHistory.length === 0 ? (
           <div className="text-center py-10 text-on-surface/30 text-xs">Tidak ada data mutasi yang cocok dengan filter.</div>
         ) : (
-          filteredTransactions.map(t => {
+          combinedHistory.map(entry => {
+            if (entry.kind === 'transfer') {
+              const log = entry.transfer;
+              return (
+                <div key={`transfer-${log.id}`} className="flex items-center p-3 gap-3 rounded-xl border border-indigo-500/10 bg-indigo-500/5 glass-card">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-indigo-500/15 border border-indigo-500/30">
+                    <ArrowLeftRight className="w-4 h-4 text-indigo-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-on-surface truncate flex items-center gap-1.5 flex-wrap">
+                      {getAccountName(log.fromAccountId)} → {getAccountName(log.toAccountId)}
+                      <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[8px] font-label-caps uppercase tracking-wider">
+                        Bukan Transaksi
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-on-surface/40 font-mono-data mt-0.5 truncate">
+                      {formatDate(log.date)}{log.note ? ` • ${log.note}` : ''}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold font-mono-data text-indigo-300 shrink-0">
+                    {formatRupiah(log.amount, false)}
+                  </span>
+                </div>
+              );
+            }
+
+            const t = entry.transaction;
             const isExpense = t.type === 'outgoing';
             const cat = categories.find(c => c.id === t.category);
             const colorHex = getCategoryHexColor(t.category);
@@ -344,19 +366,19 @@ export default function TransactionHistoryPage({
                     {isExpense ? '-' : '+'}{formatRupiah(t.amount, false)}
                   </span>
                   <div className="flex items-center gap-1 border-l border-overlay/10 pl-2">
-                    <button 
-                      onClick={() => onEditTransactionSelect(t)} 
+                    <button
+                      onClick={() => onEditTransactionSelect(t)}
                       className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-primary transition-all active:scale-95"
                       title="Edit Transaksi"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         if (confirm(`Hapus transaksi "${t.title}"?`)) {
                           onDeleteTransaction(t.id);
                         }
-                      }} 
+                      }}
                       className="p-1.5 rounded-lg bg-overlay/5 hover:bg-rose-500/20 text-on-surface-variant hover:text-rose-400 transition-all active:scale-95"
                       title="Hapus Transaksi"
                     >
