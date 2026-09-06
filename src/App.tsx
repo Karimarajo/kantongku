@@ -10,7 +10,7 @@ import {
   INITIAL_WALLET_TRANSFER_LOGS,
   INITIAL_ACTIVITY_LOG
 } from './mockData';
-import { getDefaultProfile, formatRupiah } from './utils';
+import { getDefaultProfile, formatRupiah, setActiveCurrency } from './utils';
 import { disablePushNotifications } from './lib/pushNotifications';
 
 // Import Views
@@ -246,6 +246,7 @@ export default function App() {
     setWalletTransferLogs(INITIAL_WALLET_TRANSFER_LOGS);
     setActivityLog(INITIAL_ACTIVITY_LOG);
     setAppSettings(DEFAULT_SETTINGS);
+    setActiveCurrency(DEFAULT_SETTINGS.currency);
     setSharedPockets([]);
     setPendingInvitations([]);
     setMyShares([]);
@@ -317,6 +318,7 @@ export default function App() {
         const loadedSettings: AppSettings = data.settings ?? DEFAULT_SETTINGS;
         setAppSettings(loadedSettings);
         applyTheme(loadedSettings.theme);
+        setActiveCurrency(loadedSettings.currency);
         setDebts(data.debts ?? []);
         setDebtPayments(data.debtPayments ?? []);
       }
@@ -751,8 +753,26 @@ export default function App() {
     // saldo asli sebelum transaksi salah itu — makanya saldo bisa melambung
     // jadi angka yang aneh. Solusinya: tolak dari awal SEBELUM state apa pun
     // berubah, supaya kondisi negatif itu sendiri tidak akan pernah tercipta.
-    if (newTransaction.type === 'outgoing') {
-      const sourceAccount = accounts.find(a => a.id === newTransaction.accountId);
+    const sourceAccount = accounts.find(a => a.id === newTransaction.accountId);
+    const isPaylaterAccount = sourceAccount?.type === 'paylater';
+
+    // Task (revisi, poin 10): wallet Paylater/Kartu Kredit punya logic
+    // sendiri sama sekali — lihat komentar Account.balance/limit &
+    // Transaction.paylaterStatus di types.ts. Dicek SEBELUM validasi
+    // saldo/alokasi wallet biasa di bawah supaya tidak ikut divalidasi
+    // dengan aturan yang salah.
+    if (isPaylaterAccount) {
+      if (newTransaction.type !== 'outgoing') {
+        alert(`Wallet Paylater/Kartu Kredit ("${sourceAccount!.name}") hanya untuk mencatat pengeluaran.`);
+        return null;
+      }
+      const availableCredit = (sourceAccount!.limit || 0) - sourceAccount!.balance;
+      if (newTransaction.amount > availableCredit) {
+        alert(`Limit kredit "${sourceAccount!.name}" tidak cukup.\nTersedia: ${formatRupiah(availableCredit)}\nDibutuhkan: ${formatRupiah(newTransaction.amount)}`);
+        return null;
+      }
+      newTransaction.paylaterStatus = 'unpaid';
+    } else if (newTransaction.type === 'outgoing') {
       if (sourceAccount && newTransaction.amount > sourceAccount.balance) {
         alert(`Saldo di akun "${sourceAccount.name}" tidak cukup.\nSaldo tersedia: ${formatRupiah(sourceAccount.balance)}\nDibutuhkan: ${formatRupiah(newTransaction.amount)}`);
         return null;
@@ -786,6 +806,13 @@ export default function App() {
     // Update account balance and pocket allocation directly
     const nextAccounts = accounts.map(a => {
       if (a.id === newTransaction.accountId) {
+        if (isPaylaterAccount) {
+          // Paylater: HANYA naikkan tagihan berjalan (outstanding) sendiri —
+          // TIDAK menyentuh allocations sama sekali, jadi pocket.balance
+          // (direkomputasi dari allocations di bawah) dan Total Saldo tidak
+          // ikut berubah sampai transaksi ini benar-benar dibayar nanti.
+          return { ...a, balance: a.balance + newTransaction.amount };
+        }
         const currentAllocations = a.allocations || {};
         const pocketAlloc = currentAllocations[newTransaction.pocketId] || 0;
         return {
@@ -1010,6 +1037,12 @@ export default function App() {
     // Revert account balance and pocket allocation
     const nextAccounts = accounts.map(a => {
       if (a.id === target.accountId) {
+        // Task (revisi, poin 10): transaksi paylater yang masih 'unpaid'
+        // tidak pernah menyentuh allocations (lihat handleAddTransaction) —
+        // revert-nya juga cuma menurunkan outstanding, bukan delta alokasi.
+        if (target.paylaterStatus === 'unpaid') {
+          return { ...a, balance: Math.max(0, a.balance - target.amount) };
+        }
         const delta = target.type === 'incoming' ? -target.amount : target.amount;
         const currentAllocations = a.allocations || {};
         const pocketAlloc = currentAllocations[target.pocketId] || 0;
@@ -1096,6 +1129,31 @@ export default function App() {
     if (originalTrans.inputBy && currentUser?.email && originalTrans.inputBy !== currentUser.email) {
       alert(`Transaksi ini dibuat oleh ${originalTrans.inputBy} — hanya yang bersangkutan yang bisa mengeditnya.`);
       return false;
+    }
+
+    // Task (revisi, poin 10): transaksi paylater 'unpaid' dikelola lewat
+    // jalur sendiri — hanya nominal/judul/tanggal/kategori yang bisa
+    // diedit, wallet-nya tetap wallet paylater yang sama (pindah wallet
+    // hanya lewat alur "Bayar Tagihan"). Divalidasi terhadap SISA LIMIT
+    // (bukan alokasi kantong — paylater tidak pakai alokasi sama sekali).
+    if (originalTrans.paylaterStatus === 'unpaid') {
+      const paylaterAcc = accounts.find(a => a.id === originalTrans.accountId);
+      if (!paylaterAcc) return false;
+      const outstandingAfterRevert = Math.max(0, paylaterAcc.balance - originalTrans.amount);
+      const availableCredit = (paylaterAcc.limit || 0) - outstandingAfterRevert;
+      if (editedTrans.amount > availableCredit) {
+        alert(`Limit kredit "${paylaterAcc.name}" tidak cukup untuk perubahan ini.\nTersedia: ${formatRupiah(availableCredit)}\nDibutuhkan: ${formatRupiah(editedTrans.amount)}`);
+        return false;
+      }
+      const finalEditedTrans: Transaction = { ...editedTrans, accountId: paylaterAcc.id, paylaterStatus: 'unpaid' };
+      const nextAccounts = accounts.map(a => a.id === paylaterAcc.id ? { ...a, balance: outstandingAfterRevert + editedTrans.amount } : a);
+      const nextTransactions = transactions.map(t => t.id === finalEditedTrans.id ? finalEditedTrans : t).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const editLog = logActivity(`Mengedit transaksi paylater '${finalEditedTrans.title}'`, 'transaction', 'receipt');
+      updateStateAndStorage(nextTransactions, pockets, nextAccounts, budgets, notifications, undefined, undefined, editLog);
+      setEditingTransaction(null);
+      return true;
     }
 
     // 1. Revert original transaction balance changes
@@ -1283,6 +1341,95 @@ export default function App() {
       debtPayments: nextDebtPaymentsAfterEdit,
     });
     setEditingTransaction(null);
+    return true;
+  };
+
+  // Task (revisi, poin 10): "Bayar Tagihan" — melunasi sebagian/seluruh
+  // transaksi 'unpaid' di satu wallet Paylater/Kartu Kredit sekaligus,
+  // dibayar dari SATU wallet biasa. Setiap transaksi terpilih "berpindah
+  // kepemilikan" dari wallet paylater ke wallet pembayar (accountId diganti,
+  // paylaterStatus dihapus) — dari titik ini baru benar-benar memotong
+  // saldo/alokasi wallet pembayar & baru masuk hitungan Total Saldo/pocket,
+  // persis seperti transaksi biasa. Wallet pembayar tetap wajib sudah
+  // punya alokasi ke pocket masing-masing transaksi (poin 5) — dicek PER
+  // KANTONG karena transaksi yang dipilih bisa berasal dari kantong
+  // berbeda-beda.
+  const handlePayPaylaterTransactions = (
+    paylaterAccountId: string,
+    transactionIds: string[],
+    payingAccountId: string
+  ): boolean => {
+    const paylaterAcc = accounts.find(a => a.id === paylaterAccountId);
+    const payingAcc = accounts.find(a => a.id === payingAccountId);
+    if (!paylaterAcc || !payingAcc || transactionIds.length === 0) return false;
+
+    const targets = transactions.filter(
+      t => t.accountId === paylaterAccountId && t.paylaterStatus === 'unpaid' && transactionIds.includes(t.id)
+    );
+    if (targets.length === 0) return false;
+
+    const totalAmount = targets.reduce((sum, t) => sum + t.amount, 0);
+    if (totalAmount > payingAcc.balance) {
+      alert(`Saldo di akun "${payingAcc.name}" tidak cukup.\nSaldo tersedia: ${formatRupiah(payingAcc.balance)}\nDibutuhkan: ${formatRupiah(totalAmount)}`);
+      return false;
+    }
+
+    // Cek alokasi per-kantong (poin 5) — jumlahkan dulu per pocketId, satu
+    // transaksi paylater X bisa saja dari kantong yang sama sebagai
+    // transaksi paylater Y, jangan double-check terpisah.
+    const amountByPocket = new Map<string, number>();
+    targets.forEach(t => amountByPocket.set(t.pocketId, (amountByPocket.get(t.pocketId) || 0) + t.amount));
+    for (const [pocketId, amountNeeded] of amountByPocket) {
+      const allocated = (payingAcc.allocations || {})[pocketId] || 0;
+      if (amountNeeded > allocated) {
+        const pocketLabel = pockets.find(p => p.id === pocketId)?.name || pocketId;
+        alert(`Wallet "${payingAcc.name}" tidak memiliki dana yang dialokasikan untuk kantong "${pocketLabel}".\nAlokasi saat ini: ${formatRupiah(allocated)}\nDibutuhkan: ${formatRupiah(amountNeeded)}\n\nLakukan alokasi dana dari menu Wallet ("Atur Alokasi Saldo") terlebih dahulu.`);
+        return false;
+      }
+    }
+
+    const targetIds = new Set(targets.map(t => t.id));
+    const nextTransactions = transactions.map(t => {
+      if (!targetIds.has(t.id)) return t;
+      const { paylaterStatus, ...rest } = t;
+      return { ...rest, accountId: payingAccountId };
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const nextAccounts = accounts.map(a => {
+      if (a.id === paylaterAccountId) {
+        return { ...a, balance: Math.max(0, a.balance - totalAmount) };
+      }
+      if (a.id === payingAccountId) {
+        const currentAllocations = a.allocations || {};
+        const nextAllocations = { ...currentAllocations };
+        amountByPocket.forEach((amountNeeded, pocketId) => {
+          nextAllocations[pocketId] = Math.max(0, (nextAllocations[pocketId] || 0) - amountNeeded);
+        });
+        return { ...a, balance: a.balance - totalAmount, allocations: nextAllocations };
+      }
+      return a;
+    });
+
+    const nextPockets = pockets.map(p => ({
+      ...p,
+      balance: nextAccounts.reduce((sum, a) => sum + (a.allocations?.[p.id] || 0), 0),
+    }));
+
+    const nextBudgets = budgets.map((b) => {
+      const cats = getBudgetCategories(b);
+      const affected = targets.some(t => cats.includes(t.category));
+      if (!affected) return b;
+      const nextSpent = calculateBudgetSpent(b, nextTransactions);
+      const remaining = b.limit - nextSpent;
+      return { ...b, spent: nextSpent, sisaPercent: Math.max(0, Math.round((remaining / b.limit) * 100)) };
+    });
+
+    const nextLog = logActivity(
+      `Membayar ${targets.length} transaksi tagihan '${paylaterAcc.name}' (${formatRupiah(totalAmount)}) dari '${payingAcc.name}'`,
+      'transaction',
+      'receipt'
+    );
+    updateStateAndStorage(nextTransactions, nextPockets, nextAccounts, nextBudgets, notifications, undefined, undefined, nextLog);
     return true;
   };
 
@@ -1532,6 +1679,27 @@ export default function App() {
 
   // CRUD Handlers for Accounts (Rekening)
   const handleAddAccount = (newAccData: Omit<Account, 'balance'> & { initialBalance: number }) => {
+    // Task (revisi, poin 10): wallet Paylater/Kartu Kredit TIDAK punya
+    // alokasi pocket sama sekali (lihat komentar Account.balance di
+    // types.ts) — balance mulai dari 0 (belum ada tagihan), `limit` dari
+    // form (dikirim lewat field initialBalance yang sama, direlabel di UI).
+    if (newAccData.type === 'paylater') {
+      const newAccount: Account = {
+        id: newAccData.id,
+        name: newAccData.name,
+        balance: 0,
+        icon: newAccData.icon,
+        color: newAccData.color,
+        type: 'paylater',
+        limit: newAccData.initialBalance || 0,
+      };
+      const nextAccounts = [...accounts, newAccount];
+      const addAccountLog = logActivity(`Wallet Paylater '${newAccount.name}' ditambahkan`, 'wallet', 'wallet');
+      setAccounts(nextAccounts);
+      saveStateToStorage(pockets, transactions, budgets, notifications, nextAccounts, categories, undefined, addAccountLog);
+      return;
+    }
+
     const defaultPocketId = pockets[0]?.id || 'pribadi';
     const newAccount: Account = {
       id: newAccData.id,
@@ -1563,14 +1731,26 @@ export default function App() {
   };
 
   const handleEditAccount = (updatedAccount: Account, balanceDifference?: number) => {
+    // Task (revisi, poin 10): wallet Paylater — cuma field non-finansial +
+    // limit yang bisa diedit di sini. Outstanding (balance) TIDAK disentuh
+    // (murni hasil dari transaksi paylater yang sudah tercatat), dan tidak
+    // ada alokasi pocket untuk direkonsiliasi sama sekali.
+    if (updatedAccount.type === 'paylater') {
+      const nextAccounts = accounts.map(a => a.id === updatedAccount.id ? { ...updatedAccount, balance: a.balance } : a);
+      const editAccountLog = logActivity(`Wallet Paylater '${updatedAccount.name}' diperbarui`, 'wallet', 'wallet');
+      setAccounts(nextAccounts);
+      saveStateToStorage(pockets, transactions, budgets, notifications, nextAccounts, categories, undefined, editAccountLog);
+      return;
+    }
+
     const diff = balanceDifference || 0;
     const defaultPocketId = pockets[0]?.id || 'pribadi';
-    
+
     const nextAccounts = accounts.map(a => {
       if (a.id === updatedAccount.id) {
         const currentAllocations = a.allocations || {};
         const oldDefaultAlloc = currentAllocations[defaultPocketId] || 0;
-        
+
         return {
           ...updatedAccount,
           balance: a.balance + diff,
@@ -1714,6 +1894,7 @@ export default function App() {
     setAppSettings(settings);
     persistUserData({ settings });
     applyTheme(settings.theme);
+    setActiveCurrency(settings.currency);
   };
 
   // CRUD Handlers for Reminders (Pengingat)
@@ -2488,6 +2669,7 @@ export default function App() {
               onDeleteAccount={handleDeleteAccount}
               onSaveAllocations={handleSaveAllocations}
               onReorderAccounts={handleReorderAccounts}
+              onPayPaylaterTransactions={handlePayPaylaterTransactions}
             />
           )}
 

@@ -967,6 +967,7 @@ export default function AddTransactionModal({
                       return (
                         <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
                           <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{acc.name}</span>
+                          {acc.type === 'paylater' && <span className="text-[9px] text-amber-400 truncate w-full">Paylater</span>}
                         </button>
                       );
                     })}

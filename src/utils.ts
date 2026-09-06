@@ -1,17 +1,64 @@
 import { Transaction, Pocket, UserProfile, Category } from './types';
 
-// Format number as Indonesian Rupiah (e.g., Rp 10.000.000 or -Rp 150.000)
+// Task (revisi, poin 12): pilihan mata uang tampilan — dropdown di Profil/
+// Pengaturan. PENTING: ini murni ganti LABEL/format angka (simbol +
+// pemisah ribuan/desimal sesuai kebiasaan mata uang itu), BUKAN konversi
+// kurs sungguhan — semua nominal yang tersimpan tetap angka yang sama
+// persis seperti sebelumnya, cuma "dibaca" dengan simbol berbeda. Kalau
+// nanti perlu konversi kurs asli, itu perlu sumber data kurs terpisah
+// (API/tabel kurs) — di luar cakupan ini.
+export const CURRENCY_OPTIONS: { code: string; label: string; symbol: string }[] = [
+  { code: 'IDR', label: 'Rupiah Indonesia', symbol: 'Rp' },
+  { code: 'USD', label: 'Dolar Amerika', symbol: '$' },
+  { code: 'EUR', label: 'Euro', symbol: '€' },
+  { code: 'SGD', label: 'Dolar Singapura', symbol: 'S$' },
+  { code: 'MYR', label: 'Ringgit Malaysia', symbol: 'RM' },
+  { code: 'JPY', label: 'Yen Jepang', symbol: '¥' },
+  { code: 'GBP', label: 'Poundsterling Inggris', symbol: '£' },
+  { code: 'AUD', label: 'Dolar Australia', symbol: 'A$' },
+];
+
+const CURRENCY_FORMAT: Record<string, { locale: string; decimals: number }> = {
+  IDR: { locale: 'id-ID', decimals: 0 },
+  USD: { locale: 'en-US', decimals: 2 },
+  EUR: { locale: 'de-DE', decimals: 2 },
+  SGD: { locale: 'en-SG', decimals: 2 },
+  MYR: { locale: 'ms-MY', decimals: 2 },
+  JPY: { locale: 'ja-JP', decimals: 0 },
+  GBP: { locale: 'en-GB', decimals: 2 },
+  AUD: { locale: 'en-AU', decimals: 2 },
+};
+
+// Module-level (bukan React state) supaya formatRupiah — dipakai di
+// puluhan file tanpa lewat props/context — otomatis ikut berubah begitu
+// App.tsx memanggil setActiveCurrency (saat data akun dimuat & tiap kali
+// pengaturan disimpan), tanpa perlu merombak setiap pemanggilnya.
+let activeCurrencyCode = 'IDR';
+
+export function setActiveCurrency(code: string) {
+  if (CURRENCY_FORMAT[code]) activeCurrencyCode = code;
+}
+
+export function getActiveCurrencyCode(): string {
+  return activeCurrencyCode;
+}
+
+// Nama dipertahankan `formatRupiah` (dipakai di puluhan file) walau
+// sekarang multi-currency — mengganti nama berarti mengubah setiap import,
+// risiko jauh lebih besar daripada manfaatnya untuk nama fungsi semata.
 export function formatRupiah(amount: number, withPrefix = true): string {
+  const symbol = CURRENCY_OPTIONS.find(c => c.code === activeCurrencyCode)?.symbol || 'Rp';
+  const { locale, decimals } = CURRENCY_FORMAT[activeCurrencyCode] || CURRENCY_FORMAT.IDR;
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
-  const formatted = new Intl.NumberFormat('id-ID', {
+  const formatted = new Intl.NumberFormat(locale, {
     style: 'decimal',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
   }).format(absAmount);
-  
+
   if (withPrefix) {
-    return `${isNegative ? '-' : ''}Rp ${formatted}`;
+    return `${isNegative ? '-' : ''}${symbol} ${formatted}`;
   }
   return `${isNegative ? '-' : ''}${formatted}`;
 }

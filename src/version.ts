@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '7.0';
+export const APP_VERSION = '7.1';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,14 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '7.1',
+    date: '6 September 2026',
+    changes: [
+      'Baru: wallet Paylater/Kartu Kredit — logic terpisah dari wallet biasa. Transaksi lewat wallet ini tercatat "Belum Dibayar" dan tidak mengurangi Total Saldo, sampai dilunasi lewat "Bayar Tagihan" (pilih transaksi mana saja + wallet pembayar), baru saat itu benar-benar memotong saldo wallet pembayar.',
+      'Baru: pilihan mata uang tampilan di menu Profil (dropdown — Rupiah, Dolar AS, Euro, dan lainnya). Mengganti simbol & format angka di seluruh app secara instan; murni tampilan, bukan konversi kurs — nominal yang tersimpan tidak berubah.',
+    ],
+  },
   {
     version: '7.0',
     date: '6 September 2026',
