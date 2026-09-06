@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Debt, DebtPayment, Transaction, Pocket, Account, Category } from '../types';
 import { formatRupiah, formatDate } from '../utils';
+import { t as tr } from '../i18n';
 import {
   ChevronLeft, Plus, X, CreditCard, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Trash2, PartyPopper, Edit3, Save
 } from 'lucide-react';
@@ -72,11 +73,11 @@ export default function DebtManagerView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Mohon isi nama cicilan/hutang');
-    if (principalAmount <= 0) return alert('Total pokok harus lebih besar dari 0');
-    if (monthlyInstallment <= 0) return alert('Cicilan per bulan harus lebih besar dari 0');
-    if (tenorMonths <= 0) return alert('Tenor harus lebih besar dari 0');
-    if (dueDay < 1 || dueDay > 31) return alert('Tanggal jatuh tempo harus antara 1-31');
+    if (!name.trim()) return alert(tr('Mohon isi nama cicilan/hutang'));
+    if (principalAmount <= 0) return alert(tr('Total pokok harus lebih besar dari 0'));
+    if (monthlyInstallment <= 0) return alert(tr('Cicilan per bulan harus lebih besar dari 0'));
+    if (tenorMonths <= 0) return alert(tr('Tenor harus lebih besar dari 0'));
+    if (dueDay < 1 || dueDay > 31) return alert(tr('Tanggal jatuh tempo harus antara 1-31'));
 
     const input = { name: name.trim(), principalAmount, monthlyInstallment, tenorMonths, dueDay, startDate, pocketId, accountId, category };
     if (editingId) {
@@ -111,7 +112,7 @@ export default function DebtManagerView({
             <div className="min-w-0">
               <p className="text-sm font-bold text-on-surface truncate">{debt.name}</p>
               <p className="text-[11px] text-on-surface-variant/70 flex items-center gap-1 mt-0.5">
-                <CalendarClock className="w-3 h-3" /> Jatuh tempo tiap tanggal {debt.dueDay}
+                <CalendarClock className="w-3 h-3" /> {tr('Jatuh tempo tiap tanggal')} {debt.dueDay}
               </p>
             </div>
           </div>
@@ -130,14 +131,14 @@ export default function DebtManagerView({
             <div className={`h-full rounded-full transition-all ${isPaidOff ? 'bg-primary' : 'bg-primary/70'}`} style={{ width: `${progressPercent}%` }} />
           </div>
           <div className="flex items-center justify-between text-[11px] text-on-surface-variant/70">
-            <span>{paidCount}/{debt.tenorMonths} bulan terbayar</span>
+            <span>{paidCount}/{debt.tenorMonths} {tr('bulan terbayar')}</span>
             <span>{progressPercent}%</span>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
           <div>
-            <p className="text-[10px] text-on-surface-variant/60 uppercase font-label-caps">Sisa Utang</p>
+            <p className="text-[10px] text-on-surface-variant/60 uppercase font-label-caps">{tr('Sisa Utang')}</p>
             <p className="text-base font-bold text-on-surface font-mono-data">{formatRupiah(remaining)}</p>
           </div>
           {!isPaidOff && (
@@ -146,19 +147,19 @@ export default function DebtManagerView({
               title={missingPaymentDetail ? 'Lengkapi Wallet & Kategori (Edit) dulu' : undefined}
               className="h-10 px-4 rounded-xl bg-primary text-on-primary text-xs font-bold flex items-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition-all shrink-0"
             >
-              <CheckCircle2 className="w-4 h-4" /> Sudah Bayar Bulan Ini
+              <CheckCircle2 className="w-4 h-4" /> {tr('Sudah Bayar Bulan Ini')}
             </button>
           )}
           {isPaidOff && (
             <span className="text-xs font-bold text-primary flex items-center gap-1.5 shrink-0">
-              <CheckCircle2 className="w-4 h-4" /> Lunas
+              <CheckCircle2 className="w-4 h-4" /> {tr('Lunas')}
             </span>
           )}
         </div>
 
         {missingPaymentDetail && !isPaidOff && (
           <p className="text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
-            Wallet &amp; Kategori pembayaran belum diisi — buka Edit untuk melengkapinya sebelum menandai sudah bayar.
+            {tr('Wallet & Kategori pembayaran belum diisi — buka Edit untuk melengkapinya sebelum menandai sudah bayar.')}
           </p>
         )}
 
@@ -166,7 +167,7 @@ export default function DebtManagerView({
           <div className="border-t border-overlay/5 pt-2">
             <button onClick={() => setExpandedId(isExpanded ? null : debt.id)} className="flex items-center gap-1.5 text-[11px] text-primary/80 hover:text-primary">
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              Riwayat pembayaran ({payments.length})
+              {tr('Riwayat pembayaran')} ({payments.length})
             </button>
             {isExpanded && (
               <div className="flex flex-col gap-1.5 mt-2">
@@ -188,7 +189,7 @@ export default function DebtManagerView({
                         )}
                         <button
                           onClick={() => {
-                            if (confirm('Hapus riwayat pembayaran ini? Transaksi terkait di Riwayat Transaksi juga akan terhapus.')) {
+                            if (confirm(tr('Hapus riwayat pembayaran ini? Transaksi terkait di Riwayat Transaksi juga akan terhapus.'))) {
                               onDeleteDebtPayment(p.id);
                             }
                           }}
@@ -217,12 +218,12 @@ export default function DebtManagerView({
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
-          Kelola Cicilan/Hutang
+          {tr('Kelola Cicilan/Hutang')}
         </h1>
       </div>
 
       <p className="text-xs text-on-surface-variant leading-relaxed -mt-2">
-        Sekali input, dua manfaat: otomatis diingatkan tiap tanggal jatuh tempo (lewat Pengingat) sekaligus terpantau progresnya di sini. Tekan "Sudah Bayar" untuk otomatis mencatat transaksinya.
+        {tr('Sekali input, dua manfaat: otomatis diingatkan tiap tanggal jatuh tempo (lewat Pengingat) sekaligus terpantau progresnya di sini. Tekan "Sudah Bayar" untuk otomatis mencatat transaksinya.')}
       </p>
 
       {!showForm && (
@@ -230,54 +231,54 @@ export default function DebtManagerView({
           onClick={() => { resetForm(); setShowForm(true); }}
           className="w-full h-12 rounded-xl bg-primary/10 border border-primary/30 text-primary font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-primary/20 active:scale-[0.98] transition-all"
         >
-          <Plus className="w-4 h-4" /> Tambah Cicilan/Hutang
+          <Plus className="w-4 h-4" /> {tr('Tambah Cicilan/Hutang')}
         </button>
       )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4 rounded-xl border border-overlay/10 glass-card">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-label-caps text-primary uppercase">{editingId ? 'Edit Cicilan/Hutang' : 'Cicilan/Hutang Baru'}</h3>
+            <h3 className="text-xs font-label-caps text-primary uppercase">{editingId ? tr('Edit Cicilan/Hutang') : tr('Cicilan/Hutang Baru')}</h3>
             <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="p-1 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-on-surface">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nama</label>
+            <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nama')}</label>
             <input type="text" required placeholder="Contoh: Cicilan Motor Honda" value={name} onChange={(e) => setName(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Total Pokok (Rp)</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Total Pokok (Rp)')}</label>
               <input type="number" required min={1} value={principalAmount || ''} onChange={(e) => setPrincipalAmount(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Cicilan/Bulan (Rp)</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Cicilan/Bulan (Rp)')}</label>
               <input type="number" required min={1} value={monthlyInstallment || ''} onChange={(e) => setMonthlyInstallment(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tenor (bulan)</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Tenor (bulan)')}</label>
               <input type="number" required min={1} max={360} value={tenorMonths || ''} onChange={(e) => setTenorMonths(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tanggal Jatuh Tempo</label>
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Tanggal Jatuh Tempo')}</label>
               <input type="number" required min={1} max={31} value={dueDay || ''} onChange={(e) => setDueDay(Number(e.target.value))} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 font-mono-data" />
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-label-caps text-on-surface-variant uppercase">Tanggal Mulai</label>
+            <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Tanggal Mulai')}</label>
             <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60" />
           </div>
 
           {/* Task: detail transaksi otomatis untuk "Sudah Bayar" */}
           <div className="flex flex-col gap-1.5 pt-1 border-t border-overlay/5">
-            <label className="text-xs font-label-caps text-on-surface-variant uppercase mt-2">Dibayar Dari (untuk tombol "Sudah Bayar")</label>
+            <label className="text-xs font-label-caps text-on-surface-variant uppercase mt-2">{tr('Dibayar Dari (untuk tombol "Sudah Bayar")')}</label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <select value={pocketId} onChange={(e) => setPocketId(e.target.value)} className="h-10 bg-surface-variant/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
                 {pockets.map(p => <option key={p.id} value={p.id} className="bg-surface text-on-surface">{p.name}</option>)}
@@ -292,17 +293,17 @@ export default function DebtManagerView({
           </div>
 
           <button type="submit" className="w-full h-12 mt-1 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all">
-            {editingId ? <><Save className="w-5 h-5" /> Simpan Perubahan</> : <><Plus className="w-5 h-5" /> Simpan Cicilan/Hutang</>}
+            {editingId ? <><Save className="w-5 h-5" /> {tr('Simpan Perubahan')}</> : <><Plus className="w-5 h-5" /> {tr('Simpan Cicilan/Hutang')}</>}
           </button>
         </form>
       )}
 
       <div className="flex flex-col gap-3 mt-1">
-        <h3 className="text-xs font-label-caps text-on-surface-variant uppercase">Aktif ({activeDebts.length})</h3>
+        <h3 className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Aktif')} ({activeDebts.length})</h3>
         {activeDebts.length === 0 ? (
           <div className="text-center py-8 text-on-surface/30 flex flex-col items-center gap-2">
             <CreditCard className="w-9 h-9 text-on-surface/20" />
-            <p className="text-xs">Belum ada cicilan/hutang aktif.</p>
+            <p className="text-xs">{tr('Belum ada cicilan/hutang aktif.')}</p>
           </div>
         ) : (
           activeDebts.map(renderDebtCard)
@@ -311,7 +312,7 @@ export default function DebtManagerView({
 
       {paidOffDebts.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-xs font-label-caps text-on-surface-variant uppercase">Sudah Lunas ({paidOffDebts.length})</h3>
+          <h3 className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Sudah Lunas')} ({paidOffDebts.length})</h3>
           {paidOffDebts.map(renderDebtCard)}
         </div>
       )}

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { PocketType, CategoryType, Transaction, Pocket, Account, Category, SharedPocketBundle } from '../types';
 import { formatRupiah, getCategoryColorHex } from '../utils';
+import { t as tr } from '../i18n';
 import CategoryIcon from './CategoryIcon';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
 
@@ -556,8 +557,8 @@ export default function AddTransactionModal({
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) return alert('Mohon isi judul transaksi');
-    if (amount <= 0) return alert('Nominal harus lebih besar dari 0');
+    if (!title) return alert(tr('Mohon isi judul transaksi'));
+    if (amount <= 0) return alert(tr('Nominal harus lebih besar dari 0'));
     
     let finalDate = new Date();
     if (datePreset === 'yesterday') {
@@ -659,16 +660,16 @@ export default function AddTransactionModal({
         {/* Modal Header */}
         <div className="flex justify-between items-center px-container_margin mb-4">
           {currentView !== 'options' && !editingTransaction && (
-            <button onClick={goBack} className="text-xs text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full hover:bg-primary/20">Kembali</button>
+            <button onClick={goBack} className="text-xs text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full hover:bg-primary/20">{tr('Kembali')}</button>
           )}
           <span className="flex-grow text-center font-headline-sm text-on-surface">
-            {editingTransaction ? 'Ubah Transaksi' : (
+            {editingTransaction ? tr('Ubah Transaksi') : (
               <>
-                {currentView === 'options' && 'Catat Pengeluaran'}
-                {currentView === 'camera' && 'AI Scanner Struk'}
-                {currentView === 'voice' && 'Mendikte lewat Suara'}
-                {currentView === 'manual' && 'Input Manual'}
-                {currentView === 'parser' && 'Ketik Apapun'}
+                {currentView === 'options' && tr('Catat Pengeluaran')}
+                {currentView === 'camera' && tr('AI Scanner Struk')}
+                {currentView === 'voice' && tr('Mendikte lewat Suara')}
+                {currentView === 'manual' && tr('Input Manual')}
+                {currentView === 'parser' && tr('Ketik Apapun')}
               </>
             )}
           </span>
@@ -681,15 +682,15 @@ export default function AddTransactionModal({
         <div className="px-container_margin flex-grow">
           {currentView === 'options' && (
             <div className="flex flex-col gap-4">
-              <h3 className="text-on-surface-variant font-label-caps text-xs">Pilih Cara Catat Uang</h3>
+              <h3 className="text-on-surface-variant font-label-caps text-xs">{tr('Pilih Cara Catat Uang')}</h3>
 
               <button onClick={() => setCurrentView('parser')} className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-all text-left group active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shrink-0">
                   <Brain className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-on-surface font-bold">Ketik Apapun</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">Tulis bebas satu kalimat, AI yang urus sisanya</p>
+                  <p className="font-body-lg text-on-surface font-bold">{tr('Ketik Apapun')}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{tr('Tulis bebas satu kalimat, AI yang urus sisanya')}</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0" />
               </button>
@@ -705,8 +706,8 @@ export default function AddTransactionModal({
                   <Camera className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-on-surface font-bold">Foto Struk Belanja</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">Baca nota instan otomatis pakai AI asli</p>
+                  <p className="font-body-lg text-on-surface font-bold">{tr('Foto Struk Belanja')}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{tr('Baca nota instan otomatis pakai AI asli')}</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-on-surface transition-colors shrink-0" />
               </button>
@@ -716,8 +717,8 @@ export default function AddTransactionModal({
                   <Mic className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-on-surface font-bold">Catat Pakai Suara</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">Rekam suara asli / dikte via AI</p>
+                  <p className="font-body-lg text-on-surface font-bold">{tr('Catat Pakai Suara')}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{tr('Rekam suara asli / dikte via AI')}</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-secondary transition-colors shrink-0" />
               </button>
@@ -727,8 +728,8 @@ export default function AddTransactionModal({
                   <Edit3 className="w-6 h-6" />
                 </div>
                 <div className="flex-grow">
-                  <p className="font-body-lg text-on-surface font-bold">Input Manual</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">Ketik manual nominal & kategori</p>
+                  <p className="font-body-lg text-on-surface font-bold">{tr('Input Manual')}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{tr('Ketik manual nominal & kategori')}</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-on-surface transition-colors shrink-0" />
               </button>
@@ -742,7 +743,7 @@ export default function AddTransactionModal({
                 <div className="flex flex-col items-center gap-4 py-8">
                   <Loader className="w-12 h-12 text-primary animate-spin" />
                   <div className="flex flex-col gap-2 items-center">
-                    <p className="text-on-surface font-medium text-lg">Menganalisis Struk...</p>
+                    <p className="text-on-surface font-medium text-lg">{tr('Menganalisis Struk...')}</p>
                     <p className="text-xs text-on-surface-variant animate-pulse">{progressMsg}</p>
                     <div className="w-40 h-1.5 rounded-full bg-overlay/10 overflow-hidden mt-1">
                       <div className="h-full w-2/3 bg-primary rounded-full animate-pulse" />
@@ -757,13 +758,13 @@ export default function AddTransactionModal({
                     <div className="absolute left-0 right-0 h-0.5 bg-primary/40 shadow-[0_0_15px_#4edea3] top-1/4 animate-bounce" />
                     <Camera className="w-12 h-12 text-primary/80" />
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm font-medium text-on-surface">Ambil Foto atau Klik Upload Struk</p>
-                      <p className="text-xs text-on-surface-variant">Kirim file nota belanjaan asli Anda untuk dibongkar AI</p>
+                      <p className="text-sm font-medium text-on-surface">{tr('Ambil Foto atau Klik Upload Struk')}</p>
+                      <p className="text-xs text-on-surface-variant">{tr('Kirim file nota belanjaan asli Anda untuk dibongkar AI')}</p>
                     </div>
                   </label>
 
                   <div className="w-full text-left flex flex-col gap-3">
-                    <span className="text-xs text-on-surface-variant uppercase font-label-caps tracking-wider block">Atau gunakan demo struk instan:</span>
+                    <span className="text-xs text-on-surface-variant uppercase font-label-caps tracking-wider block">{tr('Atau gunakan demo struk instan:')}</span>
                     <div className="grid grid-cols-1 gap-2">
                       {MOCK_RECEIPTS.map((item, idx) => (
                         <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Struk')} className="flex justify-between items-center p-3 rounded-lg bg-overlay/5 border border-overlay/5 hover:border-primary/30 transition-colors text-left text-sm" >
@@ -803,7 +804,7 @@ export default function AddTransactionModal({
                   <div className="flex flex-col gap-3 items-center">
                     <p className="text-on-surface font-medium text-md animate-pulse">{progressMsg}</p>
                     <button type="button" onClick={stopAudioRecording} className="h-12 px-6 bg-red-500 text-on-surface font-bold rounded-full flex items-center gap-2 hover:bg-red-600 active:scale-95 shadow-lg shadow-red-500/20" >
-                      <Square className="w-4 h-4 text-on-surface fill-white" /> Selesai & Kirim Ke AI
+                      <Square className="w-4 h-4 text-on-surface fill-white" /> {tr('Selesai & Kirim Ke AI')}
                     </button>
                   </div>
                 </div>
@@ -817,15 +818,15 @@ export default function AddTransactionModal({
 
                     <label className="h-16 px-6 bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface rounded-full flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold active:scale-[0.98] transition-all">
                       <input type="file" id="upload-voice-input" accept="audio/*" onChange={(e) => handleFileChange(e, 'audio')} className="hidden" />
-                      <Upload className="w-[18px] h-[18px] shrink-0" /> Unggah Berkas Audio Asli
+                      <Upload className="w-[18px] h-[18px] shrink-0" /> {tr('Unggah Berkas Audio Asli')}
                     </label>
                   </div>
                   <p className="text-xs text-on-surface-variant max-w-[280px]">
-                    Klik ikon **Mikrofon** untuk mulai merekam suara asli Anda, atau unggah file rekaman dari device Anda.
+                    {tr('Klik ikon **Mikrofon** untuk mulai merekam suara asli Anda, atau unggah file rekaman dari device Anda.')}
                   </p>
 
                   <div className="w-full text-left flex flex-col gap-2.5 mt-2">
-                    <span className="text-xs text-on-surface-variant uppercase font-label-caps tracking-wider block">Demo Bicara Instan (Tiruan):</span>
+                    <span className="text-xs text-on-surface-variant uppercase font-label-caps tracking-wider block">{tr('Demo Bicara Instan (Tiruan):')}</span>
                     <div className="flex flex-col gap-2">
                       {MOCK_VOICES.map((item, idx) => (
                         <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Suara')} className="flex flex-col p-3 rounded-lg bg-surface-variant border border-overlay/5 hover:border-secondary/40 transition-colors text-left text-xs gap-1" >
@@ -843,13 +844,13 @@ export default function AddTransactionModal({
           {currentView === 'parser' && (
             <div className="flex flex-col gap-4 text-left py-2">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Input Teks/Suara Bebas</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Input Teks/Suara Bebas')}</label>
                 <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')..." className="h-24 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
               </div>
 
               <div className="flex gap-2">
-                <button type="button" disabled={isProcessing} onClick={() => { if (!inputText.trim()) return alert('Mohon isi teks terlebih dahulu'); handleApiParse(inputText); }} className="flex-1 h-12 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition-all" >
-                  {isProcessing ? <Loader className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5" />} Parse Teks via AI
+                <button type="button" disabled={isProcessing} onClick={() => { if (!inputText.trim()) return alert(tr('Mohon isi teks terlebih dahulu')); handleApiParse(inputText); }} className="flex-1 h-12 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 active:scale-[0.98] transition-all" >
+                  {isProcessing ? <Loader className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5" />} {tr('Parse Teks via AI')}
                 </button>
               </div>
 
@@ -861,17 +862,17 @@ export default function AddTransactionModal({
           {currentView === 'manual' && (
             <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 text-left">
               <div className="flex bg-body-bg rounded-lg p-1 border border-overlay/5 w-fit self-center">
-                <button type="button" onClick={() => setType('outgoing')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'outgoing' ? 'bg-danger text-on-surface shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>Pengeluaran</button>
-                <button type="button" onClick={() => setType('incoming')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'incoming' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>Pemasukan</button>
+                <button type="button" onClick={() => setType('outgoing')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'outgoing' ? 'bg-danger text-on-surface shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>{tr('Pengeluaran')}</button>
+                <button type="button" onClick={() => setType('incoming')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'incoming' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>{tr('Pemasukan')}</button>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Judul Transaksi</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Judul Transaksi')}</label>
                 <input type="text" required placeholder="Contoh: Beli Kopi Susu, Gaji Bulanan" value={title} onChange={(e) => setTitle(e.target.value)} className="h-12 bg-surface-variant/40 border border-overlay/10 rounded-lg px-4 text-on-surface focus:outline-none focus:border-primary/60" />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Nominal (Rp)</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nominal (Rp)')}</label>
                 <div className="relative flex items-center">
                   <span className="absolute left-4 font-mono-data text-primary text-sm font-bold">Rp</span>
                   <input
@@ -904,11 +905,11 @@ export default function AddTransactionModal({
 
               {/* Selector Waktu */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Waktu Catatan</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Waktu Catatan')}</label>
                 <div className="grid grid-cols-4 gap-2">
                   {(['today', 'yesterday', 'lusa', 'custom'] as const).map((preset) => {
                     const isSelected = datePreset === preset;
-                    let label = preset === 'today' ? 'Hari Ini' : preset === 'yesterday' ? 'Kemarin' : preset === 'lusa' ? 'Lusa' : 'Kalender';
+                    let label = preset === 'today' ? tr('Hari Ini') : preset === 'yesterday' ? tr('Kemarin') : preset === 'lusa' ? tr('Lusa') : tr('Kalender');
                     return (
                       <button key={preset} type="button" onClick={() => setDatePreset(preset)} className={`py-2 px-1 rounded-lg border text-xs font-semibold text-center transition-all ${isSelected ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>{label}</button>
                     );
@@ -919,7 +920,7 @@ export default function AddTransactionModal({
 
               {/* Selector Kantong */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Sumber Dana / Kantong</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Sumber Dana / Kantong')}</label>
                 <div className="grid grid-cols-3 gap-2">
                   {allPocketChoices.map(p => {
                     const isSelected = pocketId === p.id;
@@ -928,7 +929,7 @@ export default function AddTransactionModal({
                     return (
                       <button key={p.id} type="button" onClick={() => setPocketId(p.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
                         <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{p.name}</span>
-                        {isShared && <span className="text-[9px] text-on-surface-variant/50 truncate w-full">Bersama</span>}
+                        {isShared && <span className="text-[9px] text-on-surface-variant/50 truncate w-full">{tr('Bersama')}</span>}
                       </button>
                     );
                   })}
@@ -943,15 +944,15 @@ export default function AddTransactionModal({
                   biasa seperti sebelumnya. */}
               {activeShare ? (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">Sumber Dana</label>
+                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Sumber Dana')}</label>
                   {(() => {
                     const contribAcc = activeShare.accounts.find(a => a.id === `contrib-${activeShare.shareId}`);
                     const contribBalance = contribAcc?.allocations?.[activeShare.pocket.id] ?? 0;
                     return (
                       <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-on-surface flex flex-col gap-1">
-                        <span>Dana dari kontribusi Anda sendiri: <b className="font-mono-data">{formatRupiah(contribBalance)}</b></span>
+                        <span>{tr('Dana dari kontribusi Anda sendiri:')} <b className="font-mono-data">{formatRupiah(contribBalance)}</b></span>
                         {contribBalance <= 0 && (
-                          <span className="text-on-surface-variant">Anda belum menyetor dana ke kantong ini — buka menu <b className="text-on-surface">Kantong Bersama</b> untuk menyetor dulu sebelum mencatat transaksi pengeluaran.</span>
+                          <span className="text-on-surface-variant">{tr('Anda belum menyetor dana ke kantong ini — buka menu')} <b className="text-on-surface">{tr('Kantong Bersama')}</b> {tr('untuk menyetor dulu sebelum mencatat transaksi pengeluaran.')}</span>
                         )}
                       </div>
                     );
@@ -959,7 +960,7 @@ export default function AddTransactionModal({
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">Rekening / Dompet Fisik</label>
+                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Rekening / Dompet Fisik')}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {effectiveAccounts.map(acc => {
                       const isSelected = accountId === acc.id;
@@ -967,7 +968,7 @@ export default function AddTransactionModal({
                       return (
                         <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`p-2.5 rounded-lg border text-xs font-medium flex flex-col items-center gap-1.5 transition-all text-center ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
                           <IconComponent className="w-[18px] h-[18px]" /> <span className="truncate w-full">{acc.name}</span>
-                          {acc.type === 'paylater' && <span className="text-[9px] text-amber-400 truncate w-full">Paylater</span>}
+                          {acc.type === 'paylater' && <span className="text-[9px] text-amber-400 truncate w-full">{tr('Paylater')}</span>}
                         </button>
                       );
                     })}
@@ -978,8 +979,8 @@ export default function AddTransactionModal({
               {/* Selector Kategori */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">Kategori</label>
-                  <button type="button" onClick={onOpenCategoryManager} className="text-[10px] text-primary hover:underline flex items-center gap-1.5 font-semibold"><Settings className="w-3.5 h-3.5" /> Kelola Kategori</button>
+                  <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Kategori')}</label>
+                  <button type="button" onClick={onOpenCategoryManager} className="text-[10px] text-primary hover:underline flex items-center gap-1.5 font-semibold"><Settings className="w-3.5 h-3.5" /> {tr('Kelola Kategori')}</button>
                 </div>
                 <div
                   {...categoryScrollHandlers}
@@ -996,12 +997,12 @@ export default function AddTransactionModal({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Catatan Tambahan (Opsional)</label>
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Catatan Tambahan (Opsional)')}</label>
                 <textarea placeholder="Tuliskan catatan transaksi..." value={notes} onChange={(e) => setNotes(e.target.value)} className="h-16 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-xs focus:outline-none focus:border-primary/60 resize-none" />
               </div>
 
               <button type="submit" className="w-full h-13 mt-2 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_4px_15px_rgba(78,222,163,0.2)]">
-                <CheckCircle2 className="w-5 h-5" /> {editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'}
+                <CheckCircle2 className="w-5 h-5" /> {editingTransaction ? tr('Simpan Perubahan') : tr('Simpan Transaksi')}
               </button>
             </form>
           )}

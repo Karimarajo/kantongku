@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { UserProfile } from '../types';
 import { APP_VERSION } from '../version';
 import { CURRENCY_OPTIONS } from '../utils';
-import { t, getActiveLanguage } from '../i18n';
+import { t as tr, getActiveLanguage } from '../i18n';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
   CreditCard, Moon, Sun, Coins, Languages,
@@ -223,7 +223,7 @@ export default function ProfileView({
 
         <div className="w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/70 border-t border-overlay/5 pt-3 mt-1">
           <Calendar className="w-4 h-4 text-primary" />
-          <span>{t('Terdaftar Sejak:')} {new Date(userProfile.joinedAt).toLocaleDateString(getActiveLanguage() === 'en' ? 'en-US' : 'id-ID', { month: 'long', year: 'numeric' })}</span>
+          <span>{tr('Terdaftar Sejak:')} {new Date(userProfile.joinedAt).toLocaleDateString(getActiveLanguage() === 'en' ? 'en-US' : 'id-ID', { month: 'long', year: 'numeric' })}</span>
         </div>
       </section>
 
@@ -231,11 +231,11 @@ export default function ProfileView({
           sliding-knob switch visual as ReminderModal's active/inactive
           toggle, reused here for consistency. */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Tampilan')}</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{tr('Tampilan')}</span>
         <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4">
           <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
             {settings.theme === 'light' ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-primary" />}
-            {settings.theme === 'light' ? t('Mode Terang') : t('Mode Gelap')}
+            {settings.theme === 'light' ? tr('Mode Terang') : tr('Mode Gelap')}
           </span>
           <button
             type="button"
@@ -258,7 +258,7 @@ export default function ProfileView({
           (bukan satu ikon), supaya kedua pilihan selalu kelihatan. Lihat
           src/i18n.ts untuk cakupan terjemahan yang berlaku saat ini. */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Bahasa')}</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{tr('Bahasa')}</span>
         <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4">
           <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs">
             <Languages className="w-4 h-4 text-primary" />
@@ -286,11 +286,11 @@ export default function ProfileView({
           App.tsx). Murni ganti simbol/format angka, BUKAN konversi kurs —
           nominal yang tersimpan tetap angka yang sama persis. */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Mata Uang')}</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{tr('Mata Uang')}</span>
         <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4 gap-3">
           <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs shrink-0">
             <Coins className="w-4 h-4 text-primary" />
-            {t('Tampilkan Sebagai')}
+            {tr('Tampilkan Sebagai')}
           </span>
           <select
             value={settings.currency}
@@ -305,13 +305,13 @@ export default function ProfileView({
           </select>
         </div>
         <p className="text-[10px] text-on-surface-variant/50 leading-relaxed px-1">
-          {t('Hanya mengganti simbol & format angka tampilan, bukan konversi kurs — nominal yang tersimpan tetap sama.')}
+          {tr('Hanya mengganti simbol & format angka tampilan, bukan konversi kurs — nominal yang tersimpan tetap sama.')}
         </p>
       </section>
 
       {/* Settings / Pengaturan Menu */}
       <section className="flex flex-col gap-2.5 mt-2">
-        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{t('Pengaturan')}</span>
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">{tr('Pengaturan')}</span>
 
         <div className="flex flex-col gap-2.5">
           <button
@@ -443,7 +443,7 @@ export default function ProfileView({
             className="w-full h-12 rounded-xl bg-danger/10 border border-danger/20 text-danger font-label-caps text-xs flex items-center justify-center gap-2 hover:bg-danger/20 active:scale-[0.98] transition-all"
           >
             <LogOut className="w-4 h-4" />
-            {t('Keluar dari Aplikasi')}
+            {tr('Keluar dari Aplikasi')}
           </button>
         </div>
       </section>

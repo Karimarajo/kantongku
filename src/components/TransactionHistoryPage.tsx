@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Pocket, Account, Category, WalletTransferLog } from '../types';
 import { formatRupiah, formatDate, getCategoryColorHex, getWeeklyExpenseTrend } from '../utils';
+import { t as tr } from '../i18n';
 import { buildExportRows, exportTransactionsToCsv, exportTransactionsToPdf } from '../lib/exportTransactions';
 import CategoryIcon from './CategoryIcon';
 import CategoryDonutChart, { CategoryDonutFilter } from './CategoryDonutChart';
@@ -153,8 +154,8 @@ export default function TransactionHistoryPage({
   const exportTitle = useMemo(() => {
     const rangeLabel = dateFrom || dateTo
       ? `${dateFrom ? new Date(dateFrom).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '...'} – ${dateTo ? new Date(dateTo).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '...'}`
-      : 'Semua Data';
-    return `Riwayat Transaksi — ${rangeLabel}`;
+      : tr('Semua Data');
+    return `${tr('Riwayat Transaksi')} — ${rangeLabel}`;
   }, [dateFrom, dateTo]);
 
   const handleExport = (format: 'csv' | 'pdf') => {
@@ -175,7 +176,7 @@ export default function TransactionHistoryPage({
       {/* Header */}
       <div className="flex items-center gap-4 border-b border-overlay/5 pb-4">
         <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg"><ChevronLeft className="w-5 h-5"/></button>
-        <h1 className="text-xl font-bold">Riwayat Transaksi</h1>
+        <h1 className="text-xl font-bold">{tr('Riwayat Transaksi')}</h1>
       </div>
 
       {/* Grafik Tren Pengeluaran Mingguan — dipindah dari menu Analisis
@@ -198,12 +199,12 @@ export default function TransactionHistoryPage({
         <div className="relative">
           <input type="text" placeholder="Cari deskripsi..." value={search} onChange={e => setSearch(e.target.value)} className="w-full h-11 bg-overlay/5 border border-overlay/10 rounded-xl px-4 text-sm focus:outline-none" />
           {hasActiveFilters && (
-            <button onClick={resetFilters} className="absolute right-3 top-3.5 text-rose-400 text-xs flex items-center gap-1"><RotateCcw className="w-3 h-3"/> Reset</button>
+            <button onClick={resetFilters} className="absolute right-3 top-3.5 text-rose-400 text-xs flex items-center gap-1"><RotateCcw className="w-3 h-3"/> {tr('Reset')}</button>
           )}
         </div>
-        
+
         <button onClick={() => setShowFilters(!showFilters)} className="flex items-center justify-between px-4 h-11 bg-overlay/5 rounded-xl text-xs border border-overlay/5">
-          <span className="flex items-center gap-2"><SlidersHorizontal className="w-3.5 h-3.5 text-primary"/> Opsi Penyaringan Tingkat Lanjut</span>
+          <span className="flex items-center gap-2"><SlidersHorizontal className="w-3.5 h-3.5 text-primary"/> {tr('Opsi Penyaringan Tingkat Lanjut')}</span>
           <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`}/>
         </button>
 
@@ -216,16 +217,16 @@ export default function TransactionHistoryPage({
             disabled={filteredTransactions.length === 0}
             className="w-full flex items-center justify-between px-4 h-11 bg-overlay/5 rounded-xl text-xs border border-overlay/5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <span className="flex items-center gap-2"><Download className="w-3.5 h-3.5 text-primary"/> Export ({filteredTransactions.length} transaksi)</span>
+            <span className="flex items-center gap-2"><Download className="w-3.5 h-3.5 text-primary"/> {tr('Export')} ({filteredTransactions.length} {tr('transaksi')})</span>
             <ChevronDown className={`w-4 h-4 transition-transform ${showExportChoice ? 'rotate-180' : ''}`}/>
           </button>
           {showExportChoice && (
             <div className="absolute z-10 top-[calc(100%+4px)] left-0 right-0 bg-surface border border-outline rounded-xl overflow-hidden shadow-xl animate-fade-in">
               <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-4 h-11 text-xs text-on-surface hover:bg-overlay/5 transition-colors">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Export CSV
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> {tr('Export CSV')}
               </button>
               <button onClick={() => handleExport('pdf')} className="w-full flex items-center gap-2 px-4 h-11 text-xs text-on-surface hover:bg-overlay/5 transition-colors border-t border-overlay/5">
-                <FileText className="w-4 h-4 text-rose-400" /> Export PDF
+                <FileText className="w-4 h-4 text-rose-400" /> {tr('Export PDF')}
               </button>
             </div>
           )}
@@ -239,15 +240,15 @@ export default function TransactionHistoryPage({
             </div>
             
             <div className="flex gap-2 items-center my-1">
-              {(['all', 'incoming', 'outgoing'] as const).map(t => (
-                <button key={t} type="button" onClick={() => setTypeFilter(t)} className={`h-8 px-3 rounded-lg text-xs border transition-all ${typeFilter === t ? 'bg-primary text-on-primary font-bold border-primary' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>
-                  {t === 'all' ? 'Semua Kas' : t === 'incoming' ? 'Masuk' : 'Keluar'}
+              {(['all', 'incoming', 'outgoing'] as const).map(tf => (
+                <button key={tf} type="button" onClick={() => setTypeFilter(tf)} className={`h-8 px-3 rounded-lg text-xs border transition-all ${typeFilter === tf ? 'bg-primary text-on-primary font-bold border-primary' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>
+                  {tf === 'all' ? tr('Semua Kas') : tf === 'incoming' ? tr('Masuk') : tr('Keluar')}
                 </button>
               ))}
             </div>
 
             <div>
-              <p className="text-[10px] text-on-surface/50 uppercase tracking-wider mb-2">Pilih Kategori</p>
+              <p className="text-[10px] text-on-surface/50 uppercase tracking-wider mb-2">{tr('Pilih Kategori')}</p>
               <div className="flex flex-wrap gap-1">
                 {categories.map(c => (
                   <button key={c.id} type="button" onClick={()=>toggleCategory(c.id)} className={`px-2.5 py-1 rounded text-[10px] font-medium border transition-all ${selectedCategories.includes(c.id) ? 'bg-primary border-primary text-black font-bold' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>{c.name}</button>
@@ -255,7 +256,7 @@ export default function TransactionHistoryPage({
               </div>
             </div>
             <div>
-              <p className="text-[10px] text-on-surface/50 uppercase tracking-wider mb-2">Pilih Kantong</p>
+              <p className="text-[10px] text-on-surface/50 uppercase tracking-wider mb-2">{tr('Pilih Kantong')}</p>
               <div className="flex flex-wrap gap-1">
                 {pockets.map(p => (
                   <button key={p.id} type="button" onClick={()=>togglePocket(p.id)} className={`px-2.5 py-1 rounded text-[10px] font-medium border transition-all ${selectedPockets.includes(p.id) ? 'bg-primary border-primary text-black font-bold' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>{p.name}</button>
@@ -263,7 +264,7 @@ export default function TransactionHistoryPage({
               </div>
             </div>
             <div>
-              <p className="text-[10px] text-on-surface/50 uppercase tracking-wider mb-2">Pilih Wallet / Rekening</p>
+              <p className="text-[10px] text-on-surface/50 uppercase tracking-wider mb-2">{tr('Pilih Wallet / Rekening')}</p>
               <div className="flex flex-wrap gap-1">
                 {accounts.map(a => (
                   <button key={a.id} type="button" onClick={()=>toggleAccount(a.id)} className={`px-2.5 py-1 rounded text-[10px] font-medium border transition-all ${selectedAccounts.includes(a.id) ? 'bg-primary border-primary text-black font-bold' : 'bg-overlay/5 border-overlay/10 text-on-surface/70'}`}>{a.name}</button>
@@ -278,7 +279,7 @@ export default function TransactionHistoryPage({
         {/* Card 1: Total Masuk */}
         <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-emerald-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-emerald-400/70 uppercase tracking-wider flex items-center gap-1">
-            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Masuk
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> {tr('Masuk')}
           </span>
           <span className="text-xs font-bold text-emerald-400 font-mono-data truncate">
             {formatRupiah(totalIncoming, false)}
@@ -288,7 +289,7 @@ export default function TransactionHistoryPage({
         {/* Card 2: Total Keluar */}
         <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-rose-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-rose-400/70 uppercase tracking-wider flex items-center gap-1">
-            <ArrowUpRight className="w-3.5 h-3.5 text-rose-400 shrink-0" /> Keluar
+            <ArrowUpRight className="w-3.5 h-3.5 text-rose-400 shrink-0" /> {tr('Keluar')}
           </span>
           <span className="text-xs font-bold text-rose-400 font-mono-data truncate">
             {formatRupiah(totalOutgoing, false)}
@@ -298,7 +299,7 @@ export default function TransactionHistoryPage({
         {/* Card 3: Arus Kas Bersih (Total Transaksi) */}
         <div className={`glass-card p-3 rounded-xl border border-overlay/5 flex flex-col gap-0.5 ${netCashFlow >= 0 ? 'bg-primary/5' : 'bg-amber-500/5'}`}>
           <span className={`text-[9px] font-label-caps uppercase tracking-wider flex items-center gap-1 truncate ${netCashFlow >= 0 ? 'text-primary/70' : 'text-amber-400/70'}`}>
-            <Receipt className="w-3.5 h-3.5 shrink-0" /> Netto
+            <Receipt className="w-3.5 h-3.5 shrink-0" /> {tr('Netto')}
           </span>
           <span className={`text-xs font-bold font-mono-data truncate ${netCashFlow >= 0 ? 'text-primary' : 'text-amber-400'}`}>
             {netCashFlow >= 0 ? '+' : ''}{formatRupiah(netCashFlow, false)}
@@ -320,7 +321,7 @@ export default function TransactionHistoryPage({
           sekilas, tapi tidak lagi dikelompokkan terpisah. */}
       <div className="flex flex-col gap-2 mt-2">
         {combinedHistory.length === 0 ? (
-          <div className="text-center py-10 text-on-surface/30 text-xs">Tidak ada data mutasi yang cocok dengan filter.</div>
+          <div className="text-center py-10 text-on-surface/30 text-xs">{tr('Tidak ada data mutasi yang cocok dengan filter.')}</div>
         ) : (
           combinedHistory.map(entry => {
             if (entry.kind === 'transfer') {
@@ -334,7 +335,7 @@ export default function TransactionHistoryPage({
                     <p className="text-sm font-medium text-on-surface truncate flex items-center gap-1.5 flex-wrap">
                       {getAccountName(log.fromAccountId)} → {getAccountName(log.toAccountId)}
                       <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[8px] font-label-caps uppercase tracking-wider">
-                        Bukan Transaksi
+                        {tr('Bukan Transaksi')}
                       </span>
                     </p>
                     <p className="text-[10px] text-on-surface/40 font-mono-data mt-0.5 truncate">
@@ -362,7 +363,7 @@ export default function TransactionHistoryPage({
                     {t.title}
                     {t.paylaterStatus === 'unpaid' && (
                       <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] font-label-caps uppercase tracking-wider shrink-0">
-                        Belum Dibayar
+                        {tr('Belum Dibayar')}
                       </span>
                     )}
                   </p>
@@ -382,7 +383,7 @@ export default function TransactionHistoryPage({
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Hapus transaksi "${t.title}"?`)) {
+                        if (confirm(`${tr('Hapus transaksi')} "${t.title}"?`)) {
                           onDeleteTransaction(t.id);
                         }
                       }}

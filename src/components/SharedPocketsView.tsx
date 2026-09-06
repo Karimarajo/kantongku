@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Account, Pocket, PocketShare, SharedPocketBundle } from '../types';
 import { formatRupiah } from '../utils';
+import { t as tr } from '../i18n';
 import { ChevronLeft, Users, Check, X, LogOut, UserPlus, Loader2, Trash2, RotateCcw, Wallet as WalletIcon, ChevronDown } from 'lucide-react';
 
 interface SharedPocketsViewProps {
@@ -110,18 +111,18 @@ export default function SharedPocketsView({
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <Users className="w-5 h-5 text-primary" />
-          Kantong Bersama
+          {tr('Kantong Bersama')}
         </h1>
       </div>
 
       {/* Undangan masuk */}
       {pendingInvitations.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">Undangan Menunggu</h2>
+          <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">{tr('Undangan Menunggu')}</h2>
           {pendingInvitations.map((inv) => (
             <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
               <div className="text-xs text-on-surface-variant">
-                <span className="text-on-surface font-semibold">{inv.owner_name || 'Seseorang'}</span> mengajak Anda ke kantong{' '}
+                <span className="text-on-surface font-semibold">{inv.owner_name || tr('Seseorang')}</span> {tr('mengajak Anda ke kantong')}{' '}
                 <span className="text-on-surface font-semibold">{inv.pocket_name}</span>
               </div>
               <div className="flex gap-2 shrink-0 ml-2">
@@ -136,12 +137,12 @@ export default function SharedPocketsView({
       {/* Kantong yang dibagikan ke saya — ringkasan saja; buka lewat Home
           untuk lihat/tambah transaksinya, sama seperti kantong sendiri. */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">Dibagikan ke Saya</h2>
+        <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">{tr('Dibagikan ke Saya')}</h2>
         {sharedPockets.length === 0 ? (
-          <p className="text-xs text-on-surface-variant/60">Belum ada kantong yang dibagikan ke Anda.</p>
+          <p className="text-xs text-on-surface-variant/60">{tr('Belum ada kantong yang dibagikan ke Anda.')}</p>
         ) : (
           <>
-            <p className="text-[11px] text-on-surface-variant/60 -mt-1">Buka tab Home untuk lihat transaksi dan mencatat transaksi baru — kantong ini muncul di sana bersama kantong Anda sendiri.</p>
+            <p className="text-[11px] text-on-surface-variant/60 -mt-1">{tr('Buka tab Home untuk lihat transaksi dan mencatat transaksi baru — kantong ini muncul di sana bersama kantong Anda sendiri.')}</p>
             {sharedPockets.map((bundle) => {
               // Task (revisi Kantong Bersama, poin 9): "kontribusi saya" =
               // akun virtual contrib-<shareId> di dalam accounts milik OWNER
@@ -154,13 +155,13 @@ export default function SharedPocketsView({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-on-surface">{bundle.pocket.name}</p>
-                      <p className="text-[11px] text-on-surface-variant/60">milik {bundle.ownerName}</p>
+                      <p className="text-[11px] text-on-surface-variant/60">{tr('milik')} {bundle.ownerName}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-mono-data text-primary">{formatRupiah(bundle.pocket.balance)}</span>
                       <button
                         onClick={() => {
-                          if (confirm(`Yakin ingin keluar dari kantong "${bundle.pocket.name}"? Transaksi yang Anda buat di kantong ini akan dihapus, dan sisa kontribusi dana Anda (${formatRupiah(myContribution)}) akan dikembalikan ke wallet Anda.`)) {
+                          if (confirm(`${tr('Yakin ingin keluar dari kantong')} "${bundle.pocket.name}"? ${tr('Transaksi yang Anda buat di kantong ini akan dihapus, dan sisa kontribusi dana Anda')} (${formatRupiah(myContribution)}) ${tr('akan dikembalikan ke wallet Anda.')}`)) {
                             onDisconnectShare(bundle.shareId);
                           }
                         }}
@@ -174,19 +175,19 @@ export default function SharedPocketsView({
 
                   {/* Kontribusi saya + tombol Setor Dana */}
                   <div className="flex items-center justify-between text-[11px] bg-indigo-500/5 border border-indigo-500/10 rounded-lg px-2.5 py-2">
-                    <span className="text-on-surface-variant">Kontribusi saya: <b className="text-on-surface font-mono-data">{formatRupiah(myContribution)}</b></span>
+                    <span className="text-on-surface-variant">{tr('Kontribusi saya:')} <b className="text-on-surface font-mono-data">{formatRupiah(myContribution)}</b></span>
                     <button
                       type="button"
                       onClick={() => (isContribOpen ? setContribShareId(null) : openContribForm(bundle.shareId))}
                       className="flex items-center gap-1 text-primary font-semibold hover:underline"
                     >
-                      Setor Dana <ChevronDown className={`w-3 h-3 transition-transform ${isContribOpen ? 'rotate-180' : ''}`} />
+                      {tr('Setor Dana')} <ChevronDown className={`w-3 h-3 transition-transform ${isContribOpen ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
 
                   {isContribOpen && (
                     <form onSubmit={(e) => handleContribSubmit(e, bundle.shareId)} className="flex flex-col gap-2 p-2.5 rounded-lg bg-overlay/5 border border-overlay/10">
-                      <label className="text-[10px] text-on-surface-variant uppercase font-label-caps flex items-center gap-1"><WalletIcon className="w-3 h-3" /> Dari Wallet Saya</label>
+                      <label className="text-[10px] text-on-surface-variant uppercase font-label-caps flex items-center gap-1"><WalletIcon className="w-3 h-3" /> {tr('Dari Wallet Saya')}</label>
                       <select value={contribAccountId} onChange={(e) => setContribAccountId(e.target.value)} className="h-9 bg-overlay/5 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface">
                         {myAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatRupiah(a.balance)})</option>)}
                       </select>
@@ -200,7 +201,7 @@ export default function SharedPocketsView({
                       />
                       {contribError && <span className="text-[10px] text-rose-400">{contribError}</span>}
                       <button type="submit" disabled={contribLoading || myAccounts.length === 0} className="h-9 rounded-lg bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-                        {contribLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Setor'}
+                        {contribLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : tr('Setor')}
                       </button>
                     </form>
                   )}
@@ -213,7 +214,7 @@ export default function SharedPocketsView({
 
       {/* Bagikan kantong saya */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">Kantong Saya yang Dibagikan</h2>
+        <h2 className="text-xs font-label-caps text-primary/80 tracking-wider uppercase">{tr('Kantong Saya yang Dibagikan')}</h2>
 
         <form onSubmit={handleInviteSubmit} className="flex flex-col gap-2 p-3 rounded-xl bg-overlay/5 border border-overlay/10">
           <select value={invitePocketId} onChange={(e) => setInvitePocketId(e.target.value)} className="h-10 bg-overlay/5 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface">
@@ -228,12 +229,12 @@ export default function SharedPocketsView({
           />
           {inviteError && <span className="text-xs text-rose-400">{inviteError}</span>}
           <button type="submit" disabled={inviteLoading} className="h-10 rounded-lg bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-            {inviteLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><UserPlus className="w-3.5 h-3.5" /> Bagikan Kantong</>}
+            {inviteLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><UserPlus className="w-3.5 h-3.5" /> {tr('Bagikan Kantong')}</>}
           </button>
         </form>
 
         {myShares.length === 0 ? (
-          <p className="text-xs text-on-surface-variant/60">Anda belum membagikan kantong apa pun.</p>
+          <p className="text-xs text-on-surface-variant/60">{tr('Anda belum membagikan kantong apa pun.')}</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {myShares.map((share) => (
@@ -253,7 +254,7 @@ export default function SharedPocketsView({
                     share.status === 'pending' ? 'bg-amber-500/10 text-amber-300' :
                     'bg-rose-500/10 text-rose-400'
                   }`}>
-                    {share.status === 'active' ? 'Aktif' : share.status === 'pending' ? 'Menunggu' : 'Diputus'}
+                    {share.status === 'active' ? tr('Aktif') : share.status === 'pending' ? tr('Menunggu') : tr('Diputus')}
                   </span>
                   {share.status === 'revoked' ? (
                     <>
@@ -266,7 +267,7 @@ export default function SharedPocketsView({
                         {reconnectingId === share.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                       </button>
                       <button
-                        onClick={() => { if (confirm(`Hapus riwayat berbagi kantong ini dengan ${share.invited_email}? Tindakan ini tidak bisa dibatalkan.`)) onDeleteShare(share.id); }}
+                        onClick={() => { if (confirm(`${tr('Hapus riwayat berbagi kantong ini dengan')} ${share.invited_email}? ${tr('Tindakan ini tidak bisa dibatalkan.')}`)) onDeleteShare(share.id); }}
                         title="Hapus Data"
                         className="w-7 h-7 rounded-lg bg-overlay/5 text-on-surface-variant hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all"
                       >
@@ -276,7 +277,7 @@ export default function SharedPocketsView({
                   ) : (
                     <button
                       onClick={() => {
-                        if (confirm(`Yakin memutus ${share.invited_email} dari kantong "${pocketName(share.pocket_id)}"? Transaksi yang mereka buat di kantong ini akan dihapus, dan sisa kontribusi dana mereka akan dikembalikan ke wallet mereka.`)) {
+                        if (confirm(`${tr('Yakin memutus')} ${share.invited_email} ${tr('dari kantong')} "${pocketName(share.pocket_id)}"? ${tr('Transaksi yang mereka buat di kantong ini akan dihapus, dan sisa kontribusi dana mereka akan dikembalikan ke wallet mereka.')}`)) {
                           onDisconnectShare(share.id);
                         }
                       }}
