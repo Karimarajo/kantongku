@@ -326,6 +326,8 @@ export default function HomeDashboard({
       onChangeTab('debts');
     } else if (notif.link.type === 'budget') {
       onOpenBudgetModal();
+    } else if (notif.link.type === 'app-update') {
+      window.location.reload();
     }
   };
 
