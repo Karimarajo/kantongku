@@ -358,7 +358,14 @@ export default function TransactionHistoryPage({
                   <CategoryIcon name={cat?.icon || 'receipt'} className="w-4 h-4" style={{ color: colorHex }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-on-surface truncate">{t.title}</p>
+                  <p className="text-sm font-medium text-on-surface truncate flex items-center gap-1.5">
+                    {t.title}
+                    {t.paylaterStatus === 'unpaid' && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] font-label-caps uppercase tracking-wider shrink-0">
+                        Belum Dibayar
+                      </span>
+                    )}
+                  </p>
                   <p className="text-[10px] text-on-surface/40 font-mono-data mt-0.5">{formatDate(t.date)}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

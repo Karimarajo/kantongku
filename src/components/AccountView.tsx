@@ -29,6 +29,10 @@ interface AccountViewProps {
   onDeleteAccount: (id: string) => void;
   onSaveAllocations: (accountId: string, allocations: Record<string, number>) => void;
   onReorderAccounts: (newOrderIds: string[]) => void;
+  // Task (revisi, poin 10): lunasi transaksi 'unpaid' terpilih di satu
+  // wallet Paylater, dibayar dari satu wallet biasa. Return false = ditolak
+  // (alert sudah ditampilkan pemanggilnya), true = berhasil.
+  onPayPaylaterTransactions: (paylaterAccountId: string, transactionIds: string[], payingAccountId: string) => boolean;
 }
 
 // Long-press threshold to enter drag mode, and the movement tolerance before
@@ -60,7 +64,8 @@ export default function AccountView({
   onEditAccount,
   onDeleteAccount,
   onSaveAllocations,
-  onReorderAccounts
+  onReorderAccounts,
+  onPayPaylaterTransactions
 }: AccountViewProps) {
   const [formMode, setFormMode] = useState<'list' | 'add' | 'edit'>('list');
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -75,6 +80,12 @@ export default function AccountView({
   const [showInitialCalc, setShowInitialCalc] = useState<boolean>(false);
   const [icon, setIcon] = useState('bank');
   const [color, setColor] = useState('indigo');
+  // Task (revisi, poin 10): tipe wallet HANYA bisa dipilih saat menambah
+  // baru — mengubah tipe wallet yang sudah punya riwayat transaksi akan
+  // bikin data allocations/paylaterStatus tidak konsisten, jadi sengaja
+  // dikunci begitu dibuat (sama seperti pattern lain di app ini yang
+  // menghindari migrasi data mendadak).
+  const [accountType, setAccountType] = useState<'normal' | 'paylater'>('normal');
 
   // Copy-to-clipboard feedback state
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -93,9 +104,19 @@ export default function AccountView({
   const [activeAllocPocketId, setActiveAllocPocketId] = useState<string | null>(null);
   const [showAllocCalc, setShowAllocCalc] = useState<boolean>(false);
 
+  // Task (revisi, poin 10): state "Bayar Tagihan" untuk wallet Paylater —
+  // transaksi mana yang dicentang untuk dilunasi + wallet biasa mana yang
+  // dipakai membayar.
+  const [selectedPayTxIds, setSelectedPayTxIds] = useState<Set<string>>(new Set());
+  const [payFromAccountId, setPayFromAccountId] = useState<string>('');
+
   // Reset editing allocation state when wallet selection changes
   useEffect(() => {
     setIsEditingAllocation(false);
+    setSelectedPayTxIds(new Set());
+    const firstNormal = accounts.find(a => a.type !== 'paylater');
+    setPayFromAccountId(firstNormal?.id || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId]);
 
   // Dynamically update evaluated amount from raw expression for wallet initial balance
@@ -266,6 +287,7 @@ export default function AccountView({
     setInitialBalanceExpr('');
     setIcon('bank');
     setColor('indigo');
+    setAccountType('normal');
     setFormMode('add');
     setDeleteWarning(null);
   };
@@ -276,12 +298,18 @@ export default function AccountView({
     setName(acc.name);
     setAccountNumber(acc.accountNumber || '');
     setOwnerName(acc.ownerName || '');
-    setInitialBalance(acc.balance);
+    setAccountType(acc.type || 'normal');
+    // Wallet biasa: field ini mengisi saldo. Wallet Paylater: field yang
+    // SAMA dipakai untuk limit kredit (lihat handleSubmit & label dinamis
+    // di JSX) — outstanding (acc.balance) sendiri tidak ditampilkan di
+    // sini sama sekali, murni hasil transaksi, bukan yang diedit manual.
+    const displayValue = acc.type === 'paylater' ? (acc.limit || 0) : acc.balance;
+    setInitialBalance(displayValue);
     // Task 5 fix: the saldo input displays `initialBalanceExpr`, not
     // `initialBalance` — this line was missing, so the field always showed
     // 0 (or a stale leftover expression) regardless of the wallet's real
     // balance, even though `initialBalance` itself was set correctly above.
-    setInitialBalanceExpr(acc.balance.toString());
+    setInitialBalanceExpr(displayValue.toString());
     setIcon(acc.icon);
     setColor(acc.color);
     setFormMode('edit');
@@ -300,20 +328,31 @@ export default function AccountView({
         ownerName: ownerName.trim(),
         icon,
         color,
+        type: accountType,
         initialBalance: initialBalance || 0
       });
     } else if (formMode === 'edit' && editingAccountId) {
       const accToEdit = accounts.find(a => a.id === editingAccountId);
       if (!accToEdit) return;
-      const balanceDifference = (initialBalance || 0) - accToEdit.balance;
-      onEditAccount({
-        ...accToEdit,
-        name: name.trim(),
-        accountNumber: accountNumber.trim(),
-        ownerName: ownerName.trim(),
-        icon,
-        color
-      }, balanceDifference);
+      if (accToEdit.type === 'paylater') {
+        onEditAccount({
+          ...accToEdit,
+          name: name.trim(),
+          icon,
+          color,
+          limit: initialBalance || 0,
+        });
+      } else {
+        const balanceDifference = (initialBalance || 0) - accToEdit.balance;
+        onEditAccount({
+          ...accToEdit,
+          name: name.trim(),
+          accountNumber: accountNumber.trim(),
+          ownerName: ownerName.trim(),
+          icon,
+          color
+        }, balanceDifference);
+      }
     }
     setFormMode('list');
   };
@@ -621,10 +660,18 @@ export default function AccountView({
                         </div>
                       </div>
 
-                      <div>
-                        <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">Saldo Total</p>
-                        <p className="font-mono-data text-xl font-bold text-on-surface mt-0.5">{formatRupiah(acc.balance)}</p>
-                      </div>
+                      {acc.type === 'paylater' ? (
+                        <div>
+                          <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">Tagihan Berjalan</p>
+                          <p className="font-mono-data text-xl font-bold text-amber-400 mt-0.5">{formatRupiah(acc.balance)}</p>
+                          <p className="text-[10px] text-on-surface-variant/50 mt-0.5">dari limit {formatRupiah(acc.limit || 0)}</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-[10px] text-on-surface-variant/70 uppercase font-label-caps tracking-wider">Saldo Total</p>
+                          <p className="font-mono-data text-xl font-bold text-on-surface mt-0.5">{formatRupiah(acc.balance)}</p>
+                        </div>
+                      )}
 
                       <div className="flex justify-between items-center mt-1 pt-2.5 border-t border-overlay/5 gap-2">
                         <div className="flex flex-col min-w-0">
@@ -650,8 +697,89 @@ export default function AccountView({
             {selectedAccount ? (
               <div className="glass-card rounded-xl p-5 border border-overlay/10 relative overflow-hidden flex flex-col gap-4 animate-fade-in">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
-                
-                {isEditingAllocation ? (
+
+                {selectedAccount.type === 'paylater' ? (
+                  // Task (revisi, poin 10): panel "Bayar Tagihan" — daftar
+                  // transaksi 'unpaid' di wallet paylater ini, centang mana
+                  // yang mau dilunasi, pilih wallet pembayar, total di atas.
+                  (() => {
+                    const unpaidTx = transactions.filter(t => t.accountId === selectedAccount.id && t.paylaterStatus === 'unpaid');
+                    const payableAccounts = accounts.filter(a => a.type !== 'paylater');
+                    const selectedTotal = unpaidTx
+                      .filter(t => selectedPayTxIds.has(t.id))
+                      .reduce((sum, t) => sum + t.amount, 0);
+                    const toggleTx = (id: string) => setSelectedPayTxIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id); else next.add(id);
+                      return next;
+                    });
+                    const handlePaySubmit = () => {
+                      if (selectedPayTxIds.size === 0 || !payFromAccountId) return;
+                      const success = onPayPaylaterTransactions(selectedAccount.id, Array.from(selectedPayTxIds), payFromAccountId);
+                      if (success) setSelectedPayTxIds(new Set());
+                    };
+                    return (
+                      <>
+                        <div className="border-b border-overlay/5 pb-3">
+                          <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Bayar Tagihan</span>
+                          <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
+                            {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
+                            {selectedAccount.name}
+                          </h3>
+                          <p className="text-[11px] text-on-surface-variant/70 mt-1">
+                            Tagihan berjalan {formatRupiah(selectedAccount.balance)} dari limit {formatRupiah(selectedAccount.limit || 0)}.
+                          </p>
+                        </div>
+
+                        {unpaidTx.length === 0 ? (
+                          <div className="text-center py-8 text-on-surface-variant/40 flex flex-col items-center gap-1">
+                            <Info className="w-8 h-8 text-on-surface-variant/20 mb-1" />
+                            <p className="text-xs">Tidak ada tagihan yang belum dibayar.</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex flex-col gap-2 max-h-[35vh] overflow-y-auto pr-1 no-scrollbar">
+                              {unpaidTx.map(t => (
+                                <label key={t.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-overlay/5 border border-overlay/5 cursor-pointer text-xs">
+                                  <input type="checkbox" checked={selectedPayTxIds.has(t.id)} onChange={() => toggleTx(t.id)} className="accent-primary w-4 h-4 shrink-0" />
+                                  <span className="flex-1 min-w-0 truncate text-on-surface">{t.title}</span>
+                                  <span className="font-mono-data font-bold text-on-surface shrink-0">{formatRupiah(t.amount)}</span>
+                                </label>
+                              ))}
+                            </div>
+
+                            <div className="p-3 bg-surface-variant/30 border border-overlay/5 rounded-xl text-xs flex flex-col gap-2">
+                              <div className="flex justify-between font-mono-data font-bold text-on-surface">
+                                <span>Total Terpilih:</span>
+                                <span>{formatRupiah(selectedTotal)}</span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-label-caps text-on-surface-variant uppercase">Bayar Dengan Wallet</label>
+                                <select
+                                  value={payFromAccountId}
+                                  onChange={(e) => setPayFromAccountId(e.target.value)}
+                                  className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface"
+                                >
+                                  {payableAccounts.length === 0 && <option value="">Belum ada wallet biasa</option>}
+                                  {payableAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatRupiah(a.balance)})</option>)}
+                                </select>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handlePaySubmit}
+                              disabled={selectedPayTxIds.size === 0 || !payFromAccountId}
+                              className="w-full h-11 bg-primary text-on-primary rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all active:scale-[0.98]"
+                            >
+                              <Save className="w-4 h-4" /> Bayar {selectedPayTxIds.size > 0 ? formatRupiah(selectedTotal) : ''}
+                            </button>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : isEditingAllocation ? (
                   <form onSubmit={handleAllocationSubmit} className="flex flex-col gap-4 text-left">
                     <div className="border-b border-overlay/5 pb-2">
                       <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">Atur Alokasi Saldo</span>
@@ -854,7 +982,31 @@ export default function AccountView({
               />
             </div>
 
-            {/* Account Number */}
+            {/* Task (revisi, poin 10): toggle tipe wallet — cuma muncul saat
+                menambah baru, terkunci setelah dibuat (lihat komentar
+                accountType di atas). */}
+            {formMode === 'add' && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">Jenis Wallet</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setAccountType('normal')} className={`h-11 rounded-lg border text-xs font-semibold transition-all ${accountType === 'normal' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
+                    Wallet Biasa
+                  </button>
+                  <button type="button" onClick={() => setAccountType('paylater')} className={`h-11 rounded-lg border text-xs font-semibold transition-all ${accountType === 'paylater' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-variant/20 border-overlay/5 text-on-surface-variant hover:bg-overlay/5'}`}>
+                    Paylater / Kartu Kredit
+                  </button>
+                </div>
+                {accountType === 'paylater' && (
+                  <p className="text-[10px] text-on-surface-variant/60 leading-relaxed mt-0.5">
+                    Transaksi lewat wallet ini tercatat "belum dibayar" dan tidak mengurangi Total Saldo — baru terhitung setelah dilunasi lewat "Bayar Tagihan".
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Account Number — tidak relevan untuk Paylater */}
+            {accountType !== 'paylater' && (
+            <>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">No Rekening</label>
               <input
@@ -879,11 +1031,13 @@ export default function AccountView({
                 className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
               />
             </div>
+            </>
+            )}
 
-            {/* Wallet Balance Input (visible in both Add and Edit modes) */}
+            {/* Wallet Balance / Limit Input (visible in both Add and Edit modes) */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-label-caps text-on-surface-variant uppercase">
-                {formMode === 'add' ? 'Saldo Awal Wallet (Rp)' : 'Saldo Wallet (Rp)'}
+                {accountType === 'paylater' ? 'Limit Kredit (Rp)' : formMode === 'add' ? 'Saldo Awal Wallet (Rp)' : 'Saldo Wallet (Rp)'}
               </label>
               <div className="relative flex items-center">
                 <span className="absolute left-3 font-mono-data text-primary text-xs font-bold">Rp</span>

@@ -12,12 +12,23 @@ export interface Pocket {
 export interface Account {
   id: string;
   name: string;
+  // Untuk wallet normal: saldo riil. Untuk wallet Paylater/Kartu Kredit
+  // (type 'paylater'): TAGIHAN BERJALAN (outstanding) yang belum dibayar —
+  // 0 kalau belum ada transaksi belum-bayar sama sekali, naik tiap transaksi
+  // paylater baru, turun tiap dibayar. Lihat `limit` di bawah.
   balance: number;
   icon: string; // bank, wallet, smartphone, cash, etc.
   color: string; // theme color
   accountNumber?: string; // No Rekening
   ownerName?: string; // Nama Pemilik Rekening
-  allocations?: Record<string, number>; // pocketId -> amount
+  allocations?: Record<string, number>; // pocketId -> amount (wallet normal saja)
+  // Task (revisi, poin 10): wallet Paylater/Kartu Kredit — logic-nya beda
+  // dari wallet biasa, lihat komentar `balance` di atas dan `limit` di
+  // bawah. undefined/'normal' = wallet biasa (perilaku lama, tidak berubah).
+  type?: 'normal' | 'paylater';
+  // Limit kredit (mis. Paylater Shopee = 10.000.000). Hanya relevan kalau
+  // type === 'paylater' — kredit tersedia = limit - balance(outstanding).
+  limit?: number;
 }
 
 export type CategoryType = string;
@@ -47,6 +58,14 @@ export interface Transaction {
   // (where "me" is implicit) — the export feature falls back to the
   // current user's own email in that case, never leaves the column blank.
   inputBy?: string;
+  // Task (revisi, poin 10): transaksi yang dibuat lewat wallet Paylater/
+  // Kartu Kredit. 'unpaid' = belum dibayar (accountId MASIH menunjuk ke
+  // wallet paylater-nya, TIDAK memotong saldo/alokasi wallet mana pun atau
+  // Total Saldo). Begitu dibayar (lihat handlePayPaylaterTransactions di
+  // App.tsx), accountId diganti ke wallet PEMBAYAR sungguhan dan field ini
+  // dihapus — dari titik itu transaksinya berperilaku 100% seperti
+  // transaksi biasa (baru saat itulah benar-benar memotong saldo).
+  paylaterStatus?: 'unpaid';
 }
 
 export interface Budget {

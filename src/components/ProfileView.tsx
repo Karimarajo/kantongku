@@ -1,16 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { UserProfile } from '../types';
 import { APP_VERSION } from '../version';
+import { CURRENCY_OPTIONS } from '../utils';
 import {
   LogOut, User, Calendar, RefreshCw, Mail,
-  CreditCard, Moon, Sun,
+  CreditCard, Moon, Sun, Coins,
   Camera, Edit3, Save, X, Check,
   Wallet, Tag, Receipt, History, ChevronRight,
   Users, LifeBuoy, BookOpen
 } from 'lucide-react';
 
 export interface AppSettings {
-  currency: 'IDR' | 'USD';
+  // Task (revisi, poin 12): diperluas dari 'IDR'|'USD' ke kode mata uang
+  // apa pun di CURRENCY_OPTIONS (utils.ts) — string biasa supaya daftar
+  // pilihan bisa ditambah tanpa perlu mengubah union type ini lagi.
+  currency: string;
   theme: 'dark' | 'light';
   alarmRem: boolean;
   // IANA zone (e.g. "Asia/Jakarta", "Asia/Makassar") captured automatically
@@ -242,6 +246,35 @@ export default function ProfileView({
             />
           </button>
         </div>
+      </section>
+
+      {/* Task (revisi, poin 12): pilihan mata uang tampilan — dropdown,
+          langsung berlaku ke SELURUH nominal di app begitu disimpan (lihat
+          setActiveCurrency di utils.ts, dipanggil dari handleSaveSettings
+          App.tsx). Murni ganti simbol/format angka, BUKAN konversi kurs —
+          nominal yang tersimpan tetap angka yang sama persis. */}
+      <section className="flex flex-col gap-2.5 mt-2">
+        <span className="text-xs font-label-caps text-on-surface-variant uppercase tracking-wider block">Mata Uang</span>
+        <div className="w-full h-12 rounded-xl bg-overlay/5 border border-overlay/10 flex items-center justify-between px-4 gap-3">
+          <span className="flex items-center gap-2 text-on-surface font-label-caps text-xs shrink-0">
+            <Coins className="w-4 h-4 text-primary" />
+            Tampilkan Sebagai
+          </span>
+          <select
+            value={settings.currency}
+            onChange={(e) => updateSetting('currency', e.target.value)}
+            className="bg-transparent text-on-surface text-xs font-mono-data text-right focus:outline-none cursor-pointer"
+          >
+            {CURRENCY_OPTIONS.map(c => (
+              <option key={c.code} value={c.code} className="bg-surface text-on-surface">
+                {c.symbol} — {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="text-[10px] text-on-surface-variant/50 leading-relaxed px-1">
+          Hanya mengganti simbol & format angka tampilan, bukan konversi kurs — nominal yang tersimpan tetap sama.
+        </p>
       </section>
 
       {/* Settings / Pengaturan Menu */}
