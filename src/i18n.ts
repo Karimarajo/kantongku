@@ -462,6 +462,57 @@ const EN: Record<string, string> = {
   'Minggu Riil': 'Real Week',
   'Tidak ada mutasi': 'No activity',
   'Tutup [x]': 'Close [x]',
+
+  // FinancialHealthCard
+  'Gagal menganalisis kesehatan keuangan': 'Failed to analyze financial health',
+  'Gagal menganalisis kesehatan keuangan. Coba lagi nanti.': 'Failed to analyze financial health. Please try again later.',
+  'Menganalisis...': 'Analyzing...',
+  'Analisis Kesehatan Keuangan': 'Financial Health Analysis',
+  'Memakai rentang tanggal dari filter di atas': 'Using the date range from the filter above',
+  's/d': 'to',
+  'Sehat': 'Healthy',
+  'Cukup Sehat': 'Fairly Healthy',
+  'Perlu Perhatian': 'Needs Attention',
+  'Narasi AI tidak tersedia saat ini — kategori di atas dihitung langsung dari ambang batas rasio.': 'AI narrative is unavailable right now — the category above was calculated directly from the ratio thresholds.',
+  'Cicilan/Utang': 'Installments/Debt',
+  'sehat': 'healthy',
+  'Menabung': 'Savings',
+  'Likuiditas': 'Liquidity',
+  'Saran': 'Suggestions',
+  'Hasil ini hanya terlihat oleh Anda (dan kolaborator jika ada) — tidak dibagikan ke pihak luar.': 'This result is visible only to you (and collaborators, if any) — it is not shared externally.',
+
+  // DonutChart / CategoryDonutChart
+  'Belum ada data bulan ini.': 'No data for this month yet.',
+  'Belum ada pengeluaran.': 'No expenses yet.',
+  'Belum ada pemasukan.': 'No income yet.',
+  'Filter': 'Filter',
+
+  // PushNotificationToggle
+  'Notifikasi push aktif di perangkat ini': 'Push notifications are active on this device',
+  'Notifikasi push belum didukung di browser ini. Di iPhone, tambahkan KantongKu ke Layar Utama dulu (keterbatasan Apple, bukan bug).': "Push notifications aren't supported in this browser yet. On iPhone, add KantongKu to your Home Screen first (an Apple limitation, not a bug).",
+  'Aktifkan Notifikasi': 'Enable Notifications',
+
+  // GuideView — chrome + section titles (accordion bodies stay in Indonesian;
+  // see conversation notes on scope for the deep prose content)
+  'Panduan Pengguna': 'User Guide',
+  'Rangkuman cara pakai semua fitur KantongKu, plus catatan pembaruan setiap kali ada versi baru.': 'A summary of how to use every KantongKu feature, plus update notes for every new version.',
+  'Update Terbaru': 'Latest Update',
+  'Panduan Fitur': 'Feature Guide',
+  'Mulai Cepat & Install ke HP': 'Quick Start & Install to Phone',
+  'Catat Transaksi Secepat Kilat': 'Record Transactions in a Flash',
+  'Kelola Dompet / Wallet': 'Manage Wallets',
+  'Kantong: Target Tabungan & Limit Belanja': 'Pockets: Savings Targets & Spending Limits',
+  'Kategori Transaksi': 'Transaction Categories',
+  'Reminder Tagihan & Kelola Cicilan/Hutang': 'Bill Reminders & Installment/Debt Management',
+  'Kantong Bersama — Bagikan Satu Kantong ke Rekan': 'Shared Pockets — Share a Single Pocket with a Partner',
+  'Statistik & Diagram Interaktif': 'Interactive Statistics & Charts',
+  'Riwayat Transaksi & Rekap Bulanan': 'Transaction History & Monthly Recap',
+  'Analisis Kesehatan Keuangan oleh AI': 'AI Financial Health Analysis',
+  'Log Aktivitas': 'Activity Log',
+  'Notifikasi Pengingat': 'Reminder Notifications',
+  'Mode Gelap/Terang': 'Dark/Light Mode',
+  'Bantuan & Dukungan': 'Help & Support',
+  'Pertanyaan yang Sering Diajukan (FAQ)': 'Frequently Asked Questions (FAQ)',
 };
 
 // Fallback param cuma dipakai untuk teks yang mengandung interpolasi

@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatRupiah } from '../utils';
+import { t as tr } from '../i18n';
 
 export interface DonutDatum {
   id: string; // category id — stable key for click-to-filter, unlike `category` (display name)
@@ -39,7 +40,7 @@ export default function DonutChart({ title, data, emptyLabel, selectedId, onSele
 
       {!hasData ? (
         <div className="flex flex-col items-center justify-center gap-1.5 py-8 text-on-surface-variant/40 text-center min-h-[108px]">
-          <span className="text-[11px] leading-relaxed px-2">{emptyLabel || 'Belum ada data bulan ini.'}</span>
+          <span className="text-[11px] leading-relaxed px-2">{emptyLabel || tr('Belum ada data bulan ini.')}</span>
         </div>
       ) : (
         <>
