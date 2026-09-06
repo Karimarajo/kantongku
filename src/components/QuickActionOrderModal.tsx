@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { X, GripVertical, ChevronUp, ChevronDown, Settings2, Save } from 'lucide-react';
+import { t as tr } from '../i18n';
 
 export interface QuickActionMeta {
   id: string;
@@ -76,7 +77,7 @@ export default function QuickActionOrderModal({ isOpen, onClose, actions, onSave
         <div className="flex justify-between items-center px-5 py-4 border-b border-overlay/5 shrink-0 bg-surface-variant/20">
           <div className="flex items-center gap-2">
             <Settings2 className="w-4.5 h-4.5 text-primary" />
-            <h3 className="font-headline-sm text-base text-on-surface font-bold">Atur Urutan Aksi Cepat</h3>
+            <h3 className="font-headline-sm text-base text-on-surface font-bold">{tr('Atur Urutan Aksi Cepat')}</h3>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
             <X className="w-4 h-4" />
@@ -84,7 +85,7 @@ export default function QuickActionOrderModal({ isOpen, onClose, actions, onSave
         </div>
 
         <p className="text-[11px] text-on-surface-variant px-5 pt-3 leading-relaxed">
-          Geser (atau pakai panah) untuk mengatur urutan. 5 teratas yang langsung tampil di Home.
+          {tr('Geser (atau pakai panah) untuk mengatur urutan. 5 teratas yang langsung tampil di Home.')}
         </p>
 
         <div className="flex flex-col gap-1.5 p-4 overflow-y-auto no-scrollbar">
@@ -107,7 +108,7 @@ export default function QuickActionOrderModal({ isOpen, onClose, actions, onSave
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className="text-sm text-on-surface flex-grow truncate">{action.label}</span>
-                <span className="text-[9px] font-label-caps text-on-surface-variant/50 uppercase shrink-0">{index < 5 ? 'Tampil' : 'Lainnya'}</span>
+                <span className="text-[9px] font-label-caps text-on-surface-variant/50 uppercase shrink-0">{index < 5 ? tr('Tampil') : tr('Lainnya')}</span>
                 <div className="flex flex-col shrink-0">
                   <button type="button" onClick={() => move(index, -1)} disabled={index === 0} className="text-on-surface-variant/60 hover:text-primary disabled:opacity-20 disabled:cursor-not-allowed">
                     <ChevronUp className="w-4 h-4" />
@@ -126,7 +127,7 @@ export default function QuickActionOrderModal({ isOpen, onClose, actions, onSave
             onClick={() => { onSave(order); onClose(); }}
             className="w-full h-11 bg-primary text-on-primary font-bold text-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all"
           >
-            <Save className="w-4 h-4" /> Simpan Urutan
+            <Save className="w-4 h-4" /> {tr('Simpan Urutan')}
           </button>
         </div>
       </div>

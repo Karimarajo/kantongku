@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { formatRupiah } from '../utils';
 import { TrendingDown, ChevronRight } from 'lucide-react';
+import { t as tr } from '../i18n';
 
 interface WeeklyTrendChartProps {
   // Pengeluaran per minggu kalender riil (lihat getWeeklyExpenseTrend di utils.ts).
@@ -15,7 +16,8 @@ interface WeeklyTrendChartProps {
 // Kartu grafik "Tren Pengeluaran Mingguan" — sebelumnya di menu Analisis
 // (dihapus, lihat App.tsx), sekarang dipakai di TransactionHistoryPage
 // (bulan berjalan) dan MonthlyExpenseView (bulan yang sedang dilihat user).
-export default function WeeklyTrendChart({ weeklyTrendData, totalLabel = 'Total Belanja Bulan Ini', onOpenMonthlyDetail }: WeeklyTrendChartProps) {
+export default function WeeklyTrendChart({ weeklyTrendData, totalLabel, onOpenMonthlyDetail }: WeeklyTrendChartProps) {
+  const resolvedTotalLabel = totalLabel ?? tr('Total Belanja Bulan Ini');
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const totalWeeklySpent = weeklyTrendData.reduce((sum, val) => sum + val, 0);
 
@@ -56,21 +58,21 @@ export default function WeeklyTrendChart({ weeklyTrendData, totalLabel = 'Total 
 
       <div className="flex justify-between items-end">
         <div>
-          <p className="text-[10px] text-on-surface-variant font-label-caps uppercase tracking-wider">{totalLabel}</p>
+          <p className="text-[10px] text-on-surface-variant font-label-caps uppercase tracking-wider">{resolvedTotalLabel}</p>
           <p className="font-display-lg text-on-surface font-mono-data text-2xl font-bold">{formatRupiah(totalWeeklySpent)}</p>
           {onOpenMonthlyDetail && (
             <button
               onClick={onOpenMonthlyDetail}
               className="flex items-center gap-0.5 text-[11px] text-primary hover:underline font-label-caps mt-1"
             >
-              Lihat Keseluruhan <ChevronRight className="w-3 h-3" />
+              {tr('Lihat Keseluruhan')} <ChevronRight className="w-3 h-3" />
             </button>
           )}
         </div>
 
         <div className="flex items-center gap-1 text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-full">
           <TrendingDown className="w-4 h-4 shrink-0" />
-          <span className="font-mono-data text-xs font-bold">Grafik Riil</span>
+          <span className="font-mono-data text-xs font-bold">{tr('Grafik Riil')}</span>
         </div>
       </div>
 
@@ -100,7 +102,7 @@ export default function WeeklyTrendChart({ weeklyTrendData, totalLabel = 'Total 
         <div className="absolute bottom-2 left-0 w-full flex justify-between px-4 text-on-surface-variant/60 font-label-caps text-[9px] tracking-wider">
           {weeklyTrendData.map((val, idx) => (
             <span key={idx} className={val === 0 ? 'text-on-surface-variant/30' : 'font-semibold'}>
-              Minggu {idx + 1}
+              {tr('Minggu')} {idx + 1}
             </span>
           ))}
         </div>
@@ -108,12 +110,12 @@ export default function WeeklyTrendChart({ weeklyTrendData, totalLabel = 'Total 
         {/* Tooltip Float panel */}
         {selectedWeek !== null && (
           <div className="absolute top-1 bg-surface border border-overlay/10 rounded-lg p-2 text-center text-xs shadow-xl left-1/2 -translate-x-1/2 z-10 animate-fade-in">
-            <span className="font-bold text-on-surface block">Minggu Riil {selectedWeek + 1}</span>
+            <span className="font-bold text-on-surface block">{tr('Minggu Riil')} {selectedWeek + 1}</span>
             <span className="text-primary font-mono-data font-bold block mt-0.5">
-              {weeklyTrendData[selectedWeek] > 0 ? formatRupiah(weeklyTrendData[selectedWeek]) : 'Tidak ada mutasi'}
+              {weeklyTrendData[selectedWeek] > 0 ? formatRupiah(weeklyTrendData[selectedWeek]) : tr('Tidak ada mutasi')}
             </span>
             <button onClick={() => setSelectedWeek(null)} className="text-[9px] font-label-caps uppercase text-rose-400 hover:text-rose-300 mt-1 flex items-center justify-center mx-auto" >
-              Tutup [x]
+              {tr('Tutup [x]')}
             </button>
           </div>
         )}

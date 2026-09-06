@@ -6,6 +6,7 @@ import WeeklyTrendChart from './WeeklyTrendChart';
 import {
   ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Receipt, Edit3, Trash2
 } from 'lucide-react';
+import { t as tr, getActiveLanguage } from '../i18n';
 
 interface MonthlyExpenseViewProps {
   transactions: Transaction[];
@@ -67,14 +68,14 @@ export default function MonthlyExpenseView({
     return cat ? getCategoryColorHex(cat.color) : '#64748B';
   };
 
-  const monthLabel = viewDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const monthLabel = viewDate.toLocaleDateString(getActiveLanguage() === 'en' ? 'en-US' : 'id-ID', { month: 'long', year: 'numeric' });
 
   return (
     <div className="flex flex-col gap-4 w-full h-full text-left max-h-[calc(100vh-120px)] overflow-y-auto pb-12 no-scrollbar">
       {/* Header */}
       <div className="flex items-center gap-4 border-b border-overlay/5 pb-4">
         <button onClick={onBack} className="p-2 bg-overlay/5 rounded-lg"><ChevronLeft className="w-5 h-5" /></button>
-        <h1 className="text-xl font-bold">Detail Pengeluaran Bulanan</h1>
+        <h1 className="text-xl font-bold">{tr('Detail Pengeluaran Bulanan')}</h1>
       </div>
 
       {/* Month navigator */}
@@ -82,7 +83,7 @@ export default function MonthlyExpenseView({
         <button
           onClick={goToPrevMonth}
           className="w-9 h-9 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-all active:scale-95"
-          title="Bulan sebelumnya"
+          title={tr('Bulan sebelumnya')}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -93,7 +94,7 @@ export default function MonthlyExpenseView({
           onClick={goToNextMonth}
           disabled={isCurrentMonth}
           className="w-9 h-9 rounded-full bg-overlay/5 border border-overlay/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-overlay/5 disabled:hover:text-on-surface-variant"
-          title={isCurrentMonth ? 'Belum bisa melihat bulan yang akan datang' : 'Bulan berikutnya'}
+          title={isCurrentMonth ? tr('Belum bisa melihat bulan yang akan datang') : tr('Bulan berikutnya')}
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -103,19 +104,19 @@ export default function MonthlyExpenseView({
           dari menu Analisis (dihapus), ditaruh persis di bawah navigator
           bulan. Tanpa tombol "Lihat Keseluruhan" (onOpenMonthlyDetail
           dilewatkan) — halaman ini SUDAH "Lihat Keseluruhan"-nya. */}
-      <WeeklyTrendChart weeklyTrendData={weeklyTrendData} totalLabel={`Total Pengeluaran ${monthLabel}`} />
+      <WeeklyTrendChart weeklyTrendData={weeklyTrendData} totalLabel={`${tr('Total Pengeluaran')} ${monthLabel}`} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-2 mt-1">
         <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-emerald-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-emerald-400/70 uppercase tracking-wider flex items-center gap-1">
-            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Pemasukan
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> {tr('Pemasukan')}
           </span>
           <span className="text-sm font-bold text-emerald-400 font-mono-data truncate">{formatRupiah(totalIncoming, false)}</span>
         </div>
         <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-rose-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-rose-400/70 uppercase tracking-wider flex items-center gap-1">
-            <ArrowUpRight className="w-3.5 h-3.5 text-rose-400 shrink-0" /> Pengeluaran
+            <ArrowUpRight className="w-3.5 h-3.5 text-rose-400 shrink-0" /> {tr('Pengeluaran')}
           </span>
           <span className="text-sm font-bold text-rose-400 font-mono-data truncate">{formatRupiah(totalOutgoing, false)}</span>
         </div>
@@ -126,7 +127,7 @@ export default function MonthlyExpenseView({
         {monthTransactions.length === 0 ? (
           <div className="text-center py-10 text-on-surface/30 text-xs flex flex-col items-center gap-2">
             <Receipt className="w-8 h-8 text-on-surface/20" />
-            Tidak ada transaksi di bulan ini.
+            {tr('Tidak ada transaksi di bulan ini.')}
           </div>
         ) : (
           monthTransactions.map(t => {
@@ -150,18 +151,18 @@ export default function MonthlyExpenseView({
                     <button
                       onClick={() => onEditTransactionSelect(t)}
                       className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-primary transition-all active:scale-95"
-                      title="Edit Transaksi"
+                      title={tr('Edit Transaksi')}
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Hapus transaksi "${t.title}"?`)) {
+                        if (confirm(`${tr('Hapus transaksi')} "${t.title}"?`)) {
                           onDeleteTransaction(t.id);
                         }
                       }}
                       className="p-1.5 rounded-lg bg-overlay/5 hover:bg-rose-500/20 text-on-surface-variant hover:text-rose-400 transition-all active:scale-95"
-                      title="Hapus Transaksi"
+                      title={tr('Hapus Transaksi')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

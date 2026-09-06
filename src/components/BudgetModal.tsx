@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Budget, Category, Transaction, CategoryType } from '../types';
 import { formatRupiah, getCategoryColorHex } from '../utils';
+import { t as tr } from '../i18n';
 import CategoryIcon from './CategoryIcon';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
 import { 
@@ -152,9 +153,9 @@ export default function BudgetModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) return alert('Mohon isi nama Aturan Target & Limit');
-    if (limit <= 0) return alert('Sediakan batas jajan / target dana alarm yang valid');
-    if (selectedCategories.length === 0) return alert('Mohon pilih minimal satu kategori untuk target & limit ini');
+    if (!title) return alert(tr('Mohon isi nama Aturan Target & Limit'));
+    if (limit <= 0) return alert(tr('Sediakan batas jajan / target dana alarm yang valid'));
+    if (selectedCategories.length === 0) return alert(tr('Mohon pilih minimal satu kategori untuk target & limit ini'));
 
     const kini = new Date();
     let computedStartDate = new Date().toISOString().split('T')[0]; // Hari ini (YYYY-MM-DD)
@@ -170,14 +171,14 @@ export default function BudgetModal({
       targetDate.setMonth(kini.getMonth() + 1); // Mengikuti angka tanggal yang sama di bulan berikutnya
       computedEndDate = targetDate.toISOString().split('T')[0];
     } else if (timeframe === 'tanggal_kustom') {
-      if (!startDate || !endDate) return alert('Mohon isi rentang tanggal kustom secara lengkap');
-      
+      if (!startDate || !endDate) return alert(tr('Mohon isi rentang tanggal kustom secara lengkap'));
+
       const checkStart = new Date(startDate);
       const checkEnd = new Date(endDate);
-      
+
       // VALIDASI: Waktu akhir harus lebih besar dari waktu sekarang/mulai
       if (checkEnd <= checkStart) {
-        return alert('Waktu akhir harus lebih besar dari waktu mulai / waktu sekarang!');
+        return alert(tr('Waktu akhir harus lebih besar dari waktu mulai / waktu sekarang!'));
       }
       computedStartDate = startDate;
       computedEndDate = endDate;
@@ -249,10 +250,10 @@ export default function BudgetModal({
         <div className="flex justify-between items-center px-6 py-4 border-b border-overlay/5 shrink-0">
           <div>
             <h2 className="font-headline-md text-xl text-on-surface font-bold flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> Target &amp; Limit
+              <Sparkles className="w-5 h-5 text-primary" /> {tr('Target & Limit')}
             </h2>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              Pantau batas pengeluaran alarm dan target tabungan secara otomatis berbasis kategori transaksi riil.
+              {tr('Pantau batas pengeluaran alarm dan target tabungan secara otomatis berbasis kategori transaksi riil.')}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-on-surface transition-colors">
@@ -268,34 +269,34 @@ export default function BudgetModal({
             <div className="md:col-span-5 flex flex-col gap-4">
               {!addMode ? (
                 <button onClick={() => { resetForm(); setAddMode(true); }} className="w-full h-12 rounded-xl border border-dashed border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all text-xs font-label-caps flex items-center justify-center gap-1.5 active:scale-[0.98]" >
-                  <Plus className="w-4 h-4" /> Atur Target &amp; Limit Baru
+                  <Plus className="w-4 h-4" /> {tr('Atur Target & Limit Baru')}
                 </button>
               ) : (
                 <form onSubmit={handleSubmit} className="bg-surface-variant/20 border border-overlay/5 rounded-xl p-4 flex flex-col gap-3 text-left">
                   <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
                     <span className="font-bold text-on-surface text-xs flex items-center gap-1">
-                      {editingBudgetId ? <><Edit3 className="w-3.5 h-3.5 text-primary" /> Edit Aturan</> : 'Atur Aturan Baru'}
+                      {editingBudgetId ? <><Edit3 className="w-3.5 h-3.5 text-primary" /> {tr('Edit Aturan')}</> : tr('Atur Aturan Baru')}
                     </span>
-                    <button type="button" onClick={resetForm} className="text-[10px] text-on-surface-variant hover:text-on-surface">Batal</button>
+                    <button type="button" onClick={resetForm} className="text-[10px] text-on-surface-variant hover:text-on-surface">{tr('Batal')}</button>
                   </div>
 
                   {/* Switch Jenis Aturan Tipe */}
                   <div className="grid grid-cols-2 gap-1 bg-body-bg/80 rounded-lg p-1 border border-overlay/5">
                     <button type="button" onClick={() => setType('expense_limit')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'expense_limit' ? 'bg-danger text-on-surface font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
-                      Limit Belanja
+                      {tr('Limit Belanja')}
                     </button>
                     <button type="button" onClick={() => setType('target_funding')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'target_funding' ? 'bg-primary text-on-primary font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
-                      Target Nabung
+                      {tr('Target Nabung')}
                     </button>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Nama Aturan / Alarm</label>
+                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">{tr('Nama Aturan / Alarm')}</label>
                     <input type="text" required placeholder="Misal: Limit Kopi, Target Laptop" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9 bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 px-3 focus:outline-none focus:border-primary/60" />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Batas Limit / Target Alarm (Rp)</label>
+                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">{tr('Batas Limit / Target Alarm (Rp)')}</label>
                     <div className="relative flex items-center">
                       <span className="absolute left-3 font-mono-data text-primary text-xs font-bold">Rp</span>
                       <input
@@ -327,7 +328,7 @@ export default function BudgetModal({
                   )}
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Koneksikan Kategori Transaksi</label>
+                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">{tr('Koneksikan Kategori Transaksi')}</label>
                     <div className="max-h-36 overflow-y-auto border border-overlay/10 rounded-lg p-2 bg-body-bg/40 flex flex-col gap-1.5 no-scrollbar">
                       {categories.map(cat => {
                         const isSelected = selectedCategories.includes(cat.id);
@@ -356,29 +357,29 @@ export default function BudgetModal({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">Siklus Waktu Pemantauan</label>
+                    <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">{tr('Siklus Waktu Pemantauan')}</label>
                     <select value={timeframe} onChange={(e) => setTimeframe(e.target.value as TimeframeType)} className="h-9 bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 px-2 focus:outline-none">
-                      <option value="1_minggu" className="bg-body-bg">1 Minggu</option>
-                      <option value="1_bulan" className="bg-body-bg">1 Bulan</option>
-                      <option value="tanggal_kustom" className="bg-body-bg">Tanggal (Rentang Kustom)</option>
+                      <option value="1_minggu" className="bg-body-bg">{tr('1 Minggu')}</option>
+                      <option value="1_bulan" className="bg-body-bg">{tr('1 Bulan')}</option>
+                      <option value="tanggal_kustom" className="bg-body-bg">{tr('Tanggal (Rentang Kustom)')}</option>
                     </select>
                   </div>
 
                   {timeframe === 'tanggal_kustom' && (
                     <div className="grid grid-cols-2 gap-2 animate-fade-in">
                       <div className="flex flex-col gap-1">
-                        <label className="text-[8px] font-label-caps text-on-surface-variant uppercase">Mulai</label>
+                        <label className="text-[8px] font-label-caps text-on-surface-variant uppercase">{tr('Mulai')}</label>
                         <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 bg-body-bg/40 border border-overlay/10 rounded-md text-[10px] px-2 text-on-surface focus:outline-none" />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[8px] font-label-caps text-on-surface-variant uppercase">Selesai</label>
+                        <label className="text-[8px] font-label-caps text-on-surface-variant uppercase">{tr('Selesai')}</label>
                         <input type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 bg-body-bg/40 border border-overlay/10 rounded-md text-[10px] px-2 text-on-surface focus:outline-none" />
                       </div>
                     </div>
                   )}
 
                   <button type="submit" className="w-full h-9 bg-primary text-on-primary font-label-caps text-[10px] tracking-wider rounded-lg mt-1 flex items-center justify-center gap-1.5 shadow-sm">
-                    <Save className="w-3.5 h-3.5" /> {editingBudgetId ? 'Simpan Perubahan' : 'Aktifkan Alarm'}
+                    <Save className="w-3.5 h-3.5" /> {editingBudgetId ? tr('Simpan Perubahan') : tr('Aktifkan Alarm')}
                   </button>
                 </form>
               )}
@@ -389,12 +390,12 @@ export default function BudgetModal({
               {budgets.length === 0 ? (
                 <div className="text-center py-8 text-on-surface-variant/40 flex flex-col items-center gap-1.5 bg-overlay/5 border border-overlay/5 rounded-xl">
                   <Target className="w-8 h-8 text-on-surface-variant/20" />
-                  <p className="text-xs">Belum ada Target &amp; Limit yang dikonfigurasi.</p>
+                  <p className="text-xs">{tr('Belum ada Target & Limit yang dikonfigurasi.')}</p>
                 </div>
               ) : (
                 <>
                   <p className="text-[10px] text-on-surface-variant/50 flex items-center gap-1 pl-1">
-                    <GripVertical className="w-3 h-3" /> Lajur seret atau gunakan tombol navigasi prioritas di bawah
+                    <GripVertical className="w-3 h-3" /> {tr('Lajur seret atau gunakan tombol navigasi prioritas di bawah')}
                   </p>
                   
                   {budgets.map(budget => {
@@ -416,26 +417,26 @@ export default function BudgetModal({
                     else if (percentage >= 70) alarmLevel = 70;
 
                     let barBgColor = 'bg-primary';
-                    let alertLabel = 'Aman';
+                    let alertLabel = tr('Aman');
 
                     if (budget.type === 'expense_limit') {
                       if (isTriggered100) {
                         barBgColor = 'bg-rose-600';
-                        alertLabel = 'OVER BUDGET!';
+                        alertLabel = tr('OVER BUDGET!');
                       } else if (alarmLevel >= 70) {
                         barBgColor = 'bg-amber-500';
-                        alertLabel = `ALARM ${alarmLevel}%`;
+                        alertLabel = `${tr('ALARM')} ${alarmLevel}%`;
                       } else {
                         barBgColor = 'bg-emerald-400';
-                        alertLabel = 'LIMIT AMAN';
+                        alertLabel = tr('LIMIT AMAN');
                       }
                     } else {
                       if (isTriggered100) {
                         barBgColor = 'bg-blue-500';
-                        alertLabel = 'GOAL DICAPAI!';
+                        alertLabel = tr('GOAL DICAPAI!');
                       } else {
                         barBgColor = 'bg-sky-400';
-                        alertLabel = `TERKUMPUL ${Math.round(percentage)}%`;
+                        alertLabel = `${tr('TERKUMPUL')} ${Math.round(percentage)}%`;
                       }
                     }
 
@@ -462,9 +463,9 @@ export default function BudgetModal({
                           <div className={`p-2 rounded-lg text-[10px] flex items-center gap-1.5 font-medium mb-1 border ${isTriggered100 ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
                             <Bell className="w-3.5 h-3.5 shrink-0" />
                             <span>
-                              {budget.type === 'expense_limit' 
-                                ? (isTriggered100 ? `Peringatan Keras: Limit Belanja "${budget.title}" sudah melampaui batas nominal aman!` : `Perhatian: Pemakaian jajan kategori ini sudah menyentuh ${alarmLevel}%!`)
-                                : (isTriggered100 ? `Selamat! Target Nabung celengan "${budget.title}" Anda sudah terpenuhi 🎉` : `Sedikit lagi! Target menabung Anda sudah mencapai ${alarmLevel}%` )
+                              {budget.type === 'expense_limit'
+                                ? (isTriggered100 ? `${tr('Peringatan Keras: Limit Belanja')} "${budget.title}" ${tr('sudah melampaui batas nominal aman!')}` : `${tr('Perhatian: Pemakaian jajan kategori ini sudah menyentuh')} ${alarmLevel}%!`)
+                                : (isTriggered100 ? `${tr('Selamat! Target Nabung celengan')} "${budget.title}" ${tr('Anda sudah terpenuhi')} 🎉` : `${tr('Sedikit lagi! Target menabung Anda sudah mencapai')} ${alarmLevel}%` )
                               }
                             </span>
                           </div>
@@ -501,7 +502,7 @@ export default function BudgetModal({
                               <h3 className="text-sm text-on-surface font-bold leading-snug truncate">{budget.title}</h3>
                               <p className="text-[10px] text-on-surface-variant flex items-center gap-1 flex-wrap">
                                 <Clock className="w-3 h-3 text-primary" /> 
-                                {budget.type === 'expense_limit' ? 'Limit' : 'Target'} • 
+                                {budget.type === 'expense_limit' ? tr('Limit') : tr('Target')} •
                                 <span className="capitalize text-on-surface/70"> {tf.replace('_', ' ')}</span>
                                 • <span className="text-primary/95 font-semibold truncate max-w-[120px]" title={getBudgetCategories(budget).map(catId => categories.find(c => c.id === catId)?.name || catId).join(', ')}>
                                   {getBudgetCategories(budget).map(catId => categories.find(c => c.id === catId)?.name || catId).join(', ')}
@@ -517,9 +518,9 @@ export default function BudgetModal({
 
                         <div className="flex justify-between items-end text-[11px] mt-1 md:pl-5">
                           <span className="font-medium text-on-surface/90">
-                            {budget.type === 'expense_limit' 
-                              ? (remaining >= 0 ? `${formatRupiah(remaining)} Sisa` : `${formatRupiah(Math.abs(remaining))} Over Limit`)
-                              : `${formatRupiah(realSpent)} Terkumpul`
+                            {budget.type === 'expense_limit'
+                              ? (remaining >= 0 ? `${formatRupiah(remaining)} ${tr('Sisa')}` : `${formatRupiah(Math.abs(remaining))} ${tr('Over Limit')}`)
+                              : `${formatRupiah(realSpent)} ${tr('Terkumpul')}`
                             }
                           </span>
                           <span className="text-on-surface-variant font-mono-data">
@@ -534,7 +535,7 @@ export default function BudgetModal({
                         {/* TOMBOL NAVIGASI PRIORITAS & AKSI UTUH */}
                         <div className="md:absolute md:top-3 md:right-3 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-wrap mt-2 md:mt-0">
                           <button onClick={() => handleOpenEdit(budget)} className="p-1.5 text-on-surface-variant/60 hover:text-primary transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Edit aturan"><Edit3 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => { if (confirm(`Hapus aturan Target & Limit "${budget.title}"?`)) onDeleteBudget(budget.id); }} className="p-1.5 text-on-surface-variant/60 hover:text-rose-400 transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Hapus aturan"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => { if (confirm(`${tr('Hapus aturan Target & Limit')} "${budget.title}"?`)) onDeleteBudget(budget.id); }} className="p-1.5 text-on-surface-variant/60 hover:text-rose-400 transition-colors text-[11px] rounded hover:bg-overlay/5 md:hover:bg-transparent" title="Hapus aturan"><Trash2 className="w-3.5 h-3.5" /></button>
 
                           <button onClick={() => {
                               const idx = budgets.findIndex(b => b.id === budget.id);
