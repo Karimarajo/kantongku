@@ -115,8 +115,12 @@ export default function Landing() {
     captureUtmParams();
   }, []);
 
-  // Fire-and-forget page view tracking for the Admin Console's Analytics tab —
-  // never awaited, never blocks/affects the landing page render either way.
+  // Fire-and-forget page view tracking for the Admin Console's Analytics tab
+  // — never awaited, never blocks/affects the landing page render either
+  // way. Also carries `eventId` (set once in src/main.tsx, shared with the
+  // fbq('track', 'PageView', ..., { eventID }) call already fired there) so
+  // the server's Meta CAPI PageView call in server.ts dedupes against the
+  // browser Pixel's PageView instead of double-counting it.
   useEffect(() => {
     const utm = readStoredUtmParams();
     fetch('/api/track/pageview', {
@@ -127,6 +131,7 @@ export default function Landing() {
         utm_source: utm.utm_source,
         utm_medium: utm.utm_medium,
         utm_campaign: utm.utm_campaign,
+        eventId: window.__metaPageviewEventId,
       }),
     }).catch(() => {
       // Analytics is best-effort — never surface this to the visitor.
