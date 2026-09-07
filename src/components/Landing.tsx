@@ -162,7 +162,7 @@ export default function Landing() {
     // as that dark app default, not this page's actual (light or dark)
     // landing color — set it directly so an inspection of <body> itself
     // shows the real value, matching this page's current theme exactly.
-    document.body.style.backgroundColor = theme === 'dark' ? '#013F32' : '#FDFDFD';
+    document.body.style.backgroundColor = theme === 'dark' ? '#0E141F' : '#F8FDF9';
     return () => {
       document.body.style.backgroundColor = '';
     };
