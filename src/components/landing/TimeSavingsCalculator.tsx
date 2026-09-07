@@ -20,11 +20,11 @@ export default function TimeSavingsCalculator() {
   }
 
   return (
-    <section className="w-full px-6 py-16 bg-surface-variant/20 border-y border-white/5">
+    <section className="w-full px-6 py-16 bg-surface-variant/20 border-y border-overlay/5">
       <div className="max-w-xl mx-auto flex flex-col gap-8">
-        <h2 className="text-2xl sm:text-3xl font-bold text-white text-center">Kalkulator Hemat Waktu</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-on-surface text-center">Kalkulator Hemat Waktu</h2>
 
-        <div className="flex flex-col gap-6 bg-[#0B111E] border border-white/10 rounded-2xl p-6">
+        <div className="flex flex-col gap-6 bg-surface border border-overlay/10 rounded-2xl p-6">
           <div className="flex flex-col gap-2">
             <label className="text-sm text-on-surface-variant flex justify-between">
               <span>Berapa transaksi kamu catat per hari?</span>
@@ -55,10 +55,10 @@ export default function TimeSavingsCalculator() {
             />
           </div>
 
-          <div className="flex flex-col items-center gap-2 pt-4 border-t border-white/5 text-center">
+          <div className="flex flex-col items-center gap-2 pt-4 border-t border-overlay/5 text-center">
             <Clock3 className="w-6 h-6 text-primary" />
             <p className="text-sm text-on-surface-variant">Total waktu dihemat per bulan</p>
-            <p className="text-3xl font-bold text-white">{totalJamPerBulan} jam</p>
+            <p className="text-3xl font-bold text-on-surface">{totalJamPerBulan} jam</p>
             <p className="text-sm text-on-surface-variant mt-2">{contextSentence}</p>
           </div>
         </div>

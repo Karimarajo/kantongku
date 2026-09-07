@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function Footer() {
   return (
-    <footer className="w-full px-6 py-10 border-t border-white/5">
+    <footer className="w-full px-6 py-10 border-t border-overlay/5">
       <div className="max-w-2xl mx-auto flex flex-col items-center gap-3 text-center">
         <a href="/support" className="text-xs text-primary hover:underline font-semibold">
           Customer Support / Bantuan
