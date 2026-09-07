@@ -108,6 +108,22 @@ export default function Landing() {
       .catch(() => setError('Gagal memuat informasi harga. Coba muat ulang halaman.'));
   }, []);
 
+  // landing-page-revisi Task 1 — the landing page is redesigned as a
+  // permanently light/white page, independent of the authenticated app's
+  // own dark/light toggle (which only ever applies inside App.tsx, post-
+  // login — this route never mounts App.tsx at all). Setting the SAME
+  // `data-theme` attribute App.tsx itself uses (see its applyTheme) is what
+  // makes every semantic color token used across this page and its child
+  // components (text-on-surface, bg-surface-variant, border-overlay/X,
+  // text-primary, etc.) resolve to the app's already-contrast-checked
+  // "Cool Sage" light values, instead of inventing a new ad-hoc palette.
+  // Self-contained to this page load: Landing/App are mutually exclusive
+  // full-navigation routes (see src/main.tsx), never mounted together, so
+  // this can never leak into or fight the authenticated app's own theme.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
+
   // Capture utm_source/medium/campaign/content/term + fbclid from the URL as
   // soon as the landing page loads — before the user scrolls down and fills
   // the order form — so they're available to send along with the order later.
@@ -276,13 +292,8 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B111E] text-on-surface font-body-md overflow-x-hidden">
-      <Hero
-        priceOriginal={PRICE_ORIGINAL}
-        pricePromo={PRICE_PROMO}
-        formatCurrency={formatCurrency}
-        onCtaClick={scrollToPricing}
-      />
+    <div className="min-h-screen bg-body-bg text-on-surface font-body-md overflow-x-hidden">
+      <Hero onCtaClick={scrollToPricing} />
       <SocialProofStrip />
       <BeforeAfter />
       <HowItWorks />
@@ -304,7 +315,7 @@ export default function Landing() {
             </span>
             <div className="flex flex-col items-center">
               <span className="font-mono-data text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
-              <span className="font-mono-data text-4xl font-bold text-white">{formatCurrency(PRICE_PROMO)}</span>
+              <span className="font-mono-data text-4xl font-bold text-on-surface">{formatCurrency(PRICE_PROMO)}</span>
             </div>
             <p className="text-sm text-on-surface-variant">akses selamanya (bukan langganan bulanan) — harga promo, sewaktu-waktu bisa naik</p>
           </div>
@@ -321,9 +332,9 @@ export default function Landing() {
           {/* ===== Form pendaftaran + pembayaran (logic tidak diubah, cuma direposisi ke sini) ===== */}
 
           {price && step === 'form' && (
-            <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5 text-center">
+            <div className="w-full bg-surface-variant/40 border border-overlay/10 rounded-2xl p-5 text-center">
               <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">Paket Akses</p>
-              <p className="font-mono-data text-3xl font-bold text-white">{formatCurrency(price.amount)}</p>
+              <p className="font-mono-data text-3xl font-bold text-on-surface">{formatCurrency(price.amount)}</p>
               <p className="text-sm text-on-surface-variant mt-1">{price.label}</p>
             </div>
           )}
@@ -344,7 +355,7 @@ export default function Landing() {
                       setName(e.target.value);
                       if (error) setError('');
                     }}
-                    className="w-full h-14 bg-surface-variant/40 border border-white/10 rounded-xl px-12 text-white font-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
+                    className="w-full h-14 bg-surface-variant/40 border border-overlay/10 rounded-xl px-12 text-on-surface font-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
                   />
                 </div>
               </div>
@@ -363,7 +374,7 @@ export default function Landing() {
                       setEmail(e.target.value);
                       if (error) setError('');
                     }}
-                    className="w-full h-14 bg-surface-variant/40 border border-white/10 rounded-xl px-12 text-white font-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
+                    className="w-full h-14 bg-surface-variant/40 border border-overlay/10 rounded-xl px-12 text-on-surface font-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
                   />
                 </div>
                 <p className="text-xs text-on-surface-variant/50 px-1">
@@ -371,13 +382,13 @@ export default function Landing() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 bg-overlay/5 border border-overlay/10 rounded-xl px-4 py-3">
                 <CreditCard className="w-4 h-4 text-primary shrink-0" />
                 <span>Bayar otomatis via Doku — pilih QRIS, VA bank, e-wallet, atau kartu di halaman berikutnya, akun langsung aktif begitu pembayaran berhasil.</span>
               </div>
 
               {error && (
-                <span className="text-xs text-rose-400 block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
+                <span className="text-xs text-danger block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
                   {error}
                 </span>
               )}
@@ -395,12 +406,12 @@ export default function Landing() {
 
           {step === 'paying' && order && (
             <div className="w-full flex flex-col items-center gap-5 text-center">
-              <div className="w-full bg-surface-variant/40 border border-white/10 rounded-2xl p-5">
+              <div className="w-full bg-surface-variant/40 border border-overlay/10 rounded-2xl p-5">
                 <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">
                   Total yang harus dibayar
                 </p>
                 <div className="flex items-center justify-center gap-2">
-                  <p className="font-mono-data text-4xl font-bold text-white">{formatCurrency(order.total_amount)}</p>
+                  <p className="font-mono-data text-4xl font-bold text-on-surface">{formatCurrency(order.total_amount)}</p>
                   <button
                     type="button"
                     onClick={handleCopyAmount}
@@ -441,7 +452,7 @@ export default function Landing() {
 
               <a
                 href="/app"
-                className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all border border-white/10 bg-surface-variant/40 text-white"
+                className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all border border-overlay/10 bg-surface-variant/40 text-on-surface"
               >
                 Masuk ke Halaman Login
               </a>
@@ -454,7 +465,7 @@ export default function Landing() {
           {step === 'success' && (
             <div className="w-full flex flex-col items-center gap-4 text-center">
               <CheckCircle2 className="w-12 h-12 text-primary" />
-              <p className="text-white font-headline-sm">Pembayaran dikonfirmasi!</p>
+              <p className="text-on-surface font-headline-sm">Pembayaran dikonfirmasi!</p>
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <p className="text-sm">Mengalihkan ke halaman login...</p>
@@ -464,7 +475,7 @@ export default function Landing() {
 
           {step === 'expired' && (
             <div className="w-full flex flex-col items-center gap-4 text-center">
-              <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+              <span className="text-xs text-danger block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
                 Order sudah kedaluwarsa (lebih dari 24 jam belum dikonfirmasi). Silakan daftar ulang.
               </span>
               <button
@@ -478,7 +489,7 @@ export default function Landing() {
 
           {step === 'error' && (
             <div className="w-full flex flex-col items-center gap-4 text-center">
-              <span className="text-xs text-rose-400 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+              <span className="text-xs text-danger block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
                 {error || 'Terjadi kesalahan.'}
               </span>
               <button
