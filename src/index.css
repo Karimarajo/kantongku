@@ -54,29 +54,33 @@
      src/components/landing/*), deliberately NOT sharing the --color-*
      tokens above. Those tokens are the AUTHENTICATED APP's own theme
      (App.tsx's applyTheme(), driven by [data-theme] on <html>) — reusing
-     them for the landing page (tried in the previous revision) meant the
+     them for the landing page (tried in an earlier revision) meant the
      landing page inherited the app's "Cool Sage" pale body-bg (#f2f6f2)
-     instead of the pure white this brand palette calls for, and had no
-     way to express Lime Glow/Emerald Pine/Green Tea at all. This palette
-     is scoped instead via [data-landing-theme] on Landing.tsx's own root
-     element (see the useLandingTheme hook) — never touches <html>, so it
-     can never leak into or fight the authenticated app's theme either. */
-  --color-landing-bg: #fdfdfd;
-  --color-landing-text: #084734; /* Emerald Pine */
-  --color-landing-accent: #e7fe25; /* Lime Glow */
-  /* Accent is a near-fluorescent yellow-green — text ON it needs to stay
-     dark in BOTH modes for real contrast, never flip to light. */
-  --color-landing-on-accent: #084734;
-  --color-landing-surface: #cdedb3; /* Green Tea, used as a subtle card tint */
+     instead of true white. This palette is scoped instead via
+     [data-landing-theme] on Landing.tsx's own root element — never
+     touches <html>, so it can never leak into or fight the app's theme.
+     landing-page-revisi-3: swapped to the user's 4-swatch palette (mint
+     #4FFF97 / near-black navy #0E141F / dark forest green #132F24 /
+     near-white #F8FDF9), replacing the earlier Lime Glow/Emerald Pine/
+     Green Tea set — same "one color, different job per theme" pattern:
+     the dark forest green is light-mode TEXT and dark-mode SURFACE,
+     exactly like Emerald Pine was before. */
+  --color-landing-bg: #f8fdf9;
+  --color-landing-text: #132f24;
+  --color-landing-accent: #4fff97;
+  /* Accent is a bright mint — text ON it needs to stay dark in BOTH modes
+     for real contrast, never flip to light. */
+  --color-landing-on-accent: #0e141f;
+  --color-landing-surface: #4fff97; /* used at low opacity (bg-landing-surface/X) as a subtle mint card tint */
 }
 
 [data-landing-theme="dark"] {
-  --color-landing-bg: #013f32; /* dark green */
-  --color-landing-text: #fdfdfd;
-  /* Accent stays IDENTICAL in dark mode — "CTA tetap Lime Glow" per spec. */
-  --color-landing-accent: #e7fe25;
-  --color-landing-on-accent: #084734;
-  --color-landing-surface: #084734; /* Emerald Pine, as a card bg here instead of text */
+  --color-landing-bg: #0e141f;
+  --color-landing-text: #f8fdf9;
+  /* Accent stays IDENTICAL in dark mode — same CTA color in both. */
+  --color-landing-accent: #4fff97;
+  --color-landing-on-accent: #0e141f;
+  --color-landing-surface: #132f24; /* dark forest green, as an opaque-ish card bg here instead of text */
 }
 
 /* Light theme — overrides the SAME custom properties above under
