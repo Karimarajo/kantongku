@@ -1,3 +1,0 @@
-Drop the Features.tsx screenshot crop assets here (see src/components/landing/Features.tsx
-for the exact filenames each commented-out import expects), then uncomment the matching
-import line and set that feature's `screenshot` field to it.

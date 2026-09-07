@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BrandLogo from '../BrandLogo';
-import { ArrowRight, ImageOff } from 'lucide-react';
-
-// No screenshot file exists in the repo yet (owner provides it separately)
-// — see the placeholder device frame below. Once the file lands in
-// src/assets/screenshots/, uncomment this import and pass it as `src` to
-// <HeroDeviceFrame>.
-// import heroHomeScreenshot from '../../assets/screenshots/hero-home.png';
+import { ArrowRight } from 'lucide-react';
+import { HomeScreenMock } from './AppUiMockups';
 
 const PROMO_DEADLINE_KEY = 'kantongku_promo_deadline';
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
@@ -56,6 +51,7 @@ function resolveHeadline(): { headline: string; subheadline: string } {
 }
 
 interface HeroProps {
+  theme: 'light' | 'dark';
   onCtaClick: () => void;
 }
 
@@ -85,29 +81,22 @@ function formatCountdown(msRemaining: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-// landing-page-revisi-2 Task 6 — replaces the old fake CSS chat-bubble
-// mockup with a phone device frame meant to hold a real Home-screen
-// screenshot. No asset exists in the repo yet (see the commented import at
-// the top of this file), so this renders a placeholder inside the same
-// frame until the real file lands.
-function HeroDeviceFrame({ src }: { src?: string }) {
+// landing-page-revisi-2 Task 6, extended in landing-page-revisi-4 — the old
+// fake CSS chat-bubble mockup replaced with a phone device frame; per the
+// explicit "recreate the UI in code, not a PNG" instruction, this now holds
+// a recreated Home-screen mockup (AppUiMockups.tsx) instead of a screenshot
+// placeholder, theme-aware to match the landing toggle.
+function HeroDeviceFrame({ dark }: { dark: boolean }) {
   return (
     <div className="w-[220px] sm:w-[240px] mx-auto mt-4 rounded-[2rem] border-[6px] border-landing-text bg-landing-text p-1.5 shadow-2xl">
-      <div className="w-full aspect-[9/19] rounded-[1.5rem] overflow-hidden bg-landing-surface/40">
-        {src ? (
-          <img src={src} alt="Tampilan Home KantongKu" className="w-full h-full object-cover" />
-        ) : (
-          // TODO: ganti dengan asset screenshot final dari owner
-          <div className="w-full h-full flex items-center justify-center text-landing-text/25">
-            <ImageOff className="w-8 h-8" />
-          </div>
-        )}
+      <div className="w-full aspect-[9/19] rounded-[1.5rem] overflow-hidden">
+        <HomeScreenMock dark={dark} />
       </div>
     </div>
   );
 }
 
-export default function Hero({ onCtaClick }: HeroProps) {
+export default function Hero({ theme, onCtaClick }: HeroProps) {
   const [deadline, setDeadline] = useState<number>(() => getOrInitDeadline());
   const [now, setNow] = useState(() => Date.now());
   const [painPointIndex, setPainPointIndex] = useState(0);
@@ -184,7 +173,7 @@ export default function Hero({ onCtaClick }: HeroProps) {
           <ArrowRight className="w-5 h-5" />
         </button>
 
-        <HeroDeviceFrame />
+        <HeroDeviceFrame dark={theme === 'dark'} />
       </div>
     </section>
   );
