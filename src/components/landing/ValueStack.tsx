@@ -32,14 +32,20 @@ export default function ValueStack() {
           </p>
         </div>
 
+        {/* landing-page-revisi-4 fix — the label side had no min-w-0, so on
+            narrow viewports the flex row's default min-width:auto let long
+            labels push the "senilai Rp.../bulan" text past the card's own
+            edge instead of wrapping to fit it. Stacking label/price
+            vertically below sm: gives long labels room to wrap cleanly
+            without fighting the price text for the same line at all. */}
         <div className="bg-landing-surface/25 border border-landing-text/10 rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
           {VALUE_ITEMS.map((item, i) => (
-            <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-landing-text/10 last:border-b-0">
-              <div className="flex items-center gap-2.5">
+            <div key={i} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2 border-b border-landing-text/10 last:border-b-0">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <Check className="w-4 h-4 text-landing-text shrink-0" />
                 <span className="text-sm text-landing-text/80">{item.label}</span>
               </div>
-              <span className="text-sm text-landing-text/60 font-mono-data shrink-0">senilai {formatCurrency(item.monthly)}/bulan</span>
+              <span className="text-sm text-landing-text/60 font-mono-data shrink-0 pl-6 sm:pl-0">senilai {formatCurrency(item.monthly)}/bulan</span>
             </div>
           ))}
 

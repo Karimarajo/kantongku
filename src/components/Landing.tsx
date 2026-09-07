@@ -350,12 +350,12 @@ export default function Landing() {
   return (
     <div data-landing-theme={theme} className="min-h-screen bg-landing-bg text-landing-text font-body-md overflow-x-hidden">
       <Header theme={theme} onToggleTheme={toggleTheme} onCtaClick={scrollToPricing} />
-      <Hero onCtaClick={scrollToPricing} />
+      <Hero theme={theme} onCtaClick={scrollToPricing} />
       <TrustBar />
       <SocialProofStrip />
       <BeforeAfter />
       <HowItWorks />
-      <Features />
+      <Features theme={theme} />
       <ValueStack />
       <FounderStory />
       <Testimonials />

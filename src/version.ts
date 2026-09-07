@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '7.8';
+export const APP_VERSION = '7.9';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,13 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '7.9',
+    date: '7 September 2026',
+    changes: [
+      'Perbaikan halaman promosi (landing page) — bukan aplikasi utama, tidak ada perubahan untuk pengguna yang sudah berlangganan: rapikan kartu perbandingan harga yang sempat kepotong, testimoni jadi gaya pesan chat, dan kartu fitur/tampilan hero sekarang menampilkan cuplikan UI aplikasi yang digambar ulang (bukan tempelan gambar), ikut berubah gelap/terang sesuai toggle.',
+    ],
+  },
   {
     version: '7.8',
     date: '7 September 2026',
