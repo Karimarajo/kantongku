@@ -793,6 +793,7 @@ function generateOrderCode(): string {
 interface CreateOrderParams {
   name: string;
   email: string;
+  whatsapp?: string | null;
   baseAmount: number;
   orderType: "license" | "collaborator";
   collaboratorOwnerUserId?: string | null;
@@ -845,15 +846,16 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
         `INSERT INTO orders (
            order_code, name, email, channel, base_amount, unique_code, total_amount, status, expires_at,
            utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbclid, fbp, fbc,
-           order_type, collaborator_owner_user_id, collaborator_email
+           order_type, collaborator_owner_user_id, collaborator_email, whatsapp
          )
-         VALUES ($1, $2, $3, 'doku', $4, 0, $5, 'pending', now() + interval '24 hours', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         VALUES ($1, $2, $3, 'doku', $4, 0, $5, 'pending', now() + interval '24 hours', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          RETURNING id`,
         [
           orderCode, name, email, baseAmount, totalAmount,
           utm.source || null, utm.medium || null, utm.campaign || null, utm.content || null,
           utm.term || null, utm.fbclid || null, utm.fbp || null, utm.fbc || null,
           orderType, params.collaboratorOwnerUserId || null, params.collaboratorEmail || null,
+          params.whatsapp || null,
         ]
       );
       orderId = insertResult.rows[0].id;
@@ -946,6 +948,7 @@ app.post("/api/payment/create", async (req, res) => {
     const {
       name,
       email,
+      whatsapp,
       utm_source,
       utm_medium,
       utm_campaign,
@@ -970,7 +973,7 @@ app.post("/api/payment/create", async (req, res) => {
 
     const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
     const result = await createOrderRecord({
-      name, email, baseAmount, orderType: "license",
+      name, email, whatsapp, baseAmount, orderType: "license",
       utm: { source: utm_source, medium: utm_medium, campaign: utm_campaign, content: utm_content, term: utm_term, fbclid, fbp, fbc },
       requestIp: forwardedFor || req.socket.remoteAddress || undefined,
       requestUserAgent: req.headers["user-agent"] as string | undefined,

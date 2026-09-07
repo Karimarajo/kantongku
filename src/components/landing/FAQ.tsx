@@ -71,26 +71,26 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
-    <section className="w-full px-6 py-16 bg-surface-variant/20 border-y border-overlay/5">
+    <section className="w-full px-6 py-16 bg-landing-surface/15 border-y border-landing-text/10">
       <div className="max-w-2xl mx-auto flex flex-col gap-6">
-        <h2 className="text-2xl sm:text-3xl font-bold text-on-surface text-center">FAQ</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-landing-text text-center">FAQ</h2>
         <div className="flex flex-col gap-3">
           {FAQS.map((item, i) => {
             const isOpen = openIndex === i;
             return (
-              <div key={i} className="bg-surface border border-overlay/10 rounded-xl overflow-hidden">
+              <div key={i} className="bg-landing-bg border border-landing-text/10 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
                 >
-                  <span className="text-sm font-semibold text-on-surface">{item.question}</span>
+                  <span className="text-sm font-semibold text-landing-text">{item.question}</span>
                   <ChevronDown
-                    className={`w-4 h-4 text-primary shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    className={`w-4 h-4 text-landing-text/60 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4">
-                    <p className="text-sm text-on-surface-variant leading-relaxed">{item.answer}</p>
+                    <p className="text-sm text-landing-text/70 leading-relaxed">{item.answer}</p>
                   </div>
                 )}
               </div>

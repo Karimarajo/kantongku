@@ -21,22 +21,22 @@ const STEPS = [
 
 export default function HowItWorks() {
   return (
-    <section className="w-full px-6 py-16 bg-surface-variant/20 border-y border-overlay/5">
+    <section className="w-full px-6 py-16 bg-landing-surface/15 border-y border-landing-text/10">
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
-        <h2 className="text-2xl sm:text-3xl font-bold text-on-surface text-center">Cara Kerja</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-landing-text text-center">Cara Kerja</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {STEPS.map((step, i) => {
             const Icon = step.icon;
             return (
-              <div key={i} className="flex flex-col items-center text-center gap-3 bg-surface border border-overlay/10 rounded-2xl p-6">
-                <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center relative">
-                  <Icon className="w-6 h-6 text-primary" />
-                  <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary text-on-primary text-xs font-bold flex items-center justify-center">
+              <div key={i} className="flex flex-col items-center text-center gap-3 bg-landing-bg border border-landing-text/10 rounded-2xl p-6">
+                <div className="w-12 h-12 rounded-full bg-landing-accent/20 border border-landing-accent/40 flex items-center justify-center relative">
+                  <Icon className="w-6 h-6 text-landing-text" />
+                  <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-landing-accent text-landing-on-accent text-xs font-bold flex items-center justify-center">
                     {i + 1}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-on-surface">{step.title}</h3>
-                <p className="text-sm text-on-surface-variant">{step.description}</p>
+                <h3 className="text-base font-bold text-landing-text">{step.title}</h3>
+                <p className="text-sm text-landing-text/70">{step.description}</p>
               </div>
             );
           })}

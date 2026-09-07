@@ -16,7 +16,7 @@
 // compares APP_VERSION against what's saved in localStorage, not a live
 // check against a server. Older entries stay in this array purely as an
 // internal maintenance archive — add new ones to the FRONT (index 0).
-export const APP_VERSION = '7.6';
+export const APP_VERSION = '7.7';
 
 export interface ChangelogEntry {
   version: string;
@@ -29,6 +29,13 @@ export interface ChangelogEntry {
 // before there was a version number to attach them to, so they're not
 // backfilled here rather than guessed at.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '7.7',
+    date: '7 September 2026',
+    changes: [
+      'Revisi lanjutan halaman promosi (landing page) — bukan aplikasi utama, tidak ada perubahan untuk pengguna yang sudah berlangganan: latar benar-benar putih dengan toggle mode terang/gelap sendiri, header dengan nama "KantongKu", section kepercayaan (Trust Bar) dan cerita di balik KantongKu (Marajo Tech), testimoni asli, dan form pemesanan kini juga meminta Nomor WhatsApp.',
+    ],
+  },
   {
     version: '7.6',
     date: '7 September 2026',

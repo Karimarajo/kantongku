@@ -26,36 +26,36 @@ export default function ValueStack() {
     <section className="w-full px-6 py-16">
       <div className="max-w-2xl mx-auto flex flex-col gap-8">
         <div className="flex flex-col items-center gap-2 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-on-surface">Kalau Semua Ini Kamu Dapat Terpisah-Pisah...</h2>
-          <p className="text-sm text-on-surface-variant max-w-md">
+          <h2 className="text-2xl sm:text-3xl font-bold text-landing-text">Kalau Semua Ini Kamu Dapat Terpisah-Pisah...</h2>
+          <p className="text-sm text-landing-text/70 max-w-md">
             Bandingin sendiri kalau kamu langganan aplikasi berbeda-beda buat tiap kebutuhan ini.
           </p>
         </div>
 
-        <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
+        <div className="bg-landing-surface/25 border border-landing-text/10 rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
           {VALUE_ITEMS.map((item, i) => (
-            <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-overlay/5 last:border-b-0">
+            <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-landing-text/10 last:border-b-0">
               <div className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-sm text-on-surface-variant">{item.label}</span>
+                <Check className="w-4 h-4 text-landing-text shrink-0" />
+                <span className="text-sm text-landing-text/80">{item.label}</span>
               </div>
-              <span className="text-sm text-on-surface/70 font-mono-data shrink-0">senilai {formatCurrency(item.monthly)}/bulan</span>
+              <span className="text-sm text-landing-text/60 font-mono-data shrink-0">senilai {formatCurrency(item.monthly)}/bulan</span>
             </div>
           ))}
 
-          <div className="flex items-center justify-between gap-4 pt-3 mt-1 border-t border-overlay/10">
-            <span className="text-sm font-bold text-on-surface">Total kalau terpisah</span>
-            <span className="text-lg font-bold text-on-surface/80 font-mono-data">{formatCurrency(totalMonthly)}/bulan</span>
+          <div className="flex items-center justify-between gap-4 pt-3 mt-1 border-t border-landing-text/15">
+            <span className="text-sm font-bold text-landing-text">Total kalau terpisah</span>
+            <span className="text-lg font-bold text-landing-text/80 font-mono-data">{formatCurrency(totalMonthly)}/bulan</span>
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-3 text-center bg-primary/10 border border-primary/30 rounded-2xl p-6 sm:p-8">
-          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+        <div className="flex flex-col items-center gap-3 text-center bg-landing-accent/15 border border-landing-accent/40 rounded-2xl p-6 sm:p-8">
+          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-landing-text">
             <Sparkles className="w-4 h-4" /> Harga Promo KantongKu — Segera Ambil!
           </span>
-          <span className="text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
-          <span className="text-4xl sm:text-5xl font-bold text-on-surface">{formatCurrency(KANTONGKU_PRICE)}</span>
-          <span className="text-sm font-semibold text-primary">SEKALI BAYAR, SELAMANYA — bukan per bulan</span>
+          <span className="text-lg text-landing-text/50 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
+          <span className="text-4xl sm:text-5xl font-bold text-landing-text">{formatCurrency(KANTONGKU_PRICE)}</span>
+          <span className="text-sm font-semibold text-landing-text">SEKALI BAYAR, SELAMANYA — bukan per bulan</span>
         </div>
       </div>
     </section>

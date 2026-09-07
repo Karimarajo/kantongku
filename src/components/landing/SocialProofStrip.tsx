@@ -10,14 +10,14 @@ const STATS = [
 
 export default function SocialProofStrip() {
   return (
-    <section className="w-full px-6 py-8 border-y border-overlay/5 bg-surface-variant/20">
+    <section className="w-full px-6 py-8 border-y border-landing-text/10 bg-landing-surface/15">
       <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {STATS.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <div key={i} className="flex items-center gap-2.5 justify-center text-center sm:text-left sm:justify-start">
-              <Icon className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-xs sm:text-sm text-on-surface-variant">{stat.text}</span>
+              <Icon className="w-4 h-4 text-landing-text/70 shrink-0" />
+              <span className="text-xs sm:text-sm text-landing-text/70">{stat.text}</span>
             </div>
           );
         })}

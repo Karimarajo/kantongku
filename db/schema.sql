@@ -390,3 +390,9 @@ CREATE TABLE IF NOT EXISTS admin_push_subscriptions (
   auth TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- v15 (landing-page-revisi-2 Task 14): landing page order form gained a
+-- "Nomor WhatsApp" field alongside Nama Lengkap/Email — stored here rather
+-- than silently collected-then-discarded, same INSERT path as the other
+-- customer-supplied order fields (name/email).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS whatsapp TEXT;

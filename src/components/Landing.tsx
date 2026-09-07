@@ -1,17 +1,41 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Mail, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, CreditCard, ExternalLink } from 'lucide-react';
+import { User, Mail, Phone, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, ExternalLink } from 'lucide-react';
+import Header from './landing/Header';
 import Hero from './landing/Hero';
+import TrustBar from './landing/TrustBar';
 import SocialProofStrip from './landing/SocialProofStrip';
 import BeforeAfter from './landing/BeforeAfter';
 import HowItWorks from './landing/HowItWorks';
-import TimeSavingsCalculator from './landing/TimeSavingsCalculator';
 import Testimonials from './landing/Testimonials';
 import Features from './landing/Features';
 import ValueStack from './landing/ValueStack';
+import FounderStory from './landing/FounderStory';
 import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
 import { PRODUCT_PRICE_IDR } from '../../lib/constants';
+
+type LandingTheme = 'light' | 'dark';
+const LANDING_THEME_KEY = 'kantongku_landing_theme';
+
+// landing-page-revisi-2 Task 3 — dark/light for the LANDING PAGE ONLY, a
+// separate toggle from the authenticated app's own theme (see the
+// --color-landing-* tokens in index.css). Priority: an explicit choice the
+// visitor already made (localStorage) beats prefers-color-scheme, which
+// beats a hardcoded default — the same precedence App.tsx's own theme
+// bootstrap already uses.
+function getInitialLandingTheme(): LandingTheme {
+  try {
+    const stored = localStorage.getItem(LANDING_THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // localStorage unavailable — fall through to media-query/default.
+  }
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
 
 // Anchoring price shown on marketing sections (Hero, Pricing badge). Change
 // here to update everywhere it's displayed. This is separate from the actual
@@ -81,18 +105,27 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// landing-page-revisi-2 Task 13 — 6 item lama + 4 tambahan (Analisis
+// Kesehatan Keuangan AI, Kelola Cicilan/Hutang, Kolaborasi, Info Rekening),
+// "via WhatsApp" dihapus dari item support.
 const PRICING_CHECKLIST = [
   'Input transaksi via suara & foto struk (AI)',
   'Multi-pocket & rekening tanpa batas',
   'Budgeting & reminder otomatis',
   'Laporan & riwayat lengkap',
   'Update fitur baru selamanya',
-  'Support respon cepat via WhatsApp',
+  'Support respon cepat',
+  'Analisis Kesehatan Keuangan AI',
+  'Kelola Cicilan/Hutang',
+  'Kolaborasi bareng pasangan/tim',
+  'Simpan info rekening',
 ];
 
 export default function Landing() {
+  const [theme, setTheme] = useState<LandingTheme>(() => getInitialLandingTheme());
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [price, setPrice] = useState<PriceConfig | null>(null);
   const [step, setStep] = useState<Step>('form');
   const [loading, setLoading] = useState(false);
@@ -108,21 +141,34 @@ export default function Landing() {
       .catch(() => setError('Gagal memuat informasi harga. Coba muat ulang halaman.'));
   }, []);
 
-  // landing-page-revisi Task 1 — the landing page is redesigned as a
-  // permanently light/white page, independent of the authenticated app's
-  // own dark/light toggle (which only ever applies inside App.tsx, post-
-  // login — this route never mounts App.tsx at all). Setting the SAME
-  // `data-theme` attribute App.tsx itself uses (see its applyTheme) is what
-  // makes every semantic color token used across this page and its child
-  // components (text-on-surface, bg-surface-variant, border-overlay/X,
-  // text-primary, etc.) resolve to the app's already-contrast-checked
-  // "Cool Sage" light values, instead of inventing a new ad-hoc palette.
-  // Self-contained to this page load: Landing/App are mutually exclusive
-  // full-navigation routes (see src/main.tsx), never mounted together, so
-  // this can never leak into or fight the authenticated app's own theme.
+  // landing-page-revisi-2 Task 3 — persist the visitor's explicit choice.
+  // The attribute itself lives on THIS component's own root element (see
+  // the returned JSX below), not <html> — completely separate from the
+  // authenticated app's [data-theme] on <html>, so it can never leak into
+  // or fight the app's own theme, and vice versa.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }, []);
+    try {
+      localStorage.setItem(LANDING_THEME_KEY, theme);
+    } catch {
+      // best-effort only
+    }
+
+    // <body> itself has its own background rule (`body { background-color:
+    // var(--color-body-bg) }` in index.css) driven by the AUTHENTICATED
+    // APP's own token, which stays at its dark default here since this
+    // page deliberately never touches [data-theme] on <html> (see above).
+    // The root div below covers the full viewport visually either way, but
+    // devtools would still report document.body's OWN computed background
+    // as that dark app default, not this page's actual (light or dark)
+    // landing color — set it directly so an inspection of <body> itself
+    // shows the real value, matching this page's current theme exactly.
+    document.body.style.backgroundColor = theme === 'dark' ? '#013F32' : '#FDFDFD';
+    return () => {
+      document.body.style.backgroundColor = '';
+    };
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   // Capture utm_source/medium/campaign/content/term + fbclid from the URL as
   // soon as the landing page loads — before the user scrolls down and fills
@@ -205,6 +251,15 @@ export default function Landing() {
       setError('Format email tidak valid');
       return;
     }
+    // landing-page-revisi-2 Task 14 — basic sanity check only (digits, +,
+    // spaces/dashes, reasonable length), matching how loosely email/name
+    // are already validated here — the real validation that matters is a
+    // human on the other end actually reading it.
+    const whatsappDigits = whatsapp.replace(/[^0-9]/g, '');
+    if (whatsappDigits.length < 9) {
+      setError('Nomor WhatsApp tidak valid');
+      return;
+    }
 
     setError('');
     setLoading(true);
@@ -217,6 +272,7 @@ export default function Landing() {
         body: JSON.stringify({
           name,
           email,
+          whatsapp,
           utm_source: utm.utm_source,
           utm_medium: utm.utm_medium,
           utm_campaign: utm.utm_campaign,
@@ -292,39 +348,41 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-body-bg text-on-surface font-body-md overflow-x-hidden">
+    <div data-landing-theme={theme} className="min-h-screen bg-landing-bg text-landing-text font-body-md overflow-x-hidden">
+      <Header theme={theme} onToggleTheme={toggleTheme} onCtaClick={scrollToPricing} />
       <Hero onCtaClick={scrollToPricing} />
+      <TrustBar />
       <SocialProofStrip />
       <BeforeAfter />
       <HowItWorks />
-      <TimeSavingsCalculator />
       <Features />
       <ValueStack />
+      <FounderStory />
       <Testimonials />
       <UpdateForever />
 
       <section id="pricing" className="w-full px-6 py-16 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-0">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-primary/10 blur-[120px]" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-landing-accent/20 blur-[120px]" />
         </div>
 
         <div className="max-w-md mx-auto flex flex-col items-center gap-8 z-10 relative">
           <div className="flex flex-col items-center gap-4 text-center">
-            <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-4 py-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-landing-on-accent bg-landing-accent rounded-full px-4 py-2">
               🔥 Harga Promo — Hemat <span className="font-mono-data">{Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%</span>, Segera Ambil!
             </span>
             <div className="flex flex-col items-center">
-              <span className="font-mono-data text-lg text-on-surface-variant/60 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
-              <span className="font-mono-data text-4xl font-bold text-on-surface">{formatCurrency(PRICE_PROMO)}</span>
+              <span className="font-mono-data text-lg text-landing-text/50 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
+              <span className="font-mono-data text-4xl font-bold text-landing-text">{formatCurrency(PRICE_PROMO)}</span>
             </div>
-            <p className="text-sm text-on-surface-variant">akses selamanya (bukan langganan bulanan) — harga promo, sewaktu-waktu bisa naik</p>
+            <p className="text-sm text-landing-text/70">akses selamanya (bukan langganan bulanan) — harga promo, sewaktu-waktu bisa naik</p>
           </div>
 
           <div className="w-full flex flex-col gap-2.5">
             {PRICING_CHECKLIST.map((item, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-sm text-on-surface-variant">{item}</span>
+                <Check className="w-4 h-4 text-landing-text shrink-0" />
+                <span className="text-sm text-landing-text/70">{item}</span>
               </div>
             ))}
           </div>
@@ -332,19 +390,19 @@ export default function Landing() {
           {/* ===== Form pendaftaran + pembayaran (logic tidak diubah, cuma direposisi ke sini) ===== */}
 
           {price && step === 'form' && (
-            <div className="w-full bg-surface-variant/40 border border-overlay/10 rounded-2xl p-5 text-center">
-              <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">Paket Akses</p>
-              <p className="font-mono-data text-3xl font-bold text-on-surface">{formatCurrency(price.amount)}</p>
-              <p className="text-sm text-on-surface-variant mt-1">{price.label}</p>
+            <div className="w-full bg-landing-surface/25 border border-landing-text/10 rounded-2xl p-5 text-center">
+              <p className="text-xs font-label-caps text-landing-text/70 tracking-wider uppercase mb-1">Paket Akses</p>
+              <p className="font-mono-data text-3xl font-bold text-landing-text">{formatCurrency(price.amount)}</p>
+              <p className="text-sm text-landing-text/70 mt-1">{price.label}</p>
             </div>
           )}
 
           {step === 'form' && (
             <form onSubmit={handleSubmit} className="w-full flex flex-col gap-5">
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-primary/80 tracking-wider">Nama Lengkap</label>
+                <label className="text-xs font-label-caps text-landing-text/70 tracking-wider">Nama Lengkap</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-4 text-on-surface-variant/60">
+                  <span className="absolute left-4 text-landing-text/50">
                     <User className="w-5 h-5" />
                   </span>
                   <input
@@ -355,15 +413,15 @@ export default function Landing() {
                       setName(e.target.value);
                       if (error) setError('');
                     }}
-                    className="w-full h-14 bg-surface-variant/40 border border-overlay/10 rounded-xl px-12 text-on-surface font-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
+                    className="w-full h-14 bg-landing-surface/20 border border-landing-text/15 rounded-xl px-12 text-landing-text font-body-md placeholder:text-landing-text/40 focus:outline-none focus:border-landing-accent focus:ring-1 focus:ring-landing-accent/60 transition-all duration-200"
                   />
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-label-caps text-primary/80 tracking-wider">Email</label>
+                <label className="text-xs font-label-caps text-landing-text/70 tracking-wider">Email</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-4 text-on-surface-variant/60">
+                  <span className="absolute left-4 text-landing-text/50">
                     <Mail className="w-5 h-5" />
                   </span>
                   <input
@@ -374,21 +432,44 @@ export default function Landing() {
                       setEmail(e.target.value);
                       if (error) setError('');
                     }}
-                    className="w-full h-14 bg-surface-variant/40 border border-overlay/10 rounded-xl px-12 text-on-surface font-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
+                    className="w-full h-14 bg-landing-surface/20 border border-landing-text/15 rounded-xl px-12 text-landing-text font-body-md placeholder:text-landing-text/40 focus:outline-none focus:border-landing-accent focus:ring-1 focus:ring-landing-accent/60 transition-all duration-200"
                   />
                 </div>
-                <p className="text-xs text-on-surface-variant/50 px-1">
+                <p className="text-xs text-landing-text/50 px-1">
                   Gunakan email yang sama saat login nanti.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 bg-overlay/5 border border-overlay/10 rounded-xl px-4 py-3">
-                <CreditCard className="w-4 h-4 text-primary shrink-0" />
-                <span>Bayar otomatis via Doku — pilih QRIS, VA bank, e-wallet, atau kartu di halaman berikutnya, akun langsung aktif begitu pembayaran berhasil.</span>
+              {/* landing-page-revisi-2 Task 14 — new field, same pattern as
+                  Nama Lengkap/Email above. */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-label-caps text-landing-text/70 tracking-wider">Nomor WhatsApp</label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-4 text-landing-text/50">
+                    <Phone className="w-5 h-5" />
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="Contoh: 08123456789"
+                    value={whatsapp}
+                    onChange={(e) => {
+                      setWhatsapp(e.target.value);
+                      if (error) setError('');
+                    }}
+                    className="w-full h-14 bg-landing-surface/20 border border-landing-text/15 rounded-xl px-12 text-landing-text font-body-md placeholder:text-landing-text/40 focus:outline-none focus:border-landing-accent focus:ring-1 focus:ring-landing-accent/60 transition-all duration-200"
+                  />
+                </div>
+              </div>
+
+              {/* landing-page-revisi-2 Task 15 — shortened per the exact
+                  wording given, replacing the previous longer explanation. */}
+              <div className="flex items-center gap-2 text-xs text-landing-text/60 bg-landing-text/5 border border-landing-text/10 rounded-xl px-4 py-3">
+                <ShieldCheck className="w-4 h-4 text-landing-text shrink-0" />
+                <span>Pembayaran dikonfirmasi otomatis via Doku.</span>
               </div>
 
               {error && (
-                <span className="text-xs text-danger block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
+                <span className="text-xs text-rose-600 block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
                   {error}
                 </span>
               )}
@@ -396,7 +477,7 @@ export default function Landing() {
               <button
                 type="submit"
                 disabled={loading || !price}
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md mt-2 bg-primary text-on-primary disabled:opacity-50"
+                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md mt-2 bg-landing-accent text-landing-on-accent disabled:opacity-50"
               >
                 {loading ? 'Memproses...' : 'Bayar'}
                 <ArrowRight className="w-5 h-5" />
@@ -406,19 +487,19 @@ export default function Landing() {
 
           {step === 'paying' && order && (
             <div className="w-full flex flex-col items-center gap-5 text-center">
-              <div className="w-full bg-surface-variant/40 border border-overlay/10 rounded-2xl p-5">
-                <p className="text-xs font-label-caps text-primary/80 tracking-wider uppercase mb-1">
+              <div className="w-full bg-landing-surface/25 border border-landing-text/10 rounded-2xl p-5">
+                <p className="text-xs font-label-caps text-landing-text/70 tracking-wider uppercase mb-1">
                   Total yang harus dibayar
                 </p>
                 <div className="flex items-center justify-center gap-2">
-                  <p className="font-mono-data text-4xl font-bold text-on-surface">{formatCurrency(order.total_amount)}</p>
+                  <p className="font-mono-data text-4xl font-bold text-landing-text">{formatCurrency(order.total_amount)}</p>
                   <button
                     type="button"
                     onClick={handleCopyAmount}
-                    className="text-on-surface-variant/60 hover:text-primary transition-colors"
+                    className="text-landing-text/50 hover:text-landing-text transition-colors"
                     title="Salin nominal"
                   >
-                    {copied ? <Check className="w-5 h-5 text-primary" /> : <Copy className="w-5 h-5" />}
+                    {copied ? <Check className="w-5 h-5 text-landing-text" /> : <Copy className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
@@ -432,31 +513,31 @@ export default function Landing() {
                 href={order.paymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
               >
                 Bayar Sekarang <ExternalLink className="w-5 h-5" />
               </a>
               <div className="w-full flex flex-col items-center gap-3">
-                <p className="text-xs text-on-surface-variant/60 text-center max-w-xs">
+                <p className="text-xs text-landing-text/60 text-center max-w-xs">
                   Halaman pembayaran sudah terbuka di tab baru — pilih QRIS, VA bank, e-wallet, atau kartu apa pun yang paling nyaman.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-on-surface-variant">
+              <div className="flex items-center gap-2 text-landing-text/70">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <p className="text-sm">Menunggu pembayaran (order {order.order_code})...</p>
               </div>
-              <p className="text-xs text-on-surface-variant/50">
+              <p className="text-xs text-landing-text/50">
                 Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran berhasil — akun langsung aktif, tanpa perlu menunggu konfirmasi admin.
               </p>
 
               <a
                 href="/app"
-                className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all border border-overlay/10 bg-surface-variant/40 text-on-surface"
+                className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all border border-landing-text/15 bg-landing-surface/20 text-landing-text"
               >
                 Masuk ke Halaman Login
               </a>
-              <p className="text-xs text-on-surface-variant/50">
+              <p className="text-xs text-landing-text/50">
                 Link untuk masuk ke aplikasi juga akan dikirimkan ke email kamu setelah pembayaran dikonfirmasi.
               </p>
             </div>
@@ -464,9 +545,9 @@ export default function Landing() {
 
           {step === 'success' && (
             <div className="w-full flex flex-col items-center gap-4 text-center">
-              <CheckCircle2 className="w-12 h-12 text-primary" />
-              <p className="text-on-surface font-headline-sm">Pembayaran dikonfirmasi!</p>
-              <div className="flex items-center gap-2 text-on-surface-variant">
+              <CheckCircle2 className="w-12 h-12 text-landing-text" />
+              <p className="text-landing-text font-headline-sm">Pembayaran dikonfirmasi!</p>
+              <div className="flex items-center gap-2 text-landing-text/70">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <p className="text-sm">Mengalihkan ke halaman login...</p>
               </div>
@@ -475,12 +556,12 @@ export default function Landing() {
 
           {step === 'expired' && (
             <div className="w-full flex flex-col items-center gap-4 text-center">
-              <span className="text-xs text-danger block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+              <span className="text-xs text-rose-600 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
                 Order sudah kedaluwarsa (lebih dari 24 jam belum dikonfirmasi). Silakan daftar ulang.
               </span>
               <button
                 onClick={handleReset}
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
               >
                 Daftar Ulang
               </button>
@@ -489,23 +570,23 @@ export default function Landing() {
 
           {step === 'error' && (
             <div className="w-full flex flex-col items-center gap-4 text-center">
-              <span className="text-xs text-danger block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+              <span className="text-xs text-rose-600 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
                 {error || 'Terjadi kesalahan.'}
               </span>
               <button
                 onClick={handleReset}
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-primary text-on-primary"
+                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
               >
                 Coba Lagi
               </button>
             </div>
           )}
 
-          <div className="w-full flex items-center justify-center gap-2 text-on-surface-variant/60">
-            <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+          <div className="w-full flex items-center justify-center gap-2 text-landing-text/60">
+            <ShieldCheck className="w-4 h-4 text-landing-text shrink-0" />
             <span className="text-xs">Garansi 3 Hari — Uang kembali 100% kalau nggak cocok</span>
           </div>
-          <p className="text-[10px] text-on-surface-variant/40 text-center uppercase tracking-wider">
+          <p className="text-[10px] text-landing-text/40 text-center uppercase tracking-wider">
             Pembayaran diverifikasi otomatis oleh Doku — akun aktif dalam hitungan detik.
           </p>
         </div>
