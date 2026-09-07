@@ -48,6 +48,35 @@
   --spacing-card_padding: 1.5rem;       /* 24px */
   --spacing-container_margin: 1.5rem;   /* 24px */
   --spacing-stack_gap_md: 1rem;         /* 16px */
+
+  /* landing-page-revisi-2 — a SEPARATE brand palette + dark/light toggle
+     for the marketing landing page only (src/components/Landing.tsx and
+     src/components/landing/*), deliberately NOT sharing the --color-*
+     tokens above. Those tokens are the AUTHENTICATED APP's own theme
+     (App.tsx's applyTheme(), driven by [data-theme] on <html>) — reusing
+     them for the landing page (tried in the previous revision) meant the
+     landing page inherited the app's "Cool Sage" pale body-bg (#f2f6f2)
+     instead of the pure white this brand palette calls for, and had no
+     way to express Lime Glow/Emerald Pine/Green Tea at all. This palette
+     is scoped instead via [data-landing-theme] on Landing.tsx's own root
+     element (see the useLandingTheme hook) — never touches <html>, so it
+     can never leak into or fight the authenticated app's theme either. */
+  --color-landing-bg: #fdfdfd;
+  --color-landing-text: #084734; /* Emerald Pine */
+  --color-landing-accent: #e7fe25; /* Lime Glow */
+  /* Accent is a near-fluorescent yellow-green — text ON it needs to stay
+     dark in BOTH modes for real contrast, never flip to light. */
+  --color-landing-on-accent: #084734;
+  --color-landing-surface: #cdedb3; /* Green Tea, used as a subtle card tint */
+}
+
+[data-landing-theme="dark"] {
+  --color-landing-bg: #013f32; /* dark green */
+  --color-landing-text: #fdfdfd;
+  /* Accent stays IDENTICAL in dark mode — "CTA tetap Lime Glow" per spec. */
+  --color-landing-accent: #e7fe25;
+  --color-landing-on-accent: #084734;
+  --color-landing-surface: #084734; /* Emerald Pine, as a card bg here instead of text */
 }
 
 /* Light theme — overrides the SAME custom properties above under
