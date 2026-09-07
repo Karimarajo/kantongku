@@ -24,4 +24,12 @@ interface Window {
   // Meta Pixel's own global, installed dynamically by src/main.tsx when
   // VITE_META_PIXEL_ID is set. Absent entirely otherwise — always feature-detect.
   fbq?: (...args: any[]) => void;
+  // One event_id per pageview, generated once in src/main.tsx and shared
+  // with whichever component's `/api/track/pageview` POST fires next (see
+  // Landing.tsx) — Meta dedupes the browser (fbq) and server (CAPI) PageView
+  // events that carry the same event_id, so both sides must use this exact
+  // same value. Always set (independent of whether the client Pixel itself
+  // ends up initializing), so the server-side CAPI call still has one even
+  // if VITE_META_PIXEL_ID is missing client-side.
+  __metaPageviewEventId?: string;
 }

@@ -6,6 +6,17 @@ import AdminConsole from './components/AdminConsole.tsx';
 import SupportPage from './components/SupportPage.tsx';
 import './index.css';
 
+// One event_id per pageview, shared between the client-side Pixel PageView
+// call below and the server-side CAPI PageView call fired from
+// /api/track/pageview (see Landing.tsx + server.ts) — Meta dedupes
+// browser+server events carrying the same event_id, so this must be
+// generated exactly once, here, and read from `window` wherever the POST to
+// /api/track/pageview happens next. Generated unconditionally (not inside
+// initMetaPixel's early-return guard) so the server-side CAPI call still
+// gets a usable event_id even if VITE_META_PIXEL_ID isn't configured
+// client-side — the two are configured/verified independently.
+window.__metaPageviewEventId = crypto.randomUUID();
+
 // Meta Pixel base code, loaded dynamically here (rather than inline in
 // index.html) because only this module has access to import.meta.env at
 // runtime. Skips entirely — no script injected, nothing fired, no crash — when
@@ -32,7 +43,7 @@ function initMetaPixel() {
   document.head.appendChild(script);
 
   window.fbq!('init', pixelId);
-  window.fbq!('track', 'PageView');
+  window.fbq!('track', 'PageView', {}, { eventID: window.__metaPageviewEventId });
 }
 
 initMetaPixel();

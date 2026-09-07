@@ -1388,10 +1388,14 @@ function resolveVisitorIp(req: express.Request): string {
 app.post("/api/track/pageview", (req, res) => {
   res.json({ success: true });
 
+  // Declared here (not inside the first try block below) so the Meta CAPI
+  // try block further down — deliberately separate from the internal-
+  // analytics try block, see its own comment — can still reference them.
+  const path = typeof req.body?.path === "string" ? req.body.path.slice(0, 500) : "/";
+  const ip = resolveVisitorIp(req);
+
   (async () => {
     try {
-      const path = typeof req.body?.path === "string" ? req.body.path.slice(0, 500) : "/";
-      const ip = resolveVisitorIp(req);
       const { deviceType, browser, os } = parseUserAgent(req.headers["user-agent"] as string | undefined);
       const referrer = (req.headers["referer"] as string | undefined)?.slice(0, 500) || null;
       const utm_source = typeof req.body?.utm_source === "string" ? req.body.utm_source.slice(0, 200) : null;
@@ -1439,6 +1443,38 @@ app.post("/api/track/pageview", (req, res) => {
       );
     } catch (error: any) {
       console.error("Gagal mencatat page view:", error.message);
+    }
+
+    // Server-side Meta CAPI counterpart to the browser Pixel's
+    // fbq('track', 'PageView', ..., { eventID }) call (see src/main.tsx) —
+    // deliberately a SEPARATE try/catch from the internal analytics block
+    // above so a Meta API failure can never affect (or be affected by) the
+    // page_views insert, and vice versa. `eventId` is generated once
+    // client-side (src/main.tsx) and forwarded here unchanged so Meta
+    // dedupes this against the matching browser event instead of counting
+    // both — see the same event_id pattern already used for "Lead"/
+    // "OrderConfirmed" above. Falls back to a fresh id for a request that
+    // somehow arrives without one (e.g. a stale cached bundle mid-deploy) —
+    // that event just won't dedupe with anything, better than dropping it.
+    try {
+      const eventId = typeof req.body?.eventId === "string" && req.body.eventId ? req.body.eventId : crypto.randomUUID();
+      // Plain (unsigned) cookies set by the Pixel script itself — read
+      // straight from the request rather than trusting the client to relay
+      // them, per the same reasoning CF-Connecting-IP is preferred over a
+      // client-supplied IP in resolveVisitorIp above.
+      const fbp = req.cookies?._fbp;
+      const fbc = req.cookies?._fbc;
+      await sendMetaCapiEvent("PageView", eventId, {
+        eventSourceUrl: `${process.env.APP_URL || ""}${path}`,
+        userData: {
+          clientIpAddress: ip || undefined,
+          clientUserAgent: req.headers["user-agent"] as string | undefined,
+          fbp: fbp || undefined,
+          fbc: fbc || undefined,
+        },
+      });
+    } catch (error: any) {
+      console.error("Gagal mengirim event Meta CAPI (PageView):", error.message);
     }
   })();
 });
