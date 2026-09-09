@@ -282,7 +282,7 @@ export default function BudgetModal({
 
                   {/* Switch Jenis Aturan Tipe */}
                   <div className="grid grid-cols-2 gap-1 bg-body-bg/80 rounded-lg p-1 border border-overlay/5">
-                    <button type="button" onClick={() => setType('expense_limit')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'expense_limit' ? 'bg-danger text-on-surface font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                    <button type="button" onClick={() => setType('expense_limit')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'expense_limit' ? 'bg-danger text-on-surface expense-btn-active font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
                       {tr('Limit Belanja')}
                     </button>
                     <button type="button" onClick={() => setType('target_funding')} className={`py-1.5 rounded-md font-label-caps text-[9px] uppercase transition-all tracking-wider ${type === 'target_funding' ? 'bg-primary text-on-primary font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
@@ -292,7 +292,7 @@ export default function BudgetModal({
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-label-caps text-on-surface-variant uppercase">{tr('Nama Aturan / Alarm')}</label>
-                    <input type="text" required placeholder="Misal: Limit Kopi, Target Laptop" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9 bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 px-3 focus:outline-none focus:border-primary/60" />
+                    <input type="text" required placeholder={tr('Misal: Limit Kopi, Target Laptop')} value={title} onChange={(e) => setTitle(e.target.value)} className="h-9 bg-body-bg/40 rounded-lg text-xs text-on-surface border border-overlay/10 px-3 focus:outline-none focus:border-primary/60" />
                   </div>
 
                   <div className="flex flex-col gap-1.5">

@@ -1,95 +1,112 @@
 import React from 'react';
-import { Zap, Wallet, Users, CalendarClock, Target, HeartPulse, Copy, Infinity as InfinityIcon } from 'lucide-react';
+import { Zap, CalendarClock, Target, PiggyBank, Wallet, Users, HeartPulse, CreditCard } from 'lucide-react';
 import {
   CatatKilatMock,
   PisahkanUangMock,
   KolaborasiMock,
   CicilanMock,
   TargetLimitMock,
+  TargetNabungMock,
   AnalisisAiMock,
-  InfoRekeningMock,
+  PaylaterMock,
 } from './AppUiMockups';
 
-// landing-page-revisi-4 — replaces the earlier screenshot-slot placeholders
-// with RECREATED miniature UI excerpts (AppUiMockups.tsx), theme-aware
-// (dark/light) to match the landing page's own toggle — per explicit
-// instruction: no screenshot PNGs, redraw the app's UI in code instead. 7
-// of the 8 cards carry a small floating/tilted frame; "Beli Sekali, Pakai
-// Selamanya" has no such slot (it's a pricing claim, not a UI feature).
+// landing-page-revisi-4 — RECREATED miniature UI excerpts (AppUiMockups.tsx),
+// theme-aware (dark/light) to match the landing page's own toggle — per
+// explicit instruction: no screenshot PNGs, redraw the app's UI in code
+// instead (verified still true as of this pass — the prompt that asked for
+// this section's copy REVISION assumed real screenshots were already wired
+// in; they weren't, this recreated-mockup approach is what's actually live
+// and is kept as-is, no regression to real PNGs).
+// Revisi (prompt final, poin 6) — daftar 8 card diganti total sesuai daftar
+// baru. "Pantau Pengeluaran PayLater/Kartu Kredit" sempat pakai placeholder
+// (belum ada mockup) — sekarang sudah dibuatkan PaylaterMock sendiri
+// (lihat AppUiMockups.tsx), jadi field placeholderSlot yang dulu menandai
+// itu sudah tidak dipakai kartu manapun lagi dan dihapus dari sini.
 interface Feature {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
   Mock?: React.ComponentType<{ dark: boolean }>;
-  rotate?: string; // Tailwind rotate class for the floating-frame tilt; omitted = no mockup slot at all
+  rotate?: string; // Tailwind rotate class for the floating-frame tilt
 }
 
 const FEATURES: Feature[] = [
   {
     icon: Zap,
     title: 'Catat Secepat Kilat',
-    description: 'Foto struk, rekam suara, atau ketik bebas — AI yang urus sisanya.',
+    description: 'Foto struk, rekam suara, atau ketik bebas, AI yang urus sisanya.',
     Mock: CatatKilatMock,
     rotate: '-rotate-2',
   },
   {
-    icon: Wallet,
-    title: 'Pisahkan Uang Bisnis, Pribadi & Titipan',
-    description: 'Wallet terpisah, gak akan pernah kecampur lagi.',
-    Mock: PisahkanUangMock,
-    rotate: 'rotate-2',
-  },
-  {
-    icon: Users,
-    title: 'Atur Bareng Pasangan/Tim',
-    description: 'Kolaborasi real-time, akses penuh untuk yang diundang.',
-    Mock: KolaborasiMock,
-    rotate: '-rotate-1',
-  },
-  {
     icon: CalendarClock,
-    title: 'Reminder & Kelola Cicilan/Hutang',
+    title: 'Pengingat Pembayaran & Kelola Cicilan',
     description: 'Sekali input, otomatis diingatkan & terpantau progresnya.',
     Mock: CicilanMock,
-    rotate: 'rotate-1',
+    rotate: 'rotate-2',
   },
   {
     icon: Target,
-    title: 'Target Impian & Limit Jajan',
-    description: 'Nabung dengan tujuan jelas, kontrol pengeluaran otomatis.',
+    title: 'Batasan Pengeluaran',
+    description: 'Atur limit tiap kategori, kontrol pengeluaran otomatis.',
     Mock: TargetLimitMock,
-    rotate: '-rotate-2',
-  },
-  {
-    icon: HeartPulse,
-    title: 'Analisis Kesehatan Keuangan oleh AI',
-    description: 'Bukan cuma rekap, tapi kasih tahu kondisi keuanganmu & sarannya.',
-    Mock: AnalisisAiMock,
-    rotate: 'rotate-2',
-  },
-  {
-    icon: Copy,
-    title: 'Simpan Info Rekening, Copy Sekali Klik',
-    description: 'Mau kirim info transfer ke siapa pun, tinggal salin.',
-    Mock: InfoRekeningMock,
     rotate: '-rotate-1',
   },
   {
-    // No mockup slot at all for this one — it's a product/pricing claim,
-    // not a UI feature to show a snippet of.
-    icon: InfinityIcon,
-    title: 'Beli Sekali, Pakai Selamanya',
-    description: 'Tanpa langganan bulanan, update fitur terus jalan gratis.',
+    icon: PiggyBank,
+    title: 'Target Nabung',
+    description: 'Nabung dengan tujuan jelas, progresnya kelihatan tiap saat.',
+    Mock: TargetNabungMock,
+    rotate: 'rotate-1',
+  },
+  {
+    icon: Wallet,
+    title: 'Pisah Keuangan Pribadi & Bisnis',
+    description: 'Wallet terpisah, gak akan pernah kecampur lagi.',
+    Mock: PisahkanUangMock,
+    rotate: '-rotate-2',
+  },
+  {
+    icon: Users,
+    title: 'Atur Keuangan Bareng',
+    description: 'Kolaborasi real-time bareng pasangan atau tim.',
+    Mock: KolaborasiMock,
+    rotate: 'rotate-2',
+  },
+  {
+    icon: HeartPulse,
+    title: 'Analisis Kesehatan Keuangan AI',
+    description: 'Bukan cuma rekap, tapi kasih tahu kondisi keuanganmu & sarannya.',
+    Mock: AnalisisAiMock,
+    rotate: '-rotate-1',
+  },
+  {
+    icon: CreditCard,
+    title: 'Pantau Pengeluaran PayLater/Kartu Kredit',
+    description: 'Catat & pantau tagihan PayLater dan kartu kredit kamu di satu tempat.',
+    Mock: PaylaterMock,
+    rotate: 'rotate-1',
   },
 ];
 
 // Small floating "product snippet" frame — rounded corners + soft shadow +
 // a slight tilt (straightens on hover) so the recreated mini-UI reads as a
 // curated excerpt rather than a chart pasted flat into the card.
+//
+// Revisi (prompt 2, poin 11): ukuran dipatok EKSPLISIT dalam pixel (bukan
+// lagi w-full h-28 yang lebarnya ikut lebar kartu/breakpoint) supaya kalau
+// nanti mockup di sini diganti PNG asli, ukuran gambar yang diekspor sudah
+// pasti: 240x140px @1x (siapkan juga versi 480x280px @2x untuk layar retina
+// kalau perlu, aspek rasio yang sama).
+const FEATURE_IMAGE_WIDTH_PX = 240;
+const FEATURE_IMAGE_HEIGHT_PX = 140;
+
 function FeatureMockFrame({ dark, rotate, Mock }: { dark: boolean; rotate: string; Mock: React.ComponentType<{ dark: boolean }> }) {
   return (
     <div
-      className={`w-full h-28 rounded-xl border border-landing-text/10 shadow-lg overflow-hidden ${rotate} transition-transform duration-300 hover:rotate-0`}
+      style={{ width: FEATURE_IMAGE_WIDTH_PX, height: FEATURE_IMAGE_HEIGHT_PX, maxWidth: '100%' }}
+      className={`mx-auto rounded-xl border border-landing-text/10 shadow-lg overflow-hidden ${rotate} transition-transform duration-300 hover:rotate-0`}
     >
       <Mock dark={dark} />
     </div>

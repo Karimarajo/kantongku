@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -8,26 +8,48 @@
      lihat className="font-mono tabular-nums" di komponen-komponen angka. */
   --font-sans: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, ui-sans-serif, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  /* restyle/modern-financial-tokens — Sora is the headline/display face in
+     the new "Modern Financial" design system; --font-sans (Space Grotesk)
+     stays the body/label/UI/caption face exactly as before. Wired to the
+     font-display-lg/font-headline-md/font-headline-sm classes below —
+     these three existed in ~30 components already but had no font-family
+     of their own (silently inherited body's Space Grotesk), same
+     never-registered-as-real-CSS gap font-mono-data used to have. */
+  --font-headline: "Sora", "Helvetica Neue", Helvetica, Arial, ui-sans-serif, sans-serif;
 
-  --color-primary: #4edea3;
-  --color-primary-container: #10b981;
+  /* restyle/modern-financial-tokens — "Modern Financial" palette. Token
+     NAMES are unchanged (still primary/primary-container/surface/
+     surface-variant/on-surface/on-surface-variant/outline/outline-variant/
+     warning/danger/body-bg/body-text — the exact set ~30 components already
+     reference), only the VALUES change. The new design's own vocabulary
+     (surface-container-low/high/highest, tertiary, error, on-primary-
+     container, ink/ink-soft/ink-faint) doesn't exist anywhere in this
+     codebase (verified: zero component references) and was deliberately
+     NOT introduced as new tokens per that mapping decision:
+       - the 5-tier surface-container scale collapses onto the existing
+         2 tiers (surface / surface-variant) — surface-variant takes the
+         new design's mid "surface-container" value as one representative
+         shade, the low/high/highest tiers have no home without also
+         touching JSX class names, which is out of scope here.
+       - tertiary -> warning, error -> danger (reusing the two existing
+         status tokens with the new design's values, per user confirmation).
+     secondary/secondary-container/success/overlay are UNCHANGED — the new
+     spec doesn't give values for them, so touching them wasn't in scope. */
+  --color-primary: #5bffb9;
+  --color-primary-container: #0ee39c;
   --color-secondary: #adc6ff;
   --color-secondary-container: #0566d9;
-  /* Task: "kartu hijau terang, font jadi gelap" — text-on-primary is used on
-     ~16 bg-primary buttons/cards across the app but was never defined here,
-     so it silently rendered with whatever color it happened to inherit
-     (this theme's light on-surface text) instead of a real contrast-checked
-     color. Dark theme's primary is a BRIGHT mint green, so on-primary here
-     is dark (near-black) for real contrast — deliberately the opposite of
-     --color-on-surface's light text on this same dark theme. */
-  --color-on-primary: #06281d;
+  /* on-primary-container (#00603f dark / #05754e light) from the new spec
+     has no existing "on-*" counterpart of its own — --color-on-primary is
+     reused for both jobs, same as before this restyle. */
+  --color-on-primary: #003823;
 
-  --color-surface: #111827;
-  --color-surface-variant: #1f2937;
-  --color-on-surface: #f3f4f6;
-  --color-on-surface-variant: #9ca3af;
-  --color-outline: #374151;
-  --color-outline-variant: #4b5563;
+  --color-surface: #101416;
+  --color-surface-variant: #1c2023;
+  --color-on-surface: #e0e3e6;
+  --color-on-surface-variant: #bacbbf;
+  --color-outline: #84958a;
+  --color-outline-variant: #3b4a41;
 
   /* v11 (dark/light theme): tokens added specifically to replace hardcoded
      `white`/hex classes that were scattered across every component —
@@ -36,13 +58,16 @@
      OVER the current surface, so it needs to flip dark<->light with the
      theme instead of always being literally white), and
      danger/warning/success replace the handful of hardcoded status hex
-     colors (`#EF4444` etc) so those have a sane light-mode equivalent too. */
+     colors (`#EF4444` etc) so those have a sane light-mode equivalent too.
+     restyle/modern-financial-tokens: warning/danger now carry the new
+     design's tertiary/error values (see the mapping note above); overlay/
+     success are untouched. */
   --color-overlay: #ffffff;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
+  --color-danger: #ffb4ab;
+  --color-warning: #ffbb5b;
   --color-success: #10b981;
-  --color-body-bg: #0b111e;
-  --color-body-text: #dde4dd;
+  --color-body-bg: #101416;
+  --color-body-text: #e0e3e6;
 
   /* Spacing Tokens */
   --spacing-card_padding: 1.5rem;       /* 24px */
@@ -65,13 +90,36 @@
      Green Tea set — same "one color, different job per theme" pattern:
      the dark forest green is light-mode TEXT and dark-mode SURFACE,
      exactly like Emerald Pine was before. */
-  --color-landing-bg: #f8fdf9;
+  /* Revisi (landing mode light): latar #FBFFFD (nyaris putih, sedikit rona
+     mint), kartu solid #FFFFFF — lihat override
+     [data-landing-theme="light"] .bg-landing-surface\/XX di bawah, karena
+     SEMUA pemakaian bg-landing-surface di seluruh file landing/* memakai
+     suffix opacity (/15 /20 /25 /40, dimaksudkan sebagai wash tipis di atas
+     --color-landing-bg lama) — kalau --color-landing-surface sendiri
+     diganti #ffffff tanpa override itu, hasilnya cuma putih pudar tembus
+     pandang (mis. 20% opacity), BUKAN kartu putih solid yang diminta.
+     Mode gelap SENGAJA tidak disentuh sama sekali (di luar cakupan revisi
+     ini) — nilai & override di bawah semua discope [data-landing-theme
+     ="light"] saja. */
+  --color-landing-bg: #fbfffd;
   --color-landing-text: #132f24;
   --color-landing-accent: #4fff97;
   /* Accent is a bright mint — text ON it needs to stay dark in BOTH modes
      for real contrast, never flip to light. */
   --color-landing-on-accent: #0e141f;
   --color-landing-surface: #4fff97; /* used at low opacity (bg-landing-surface/X) as a subtle mint card tint */
+}
+
+/* Revisi (landing mode light) — lihat catatan panjang di atas: paksa SETIAP
+   varian opacity bg-landing-surface yang benar-benar dipakai di landing/*
+   (grep: /15 /20 /25 /40) jadi solid putih murni, HANYA saat
+   [data-landing-theme="light"]. Spesifisitas (1 atribut + 1 class) menang
+   atas utility Tailwind biasa (1 class) tanpa perlu !important. */
+[data-landing-theme="light"] .bg-landing-surface\/15,
+[data-landing-theme="light"] .bg-landing-surface\/20,
+[data-landing-theme="light"] .bg-landing-surface\/25,
+[data-landing-theme="light"] .bg-landing-surface\/40 {
+  background-color: #ffffff;
 }
 
 [data-landing-theme="dark"] {
@@ -90,39 +138,45 @@
    up automatically with zero per-component changes — Tailwind's generated
    utilities reference `var(--color-*)` at paint time, not at build time. */
 :root[data-theme="light"] {
-  /* Task: repalet light theme ke "Cool Sage" (referensi desain user) —
-     HANYA nilai warna yang berubah di bawah ini, tidak ada token baru/
-     dihapus, tidak menyentuh font/icon/logo. Tujuannya memperbaiki kontras
-     huruf-vs-kartu yang sebelumnya "samar" (surface putih hampir menyatu
-     dengan body-bg abu netral, dan on-surface-variant terlalu terang) —
-     primary jadi hijau yang lebih dalam & sejuk, body-bg diberi rona sage
-     pucat supaya kartu putih benar-benar menonjol di atasnya, dan teks
-     utama/sekunder digelapkan untuk kontras yang jauh lebih tegas. */
-  --color-primary: #1f7a4d;
-  --color-primary-container: #dfeee4;
+  /* restyle/modern-financial-tokens — replaces the earlier "Cool Sage"
+     light repalette with the new "Modern Financial" light values. Same
+     scope rule as the dark block above: token NAMES unchanged, only
+     values. --color-primary has no explicit value in the new spec (it
+     only gives primary-CONTAINER for light, plus an explicit note that
+     dark mode's primary #5bffb9 must NOT be reused directly here) — per
+     user confirmation, using the spec's own "#05754e text/icon on
+     emerald, AA-contrast" note as the light-mode primary value, since
+     that's exactly the role --color-primary already plays elsewhere
+     (text-primary / bg-primary accents), not just a container fill. */
+  --color-primary: #05754e;
+  --color-primary-container: #0ee39c;
   --color-secondary: #2f6690;
   --color-secondary-container: #dce7f0;
-  /* Primary tetap cukup gelap sehingga teks putih di atasnya kontras baik. */
+  /* Primary is now a dark emerald green, so on-primary flips to white for
+     contrast — was already white pre-restyle, unchanged. */
   --color-on-primary: #ffffff;
 
+  /* Revisi (3) — dibalik dari revisi (2) sebelumnya, sesuai koreksi user
+     ("kamu kebalik"): latar HALAMAN (--color-body-bg) jadi #FBFFFD (putih
+     nyaris polos, sedikit rona mint), sedangkan token KARTU (--color-surface,
+     dipakai bg-surface, .card-elevated & panel .glass-card di seluruh app)
+     jadi #FFFFFF putih murni — kartu yang paling terang, bukan latarnya.
+     Kartu kantong (.pocket-color-card) & kartu Total Saldo (.glow-primary)
+     tetap dikecualikan seperti sebelumnya — lihat catatan masing-masing di
+     bawah, "tetap seperti itu" sesuai permintaan. */
   --color-surface: #ffffff;
-  /* Task revisi: "background masih terlalu gelap, terangin lagi" —
-     body-bg & surface-variant dinaikkan lagi lightness-nya (masih dengan
-     rona sage yang sama, cuma lebih pucat) supaya kartu netral yang
-     memakai surface-variant (mis. tombol "Foto Struk Belanja"/"Input
-     Manual" di AddTransactionModal) tidak lagi terbaca abu-abu gelap. */
-  --color-surface-variant: #eaf1ec;
-  --color-on-surface: #10160f;
-  --color-on-surface-variant: #59645d;
-  --color-outline: #d7e3da;
-  --color-outline-variant: #e6eee8;
+  --color-surface-variant: #e2eaeb;
+  --color-on-surface: #0e141f;
+  --color-on-surface-variant: #48585f;
+  --color-outline: #c9d4d3;
+  --color-outline-variant: #d7e1e2;
 
   --color-overlay: #000000;
-  --color-danger: #d1483f;
-  --color-warning: #c1790f;
+  --color-danger: #b3261e;
+  --color-warning: #ffbb5b;
   --color-success: #1f7a4d;
-  --color-body-bg: #f2f6f2;
-  --color-body-text: #10160f;
+  --color-body-bg: #fbfffd;
+  --color-body-text: #0e141f;
 }
 
 /* Non-Tailwind-namespaced tokens (no bg-/text- utility generation wanted)
@@ -145,9 +199,13 @@
 :root[data-theme="light"] {
   /* Diselaraskan dengan primary/secondary "Cool Sage" baru di atas
      (#1f7a4d / #2f6690) + glass-strong dinaikkan opasitasnya (0.75 -> 0.92)
-     supaya kartu putih tidak lagi menyatu dengan body-bg bersemu sage. */
-  --glass-strong: rgba(255, 255, 255, 0.92);
-  --glass-soft: rgba(255, 255, 255, 0.75);
+     supaya kartu putih tidak lagi menyatu dengan body-bg bersemu sage.
+     Revisi (3) — dibalik dari revisi (2): rona balik ke putih murni
+     (255,255,255), senada dengan --color-surface (#FFFFFF) yang sekarang
+     jadi warna KARTU paling terang; --color-body-bg (#FBFFFD) yang justru
+     dapat rona mint tipis pembeda. */
+  --glass-strong: rgba(255, 255, 255, 0.94);
+  --glass-soft: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(16, 30, 22, 0.08);
   --glow-primary-shadow: rgba(31, 122, 77, 0.12);
   --glow-primary-border: rgba(31, 122, 77, 0.28);
@@ -178,16 +236,34 @@
    utility (not a plain class) so it composes correctly alongside the other
    utility classes already listed next to it in those components' className
    strings, wins the font-family cascade there, and gets picked up by
-   Tailwind's JIT scan of the existing className="...font-mono-data..." usages.
-   Deliberately does NOT touch font-display-lg / font-label-caps (the two
-   other undefined-but-used classes in this codebase) — both are applied to
-   plain TEXT headings/captions in some places (e.g. AdminConsole's "Admin
-   Console" <h1>), so forcing a font-family there could fight the intended
-   sans-serif body font; they already fall back to --font-sans correctly via
-   inheritance with zero extra CSS needed. */
+   Tailwind's JIT scan of the existing className="...font-mono-data..." usages. */
 @utility font-mono-data {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* restyle/modern-financial-tokens — font-display-lg, font-headline-md, and
+   font-headline-sm (verified via grep audit) were undefined-but-used
+   classes, same as font-mono-data used to be above: until now they
+   silently fell back to --font-sans (Space Grotesk) via inheritance, fine
+   when this app had one type family. The new design system calls for a
+   DISTINCT headline/display face (Sora) — same never-registered-as-real-
+   CSS gap font-mono-data had, same fix.
+   font-label-caps is registered too, explicitly to --font-sans (Space
+   Grotesk) — functionally unchanged from its previous inherited value,
+   made explicit so it can never accidentally inherit font-headline from a
+   parent instead. */
+@utility font-display-lg {
+  font-family: var(--font-headline);
+}
+@utility font-headline-md {
+  font-family: var(--font-headline);
+}
+@utility font-headline-sm {
+  font-family: var(--font-headline);
+}
+@utility font-label-caps {
+  font-family: var(--font-sans);
 }
 
 body {
@@ -208,30 +284,147 @@ body {
   border: 1px solid var(--glass-border);
 }
 
+/* restyle/modern-financial-tokens — the balance/saldo hero card gets a
+   dedicated, NON-token treatment per the new design spec ("bukan token
+   generik"): the SAME background + ink in both dark and light mode,
+   deliberately not tied to --color-primary/--color-surface the way the
+   rest of the app is. Replaces the old light-mode-only "Cool Sage" pale
+   wash this rule used to apply. .glow-primary is applied to exactly one
+   element app-wide (HomeDashboard's balance card — verified via grep), so
+   this can't leak anywhere else. Its `background` wins the cascade over
+   the sibling .glass-card class's own `background` declaration because
+   .glass-card is declared earlier in this file and both are equal-
+   specificity single-class selectors.
+   The label/number/icon inside reach their color via the existing
+   text-primary / text-on-surface-variant utility classes (they have no
+   dedicated class of their own) — scoped descendant overrides recolor
+   them to the card's own ink without touching any component JSX.
+   Known gap, reported separately: the design's own bespoke trend-pill
+   (bg #1b3c45/text #d4e3e6) and a "Masuk/Keluar" split aren't reachable
+   this way — the pill has 3 different conditional Tailwind classes with
+   no shared hook, and the Masuk/Keluar split doesn't exist as an element
+   in this component at all yet. Doing either would mean touching
+   HomeDashboard's JSX, out of scope for this token-only pass. */
 .glow-primary {
   box-shadow: 0 0 20px var(--glow-primary-shadow);
   border: 1px solid var(--glow-primary-border);
+  /* Revisi: #72de9f -> #5bffb9 (background saja, warna font/ink di bawah
+     tetap #111416, tidak ikut diganti) — berlaku sama di dark & light mode
+     karena memang hardcoded, bukan token. */
+  background: #5bffb9;
 }
 
-/* Task (palet "Cool Sage"): kartu saldo (.glow-primary, satu-satunya
-   pemakai di HomeDashboard) & kartu kantong (.pocket-color-card, diberi
-   custom property --pocket-color per kantong lewat inline style) diberi
-   wash warna pucat HANYA di light mode, meniru referensi desain user —
-   di dark mode tetap glass-card polos seperti sebelumnya. Pakai
-   color-mix() supaya --pocket-color (hex apa pun) otomatis dapat versi
-   pucatnya tanpa perlu hardcode per warna. Ini murni background — icon,
-   teks, dan border-left berwarna yang sudah ada sama sekali tidak diubah. */
-:root[data-theme="light"] .glow-primary {
-  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+.glow-primary .text-primary,
+.glow-primary .text-on-surface-variant {
+  color: #111416;
 }
 
+.glow-primary .glow-text-primary {
+  /* A glow shadow made sense for bright mint text on a dark card; it
+     doesn't for dark ink on this card's own light-green background. */
+  text-shadow: none;
+}
+
+/* Task (palet "Cool Sage") — kartu kantong (.pocket-color-card, diberi
+   custom property --pocket-color per kantong lewat inline style) tetap
+   diberi wash warna pucat HANYA di light mode; tidak berkaitan dengan
+   kartu saldo di atas, sengaja tidak disentuh.
+   Revisi (2): basis campurannya SENGAJA di-pin ke literal #ffffff (bukan
+   lagi var(--color-surface)) — user minta kartu kantong "tetap seperti itu"
+   persis, jadi tidak boleh ikut bergeser saat --color-surface direvisi jadi
+   #EFFFF6 di atas. */
 :root[data-theme="light"] .pocket-color-card {
-  background: color-mix(in srgb, var(--pocket-color, var(--color-primary)) 16%, var(--color-surface));
+  background: color-mix(in srgb, var(--pocket-color, var(--color-primary)) 16%, #ffffff);
+}
+
+/* Revisi (4): "bottom juga sesuaikan warnanya menjadi #ffffff" — nav bawah
+   mobile (App.tsx, class `bottom-nav-bar`) pakai bg-surface/70 tembus
+   pandang; di light mode itu sekarang ikut kena rona mint dari
+   --color-surface, jadi di-override solid putih di sini secara khusus,
+   HANYA light mode (dark mode tetap bg-surface/70 seperti semula). */
+:root[data-theme="light"] .bottom-nav-bar {
+  background-color: #ffffff;
+}
+
+/* Revisi "kartunya putih cerah" (Profil > Pengaturan, Catat Pengeluaran):
+   kartu netral (bukan tint primary/secondary) baru diberi marker class ini
+   di ATAS className bawaannya (bg-overlay/5 atau bg-surface-variant, TIDAK
+   dihapus) supaya dark mode tidak berubah sama sekali — override di bawah
+   ini HANYA menang di light mode. Alasan tidak langsung pakai bg-surface
+   di className: di dark mode --color-surface (#101416) persis sama dengan
+   --color-body-bg (#101416, skema 2-tingkat yang sudah ada), jadi kartu
+   akan melebur tak kelihatan kalau overridenya ikut aktif di dark mode. */
+:root[data-theme="light"] .card-elevated {
+  background-color: var(--color-surface);
+  border-color: var(--color-outline-variant);
+}
+
+/* Selector di atas (3 class-level: :root + [data-theme] + .card-elevated)
+   lebih spesifik dari utility hover:bg-overlay/X bawaan (2 class-level:
+   .hover\:bg-overlay\/X + :hover) sehingga tanpa baris ini efek hover-nya
+   akan tertutup/hilang di light mode. Wash gelap tipis di atas putih cerah
+   supaya interaksi hover tetap terasa. */
+:root[data-theme="light"] .card-elevated:hover {
+  background-color: color-mix(in srgb, var(--color-overlay) 6%, var(--color-surface));
 }
 
 .glow-secondary {
   box-shadow: 0 0 20px var(--glow-secondary-shadow);
   border-left: 2px solid var(--color-secondary);
+}
+
+/* Revisi App (poin 1) — percobaan pertama (var(--color-danger) solid)
+   TEKNIS sudah 100% opacity, tapi user tunjukkan screenshot: di dark mode
+   --color-danger adalah pink pastel lembut (#ffb4ab) — token itu memang
+   didesain buat teks kecil di atas latar gelap, bukan buat jadi warna
+   penuh satu kartu, jadi hasilnya tidak terasa seperti "peringatan" yang
+   tegas walau sudah solid. Diganti ke merah tegas (#EF4444, sama dengan
+   border-l aksen lama sebelum revisi ini) + teks putih — SAMA persis di
+   kedua tema (bukan lagi var(--color-danger) yang nilainya beda tiap
+   tema), supaya kartu warning selalu terlihat tegas di mana pun. */
+.notif-warning-solid {
+  background: #EF4444;
+  border-left-color: #EF4444;
+}
+.notif-warning-solid .notif-warning-text {
+  color: #ffffff;
+}
+
+/* Revisi App (poin 1, klarifikasi user): "opacity 100%" ternyata dimaksudkan
+   untuk PANEL notifikasi SECARA KESELURUHAN (dropdown lonceng di
+   HomeDashboard.tsx), bukan cuma kartu warning di dalamnya — panel itu
+   pakai .glass-card (gradient translucent + backdrop-blur, dipakai di ~20
+   file lain, jadi TIDAK diubah langsung) sehingga latar di belakangnya
+   (kartu Total Saldo dkk) ikut tembus/blur. Class penanda ini menang atas
+   .glass-card lewat urutan deklarasi (spesifisitas sama-sama 1 class,
+   yang belakangan menang) — solid var(--color-surface), blur dimatikan
+   karena sudah tidak relevan begitu solid. */
+.notif-panel-solid {
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Revisi App (poin 5): tombol toggle "Pengeluaran" aktif (AddTransactionModal
+   & BudgetModal) pakai bg-danger + text-on-surface — di light mode
+   --color-danger jadi merah gelap (#b3261e) sementara --color-on-surface
+   jadi navy gelap (#0f172a), kontrasnya buruk (gelap di atas gelap). Cuma
+   di-scope light mode karena user cuma minta itu; dark mode (bg-danger
+   #ffb4ab terang + on-surface #e0e3e6 terang) tidak disentuh. */
+:root[data-theme="light"] .expense-btn-active {
+  color: #ffffff;
+}
+
+/* Landing page — SocialProofToast.tsx (poin 6): slide-up + fade sederhana
+   tiap notifikasi baru muncul. Independen dari token --color-*/--color-
+   landing-* (cuma animasi transform/opacity), jadi aman dipakai di landing
+   page yang punya sistem warna sendiri. */
+@keyframes toast-slide-in {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.toast-slide-in {
+  animation: toast-slide-in 0.35s ease-out;
 }
 
 ::-webkit-scrollbar {

@@ -7,6 +7,12 @@ export interface Pocket {
   icon: string;
   tag: string;
   color: string; // Tailwind color class or hex string
+  // Revisi (App poin 2): logo custom hasil upload pengguna sendiri (data
+  // URI base64, sama pola dengan UserProfile.avatarUrl) — kalau diisi,
+  // ditampilkan MENGGANTIKAN ikon preset `icon` di atas di layar yang
+  // benar-benar bisa render <img> (bukan native <select><option>, yang
+  // tidak bisa menampilkan gambar sama sekali).
+  logoUrl?: string;
 }
 
 export interface Account {
@@ -18,6 +24,9 @@ export interface Account {
   // paylater baru, turun tiap dibayar. Lihat `limit` di bawah.
   balance: number;
   icon: string; // bank, wallet, smartphone, cash, etc.
+  // Revisi (App poin 2): logo bank/wallet custom hasil upload pengguna
+  // sendiri (data URI base64) — sama pola dengan Pocket.logoUrl di atas.
+  logoUrl?: string;
   color: string; // theme color
   accountNumber?: string; // No Rekening
   ownerName?: string; // Nama Pemilik Rekening

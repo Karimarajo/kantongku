@@ -61,6 +61,9 @@ interface Order {
   collaborator_owner_user_id: string | null;
   collaborator_email: string | null;
   collaborator_owner_email: string | null; // joined server-side
+  // Diisi dari form pemesanan di landing page (v7.7) — null untuk order
+  // lama sebelum kolom ini ada.
+  whatsapp: string | null;
 }
 
 interface AdminUser {
@@ -74,6 +77,11 @@ interface AdminUser {
   last_open_city: string | null;
   last_open_region: string | null;
   last_open_at: string | null;
+  // Tidak ada kolom telepon di tabel users sendiri — diambil server-side
+  // dari nomor WhatsApp order TERBARU milik email ini (lihat /api/admin/users
+  // di server.ts), null kalau belum pernah order sama sekali/order lamanya
+  // tidak mengisi WhatsApp.
+  whatsapp: string | null;
 }
 
 // Task 5 (prompt-admin-console-perbaikan.md) — one row of the per-user
@@ -151,7 +159,7 @@ const ANALYTICS_CHART_COLORS = ['#4EDEA3', '#38BDF8', '#F59E0B', '#F472B6', '#A7
 function AnalyticsBarChart({ title, data }: { title: string; data: AnalyticsBreakdownRow[] }) {
   const total = data.reduce((sum, d) => sum + d.count, 0);
   return (
-    <div className="glass-card rounded-xl p-4 border border-white/5 flex flex-col gap-3">
+    <div className="glass-card rounded-xl p-4 border border-overlay/5 flex flex-col gap-3">
       <h3 className="text-[11px] font-label-caps text-on-surface-variant uppercase tracking-wider">{title}</h3>
       {total === 0 ? (
         <p className="text-xs text-on-surface-variant/50 py-4 text-center">Belum ada data.</p>
@@ -162,10 +170,10 @@ function AnalyticsBarChart({ title, data }: { title: string; data: AnalyticsBrea
             return (
               <div key={d.label} className="flex flex-col gap-1">
                 <div className="flex justify-between items-center text-[11px] gap-2">
-                  <span className="text-white/85 truncate">{d.label}</span>
+                  <span className="text-on-surface/85 truncate">{d.label}</span>
                   <span className="text-on-surface-variant font-mono-data shrink-0">{d.count} ({percent}%)</span>
                 </div>
-                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-overlay/5 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${percent}%`, backgroundColor: ANALYTICS_CHART_COLORS[idx % ANALYTICS_CHART_COLORS.length] }}
@@ -213,6 +221,21 @@ const channelLabel = (channel: string) => {
 };
 
 export default function AdminConsole() {
+  // Revisi (font & warna): Admin Console dark-mode ONLY, sengaja tidak
+  // pernah menyediakan toggle terang/gelap. Sebelum ini styling-nya pakai
+  // hex/white hardcoded (#0B111E, #0F172A, bg-white/X dst — TIGA shade navy
+  // gelap berbeda yang saling tidak match satu sama lain maupun dengan
+  // token app utama), sekarang sudah diseragamkan ke token bersama
+  // (bg-body-bg/bg-surface/text-on-surface/bg-overlay, lihat index.css).
+  // Baris ini jaga-jaga eksplisit: `data-theme` di <html> HARUS "dark"
+  // selama Admin Console tampil, walau saat ini `/admin` selalu full page
+  // reload (jadi `data-theme` selalu kosong/default dark juga) — supaya
+  // tetap benar kalau suatu saat routing berubah jadi client-side nav dari
+  // App.tsx yang sempat menyetel data-theme="light".
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }, []);
+
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -653,7 +676,7 @@ export default function AdminConsole() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0B111E] text-on-surface-variant">
+      <div className="min-h-screen flex items-center justify-center bg-body-bg text-on-surface-variant">
         Memuat...
       </div>
     );
@@ -661,13 +684,13 @@ export default function AdminConsole() {
 
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-[#0B111E] text-on-surface px-6 relative overflow-hidden font-body-md">
+      <div className="min-h-screen flex flex-col justify-center items-center bg-body-bg text-on-surface px-6 relative overflow-hidden font-body-md">
         <div className="absolute inset-0 pointer-events-none z-0">
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full bg-primary/10 blur-[100px]" />
         </div>
         <div className="w-full max-w-sm flex flex-col items-center gap-8 z-10">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-20 h-20 p-3 bg-surface-variant/40 rounded-3xl border border-white/5 flex items-center justify-center">
+            <div className="w-20 h-20 p-3 bg-surface-variant/40 rounded-3xl border border-overlay/5 flex items-center justify-center">
               <BrandLogo className="w-14 h-14" />
             </div>
             <h1 className="font-display-lg text-2xl text-primary font-bold tracking-tight">Admin Console</h1>
@@ -686,7 +709,7 @@ export default function AdminConsole() {
                   setPassword(e.target.value);
                   if (loginError) setLoginError('');
                 }}
-                className="w-full h-14 bg-surface-variant/40 border border-white/10 rounded-xl px-12 text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
+                className="w-full h-14 bg-surface-variant/40 border border-overlay/10 rounded-xl px-12 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
               />
             </div>
             {loginError && (
@@ -709,7 +732,7 @@ export default function AdminConsole() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B111E] text-on-surface font-body-md px-4 py-8 md:px-10">
+    <div className="min-h-screen bg-body-bg text-on-surface font-body-md px-4 py-8 md:px-10">
       <div className="max-w-5xl mx-auto flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -725,7 +748,7 @@ export default function AdminConsole() {
                 className={`flex items-center gap-1.5 text-xs uppercase font-label-caps tracking-wider font-bold px-3 py-2 rounded-lg transition-colors disabled:opacity-50 ${
                   adminPushStatus === 'on'
                     ? 'text-primary bg-primary/10 border border-primary/20'
-                    : 'text-on-surface-variant bg-white/5 border border-white/10 hover:text-white'
+                    : 'text-on-surface-variant bg-overlay/5 border border-overlay/10 hover:text-on-surface'
                 }`}
               >
                 <BellRing className="w-3.5 h-3.5" /> {adminPushStatus === 'on' ? 'Notifikasi Aktif' : 'Aktifkan Notifikasi'}
@@ -745,34 +768,34 @@ export default function AdminConsole() {
           </span>
         )}
 
-        <div className="flex gap-2 border-b border-white/10">
+        <div className="flex gap-2 border-b border-overlay/10">
           <button
             onClick={() => setTab('dashboard')}
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Dashboard
           </button>
           <button
             onClick={() => setTab('orders')}
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'orders' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'orders' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Order Pending
           </button>
           <button
             onClick={() => setTab('users')}
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'users' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'users' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Daftar Akun
           </button>
           <button
             onClick={() => setTab('analytics')}
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'analytics' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'analytics' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Analytics
           </button>
           <button
             onClick={() => setTab('support')}
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${tab === 'support' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-white'}`}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${tab === 'support' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Pesan Masuk
             {supportMessages.filter((m) => m.status === 'new').length > 0 && (
@@ -796,67 +819,67 @@ export default function AdminConsole() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Wallet className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Total Pendapatan</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{formatCurrency(stats.totalRevenue)}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{formatCurrency(stats.totalRevenue)}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <ShoppingBag className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Pembelian Sukses</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.successfulOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.successfulOrders}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Users2 className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Akun Aktif</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.activeUsers}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.activeUsers}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Percent className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Tingkat Konversi</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.conversionRate}%</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.conversionRate}%</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-amber-400">
                       <Hourglass className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Order Menunggu</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.pendingOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.pendingOrders}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-on-surface-variant">
                       <TimerOff className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Order Kedaluwarsa</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.expiredOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.expiredOrders}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-rose-400">
                       <XCircle className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Order Dibatalkan</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.cancelledOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.cancelledOrders}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-on-surface-variant">
                       <ShoppingBag className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Total Order Dibuat</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{stats.totalOrders}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{stats.totalOrders}</p>
                   </div>
                 </div>
 
                 <div className="bg-primary/5 border border-primary/10 rounded-2xl p-5">
                   <p className="text-sm text-on-surface-variant">
-                    Jumlah transaksi tercatat di aplikasi: <span className="font-semibold text-white">belum tersedia</span> — akan
+                    Jumlah transaksi tercatat di aplikasi: <span className="font-semibold text-on-surface">belum tersedia</span> — akan
                     aktif setelah data transaksi dipindah dari localStorage ke database.
                   </p>
                 </div>
@@ -864,9 +887,9 @@ export default function AdminConsole() {
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2 text-on-surface-variant">
                     <CalendarDays className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-semibold text-white">Pendaftaran Baru (7 Hari Terakhir)</h3>
+                    <h3 className="text-sm font-semibold text-on-surface">Pendaftaran Baru (7 Hari Terakhir)</h3>
                   </div>
-                  <div className="overflow-x-auto rounded-2xl border border-white/10">
+                  <div className="overflow-x-auto rounded-2xl border border-overlay/10">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-surface-variant/40 text-left text-on-surface-variant text-xs uppercase font-label-caps tracking-wider">
@@ -883,9 +906,9 @@ export default function AdminConsole() {
                           </tr>
                         )}
                         {stats.dailySignups.map((row) => (
-                          <tr key={row.day} className="border-t border-white/5">
+                          <tr key={row.day} className="border-t border-overlay/5">
                             <td className="px-4 py-3 text-on-surface-variant">{row.day}</td>
-                            <td className="px-4 py-3 font-semibold text-white">{row.count}</td>
+                            <td className="px-4 py-3 font-semibold text-on-surface">{row.count}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -898,7 +921,7 @@ export default function AdminConsole() {
         )}
 
         {tab === 'orders' && (
-          <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <div className="overflow-x-auto rounded-2xl border border-overlay/10">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-variant/40 text-left text-on-surface-variant text-xs uppercase font-label-caps tracking-wider">
@@ -906,6 +929,7 @@ export default function AdminConsole() {
                   <th className="px-4 py-3">Jenis</th>
                   <th className="px-4 py-3">Nama</th>
                   <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">No. HP</th>
                   <th className="px-4 py-3">Channel</th>
                   <th className="px-4 py-3">Sumber</th>
                   <th className="px-4 py-3">Nominal</th>
@@ -915,13 +939,13 @@ export default function AdminConsole() {
               <tbody>
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-6 text-center text-on-surface-variant/60">
+                    <td colSpan={9} className="px-4 py-6 text-center text-on-surface-variant/60">
                       Tidak ada order pending.
                     </td>
                   </tr>
                 )}
                 {orders.map((o) => (
-                  <tr key={o.id} className="border-t border-white/5">
+                  <tr key={o.id} className="border-t border-overlay/5">
                     <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(o.created_at)}</td>
                     <td className="px-4 py-3">
                       {o.order_type === 'collaborator' ? (
@@ -929,7 +953,7 @@ export default function AdminConsole() {
                           Kolaborator
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-white/5 text-on-surface-variant uppercase tracking-wider whitespace-nowrap">
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-overlay/5 text-on-surface-variant uppercase tracking-wider whitespace-nowrap">
                           Lisensi
                         </span>
                       )}
@@ -937,7 +961,7 @@ export default function AdminConsole() {
                     <td className="px-4 py-3">
                       {o.order_type === 'collaborator' ? (
                         <div className="flex flex-col">
-                          <span className="text-white">Kolaborator</span>
+                          <span className="text-on-surface">Kolaborator</span>
                           <span className="text-[10px] text-on-surface-variant" title="Akun pemilik">untuk: {o.collaborator_owner_email || '-'}</span>
                         </div>
                       ) : (
@@ -945,6 +969,21 @@ export default function AdminConsole() {
                       )}
                     </td>
                     <td className="px-4 py-3">{o.order_type === 'collaborator' ? o.collaborator_email : o.email}</td>
+                    <td className="px-4 py-3 font-mono-data whitespace-nowrap">
+                      {o.whatsapp ? (
+                        <a
+                          href={`https://wa.me/${o.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                          title="Buka chat WhatsApp"
+                        >
+                          {o.whatsapp}
+                        </a>
+                      ) : (
+                        <span className="text-on-surface-variant/40">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{channelLabel(o.channel)}</td>
                     <td className="px-4 py-3">
                       {o.utm_source ? (
@@ -955,12 +994,12 @@ export default function AdminConsole() {
                           {o.utm_source}{o.utm_campaign ? ` / ${o.utm_campaign}` : ''}
                         </span>
                       ) : (
-                        <span className="text-xs font-semibold px-2 py-1 rounded-full bg-white/5 text-on-surface-variant">
+                        <span className="text-xs font-semibold px-2 py-1 rounded-full bg-overlay/5 text-on-surface-variant">
                           Organik
                         </span>
                       )}
                     </td>
-                    <td className="font-mono-data px-4 py-3 text-lg font-bold text-white whitespace-nowrap">
+                    <td className="font-mono-data px-4 py-3 text-lg font-bold text-on-surface whitespace-nowrap">
                       {formatCurrency(o.total_amount)}
                     </td>
                     <td className="px-4 py-3">
@@ -972,7 +1011,7 @@ export default function AdminConsole() {
                           regardless — this is a UI nicety on top of that,
                           not the only thing preventing a double-fire. */}
                       {o.status === 'settlement' ? (
-                        <span className="text-[10px] font-bold px-2 py-1.5 rounded-lg uppercase tracking-wider whitespace-nowrap bg-white/5 text-on-surface-variant">
+                        <span className="text-[10px] font-bold px-2 py-1.5 rounded-lg uppercase tracking-wider whitespace-nowrap bg-overlay/5 text-on-surface-variant">
                           Terkonfirmasi
                         </span>
                       ) : (
@@ -995,7 +1034,7 @@ export default function AdminConsole() {
                           onClick={() => handleDeleteOrder(o.order_code)}
                           disabled={busyId === o.order_code}
                           title="Hapus permanen — tidak bisa dibatalkan"
-                          className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-colors disabled:opacity-50"
+                          className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-colors disabled:opacity-50"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1011,13 +1050,13 @@ export default function AdminConsole() {
 
         {tab === 'users' && (
           <div className="flex flex-col gap-4">
-            <form onSubmit={handleManualActivate} className="flex flex-wrap gap-2 items-center bg-surface-variant/40 border border-white/10 rounded-xl p-3">
+            <form onSubmit={handleManualActivate} className="flex flex-wrap gap-2 items-center bg-surface-variant/40 border border-overlay/10 rounded-xl p-3">
               <input
                 type="email"
                 placeholder="Email untuk diaktifkan manual"
                 value={manualEmail}
                 onChange={(e) => setManualEmail(e.target.value)}
-                className="flex-1 min-w-[200px] h-11 bg-[#0B111E] border border-white/10 rounded-lg px-3 text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60"
+                className="flex-1 min-w-[200px] h-11 bg-body-bg border border-overlay/10 rounded-lg px-3 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60"
               />
               <button
                 type="submit"
@@ -1028,11 +1067,12 @@ export default function AdminConsole() {
               </button>
             </form>
 
-            <div className="overflow-x-auto rounded-2xl border border-white/10">
+            <div className="overflow-x-auto rounded-2xl border border-overlay/10">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-surface-variant/40 text-left text-on-surface-variant text-xs uppercase font-label-caps tracking-wider">
                     <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">No. HP</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Saldo Total</th>
                     <th className="px-4 py-3">Bergabung</th>
@@ -1045,14 +1085,29 @@ export default function AdminConsole() {
                 <tbody>
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-6 text-center text-on-surface-variant/60">
+                      <td colSpan={9} className="px-4 py-6 text-center text-on-surface-variant/60">
                         Belum ada akun.
                       </td>
                     </tr>
                   )}
                   {users.map((u) => (
-                    <tr key={u.id} className="border-t border-white/5">
+                    <tr key={u.id} className="border-t border-overlay/5">
                       <td className="px-4 py-3">{u.email}</td>
+                      <td className="px-4 py-3 font-mono-data whitespace-nowrap">
+                        {u.whatsapp ? (
+                          <a
+                            href={`https://wa.me/${u.whatsapp.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                            title="Buka chat WhatsApp"
+                          >
+                            {u.whatsapp}
+                          </a>
+                        ) : (
+                          <span className="text-on-surface-variant/40">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`text-xs font-semibold px-2 py-1 rounded-full ${
@@ -1060,13 +1115,13 @@ export default function AdminConsole() {
                               ? 'bg-primary/10 text-primary'
                               : u.status === 'suspended'
                               ? 'bg-rose-500/10 text-rose-400'
-                              : 'bg-white/10 text-on-surface-variant'
+                              : 'bg-overlay/10 text-on-surface-variant'
                           }`}
                         >
                           {u.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap font-mono-data text-white">{formatCurrency(u.total_balance)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap font-mono-data text-on-surface">{formatCurrency(u.total_balance)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.joined_at)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.activated_at)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.last_active_at)}</td>
@@ -1085,13 +1140,13 @@ export default function AdminConsole() {
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             onClick={() => handleViewActivityLog(u.id, u.email)}
-                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors"
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-colors"
                           >
                             <History className="w-3.5 h-3.5" /> Lihat Log Aktivitas
                           </button>
                           <button
                             onClick={() => handleViewOpenLog(u.id, u.email)}
-                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors"
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface hover:bg-overlay/10 transition-colors"
                           >
                             <MapPin className="w-3.5 h-3.5" /> Lihat Riwayat Lokasi
                           </button>
@@ -1152,15 +1207,15 @@ export default function AdminConsole() {
                     return acc;
                   }, {})
                 ).map(([ownerEmail, list]) => (
-                  <div key={ownerEmail} className="bg-surface-variant/30 border border-white/10 rounded-2xl p-4 flex flex-col gap-2.5">
-                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <div key={ownerEmail} className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-4 flex flex-col gap-2.5">
+                    <span className="text-xs font-semibold text-on-surface flex items-center gap-1.5">
                       <Users2 className="w-3.5 h-3.5 text-primary" /> {ownerEmail}
                     </span>
                     <div className="flex flex-col gap-2">
                       {list.map((c) => (
-                        <div key={c.id} className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-xl p-2.5">
+                        <div key={c.id} className="flex items-center justify-between gap-2 bg-overlay/5 border border-overlay/10 rounded-xl p-2.5">
                           <div className="min-w-0 flex flex-col">
-                            <span className="text-xs text-white truncate">{c.email}</span>
+                            <span className="text-xs text-on-surface truncate">{c.email}</span>
                             <span className="text-[10px] text-on-surface-variant">
                               {c.status === 'active'
                                 ? `Aktif sejak ${formatDateTime(c.activated_at)}`
@@ -1210,7 +1265,7 @@ export default function AdminConsole() {
                               onClick={() => handleAdminDeleteCollaborator(c.id, c.email)}
                               disabled={collabActionId === c.id}
                               title="Hapus permanen — tidak bisa dibatalkan"
-                              className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                              className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                             >
                               <Trash2 className="w-3 h-3" /> Hapus Permanen
                             </button>
@@ -1227,14 +1282,14 @@ export default function AdminConsole() {
 
         {tab === 'analytics' && (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-end gap-3 bg-surface-variant/40 border border-white/10 rounded-xl p-3">
+            <div className="flex flex-wrap items-end gap-3 bg-surface-variant/40 border border-overlay/10 rounded-xl p-3">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">Dari</label>
                 <input
                   type="date"
                   value={analyticsFrom}
                   onChange={(e) => setAnalyticsFrom(e.target.value)}
-                  className="h-10 bg-[#0B111E] border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60"
+                  className="h-10 bg-body-bg border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1243,7 +1298,7 @@ export default function AdminConsole() {
                   type="date"
                   value={analyticsTo}
                   onChange={(e) => setAnalyticsTo(e.target.value)}
-                  className="h-10 bg-[#0B111E] border border-white/10 rounded-lg px-3 text-white text-sm focus:outline-none focus:border-primary/60"
+                  className="h-10 bg-body-bg border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60"
                 />
               </div>
               <button
@@ -1255,7 +1310,7 @@ export default function AdminConsole() {
               {(analyticsFrom || analyticsTo) && (
                 <button
                   onClick={() => { setAnalyticsFrom(''); setAnalyticsTo(''); setTimeout(loadAnalytics, 0); }}
-                  className="h-10 px-4 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-on-surface-variant hover:text-white transition-all"
+                  className="h-10 px-4 rounded-lg bg-overlay/5 border border-overlay/10 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-all"
                 >
                   Reset (30 Hari Terakhir)
                 </button>
@@ -1267,19 +1322,19 @@ export default function AdminConsole() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Globe className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Total Page View</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{analytics.totalViews}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{analytics.totalViews}</p>
                   </div>
-                  <div className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-2">
+                  <div className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-primary">
                       <Users2 className="w-4 h-4" />
                       <span className="text-xs font-label-caps uppercase tracking-wider">Unique Visitor</span>
                     </div>
-                    <p className="font-mono-data text-2xl font-bold text-white">{analytics.uniqueVisitors}</p>
+                    <p className="font-mono-data text-2xl font-bold text-on-surface">{analytics.uniqueVisitors}</p>
                   </div>
                 </div>
 
@@ -1292,7 +1347,7 @@ export default function AdminConsole() {
                   <AnalyticsBarChart title="Device" data={analytics.deviceBreakdown} />
                 </div>
 
-                <div className="overflow-x-auto rounded-2xl border border-white/10">
+                <div className="overflow-x-auto rounded-2xl border border-overlay/10">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-surface-variant/40 text-left text-on-surface-variant text-xs uppercase font-label-caps tracking-wider">
@@ -1316,7 +1371,7 @@ export default function AdminConsole() {
                       {analytics.rows.map((r) => {
                         const DeviceIcon = r.device_type === 'mobile' ? Smartphone : r.device_type === 'tablet' ? Tablet : Monitor;
                         return (
-                          <tr key={r.id} className="border-t border-white/5">
+                          <tr key={r.id} className="border-t border-overlay/5">
                             <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(r.visited_at)}</td>
                             <td className="px-4 py-3 font-mono text-xs">{r.path}</td>
                             <td className="px-4 py-3 whitespace-nowrap">
@@ -1348,7 +1403,7 @@ export default function AdminConsole() {
                     </tbody>
                   </table>
                   {analytics.rowsTruncated && (
-                    <p className="text-[11px] text-on-surface-variant/50 px-4 py-3 border-t border-white/5">
+                    <p className="text-[11px] text-on-surface-variant/50 px-4 py-3 border-t border-overlay/5">
                       Menampilkan 300 kunjungan terbaru pada rentang ini — persempit rentang tanggal untuk melihat lebih detail.
                     </p>
                   )}
@@ -1364,11 +1419,11 @@ export default function AdminConsole() {
               <p className="text-sm text-on-surface-variant/60 px-1">Belum ada pesan masuk.</p>
             ) : (
               supportMessages.map((m) => (
-                <div key={m.id} className="bg-surface-variant/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-3">
+                <div key={m.id} className="bg-surface-variant/30 border border-overlay/10 rounded-2xl p-5 flex flex-col gap-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white">{m.name}</span>
+                        <span className="font-semibold text-on-surface">{m.name}</span>
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                             m.status === 'new'
@@ -1386,7 +1441,7 @@ export default function AdminConsole() {
                       </span>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-white/5 text-on-surface-variant">{m.category}</span>
+                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-overlay/5 text-on-surface-variant">{m.category}</span>
                       <span className="text-[11px] text-on-surface-variant/50">{formatDateTime(m.created_at)}</span>
                     </div>
                   </div>
@@ -1398,7 +1453,7 @@ export default function AdminConsole() {
                       <span className="text-[10px] font-label-caps text-primary/80 uppercase tracking-wider">
                         Balasan Admin {m.replied_at ? `· ${formatDateTime(m.replied_at)}` : ''}
                       </span>
-                      <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{m.admin_reply}</p>
+                      <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap">{m.admin_reply}</p>
                     </div>
                   )}
 
@@ -1426,7 +1481,7 @@ export default function AdminConsole() {
 
                   {/* Form balas via email — selalu tersedia, bisa dipakai lagi
                       untuk kirim balasan susulan meski sudah pernah dibalas. */}
-                  <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                  <div className="flex flex-col gap-2 border-t border-overlay/5 pt-3">
                     <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">
                       {m.admin_reply ? 'Kirim Balasan Susulan' : 'Balas via Email'}
                     </label>
@@ -1435,7 +1490,7 @@ export default function AdminConsole() {
                       onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [m.id]: e.target.value }))}
                       placeholder="Tulis balasan untuk customer ini..."
                       rows={3}
-                      className="w-full bg-[#0B111E] border border-white/10 rounded-lg p-3 text-sm text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 resize-none"
+                      className="w-full bg-body-bg border border-overlay/10 rounded-lg p-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary/60 resize-none"
                     />
                     {replyErrors[m.id] && (
                       <span className="text-xs text-rose-400 block px-1">{replyErrors[m.id]}</span>
@@ -1459,13 +1514,13 @@ export default function AdminConsole() {
       {activityLogModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActivityLogModal(null)} />
-          <div className="relative bg-[#0F172A] border border-white/10 rounded-2xl p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto z-10 flex flex-col gap-4">
+          <div className="relative bg-surface border border-overlay/10 rounded-2xl p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto z-10 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-primary" />
-                <h3 className="text-white font-bold text-sm">Log Aktivitas — {activityLogModal.email}</h3>
+                <h3 className="text-on-surface font-bold text-sm">Log Aktivitas — {activityLogModal.email}</h3>
               </div>
-              <button onClick={() => setActivityLogModal(null)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
+              <button onClick={() => setActivityLogModal(null)} className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-on-surface transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1479,8 +1534,8 @@ export default function AdminConsole() {
             ) : (
               <div className="flex flex-col gap-2">
                 {activityLogModal.entries.map((entry) => (
-                  <div key={entry.id} className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col gap-0.5">
-                    <p className="text-sm text-white leading-snug">{entry.message}</p>
+                  <div key={entry.id} className="bg-overlay/5 border border-overlay/5 rounded-xl p-3 flex flex-col gap-0.5">
+                    <p className="text-sm text-on-surface leading-snug">{entry.message}</p>
                     <p className="text-[10px] text-on-surface-variant/50 font-mono">{formatDateTime(entry.timestamp)}</p>
                   </div>
                 ))}
@@ -1493,13 +1548,13 @@ export default function AdminConsole() {
       {openLogModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenLogModal(null)} />
-          <div className="relative bg-[#0F172A] border border-white/10 rounded-2xl p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto z-10 flex flex-col gap-4">
+          <div className="relative bg-surface border border-overlay/10 rounded-2xl p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto z-10 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-primary" />
-                <h3 className="text-white font-bold text-sm">Riwayat Lokasi — {openLogModal.email}</h3>
+                <h3 className="text-on-surface font-bold text-sm">Riwayat Lokasi — {openLogModal.email}</h3>
               </div>
-              <button onClick={() => setOpenLogModal(null)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
+              <button onClick={() => setOpenLogModal(null)} className="p-1.5 rounded-lg bg-overlay/5 hover:bg-overlay/10 text-on-surface-variant hover:text-on-surface transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1513,8 +1568,8 @@ export default function AdminConsole() {
             ) : (
               <div className="flex flex-col gap-2">
                 {openLogModal.entries.map((entry, idx) => (
-                  <div key={idx} className="bg-white/5 border border-white/5 rounded-xl p-3 flex items-center justify-between gap-2">
-                    <span className="text-sm text-white">{entry.city || 'Tidak diketahui'}{entry.region ? `, ${entry.region}` : ''}</span>
+                  <div key={idx} className="bg-overlay/5 border border-overlay/5 rounded-xl p-3 flex items-center justify-between gap-2">
+                    <span className="text-sm text-on-surface">{entry.city || 'Tidak diketahui'}{entry.region ? `, ${entry.region}` : ''}</span>
                     <span className="text-[10px] text-on-surface-variant/50 font-mono whitespace-nowrap">{formatDateTime(entry.opened_at)}</span>
                   </div>
                 ))}

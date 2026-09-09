@@ -1,69 +1,71 @@
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-// landing-page-revisi Task 4 — 15 Q&A, verbatim content from the prompt
-// (wording tidied for consistent phrasing/punctuation only — no claim
-// added, removed, or changed).
+// Revisi (prompt final) — 16 Q&A, verbatim content dari task, urutan tetap.
 const FAQS = [
   {
     question: 'Aman gak data keuangan saya di KantongKu?',
-    answer: 'Server milik sendiri, nyala 24 jam, bukan cloud pihak ketiga. Data tidak dibagikan ke pihak manapun.',
+    answer: 'Aman, dibangun dengan standar keamanan ketat dan tersertifikasi, data gak dibagikan ke pihak manapun.',
   },
   {
     question: 'Ini aplikasi berlangganan atau sekali bayar?',
-    answer: 'Sekali bayar, langsung pakai selamanya, tanpa biaya bulanan.',
+    answer: 'Sekali bayar, langsung pakai selamanya, gak ada biaya bulanan.',
   },
   {
-    question: 'Kalau saya beli terus ternyata gak cocok, gimana?',
-    answer: 'Ada garansi uang kembali dalam 3 hari.',
+    question: 'Kalau saya beli terus gak cocok, gimana?',
+    answer: 'Ada garansi uang kembali 3 hari.',
   },
   {
     question: 'Siapa yang bisa lihat data transaksi saya?',
-    answer: 'Tidak ada, termasuk pemilik aplikasi sendiri tidak bisa melihat data pengguna.',
+    answer: 'Gak ada, termasuk pemilik aplikasi sendiri.',
   },
   {
     question: 'Login-nya aman gak?',
-    answer: 'Aman, pakai verifikasi dua langkah (2FA) via Google Authenticator.',
+    answer: 'Aman, pakai verifikasi dua langkah via Google Authenticator.',
   },
   {
     question: 'Cara paling cepat catat transaksi gimana?',
-    answer: 'Foto struk belanja, AI langsung catat otomatis.',
+    answer: 'Foto struk, AI langsung catat otomatis, kurang dari 1 menit.',
   },
   {
     question: 'Bisa catat transaksi pakai suara?',
-    answer: 'Bisa, tinggal dikte lewat suara, AI yang memproses jadi catatan transaksi.',
+    answer: 'Bisa, tinggal dikte lewat suara.',
   },
   {
     question: 'Apa itu Analisis Kesehatan Keuangan AI?',
-    answer: 'Fitur yang menganalisis rasio cicilan/utang, menabung, dan likuiditas keuanganmu, lalu kasih penilaian dan saran.',
+    answer: 'Menganalisis rasio cicilan, menabung, dan likuiditas kamu, kasih saran juga.',
   },
   {
     question: 'Bisa diingetin soal cicilan/tagihan?',
-    answer: 'Bisa, lewat fitur Kelola Cicilan/Hutang yang otomatis mengingatkan sebelum jatuh tempo.',
+    answer: 'Bisa, ada fitur Kelola Cicilan/Hutang.',
+  },
+  {
+    question: 'Bisa pantau pengeluaran PayLater atau kartu kredit?',
+    answer: 'Bisa.',
   },
   {
     question: 'Bisa pisahin uang usaha dan pribadi?',
-    answer: 'Bisa, KantongKu punya kantong terpisah untuk pribadi, bisnis, dan titipan.',
+    answer: 'Bisa.',
   },
   {
     question: 'Bisa export laporan keuangan?',
-    answer: 'Bisa, transaksi bisa di-export untuk kebutuhan pelaporan ke pihak lain.',
+    answer: 'Bisa.',
   },
   {
     question: 'Bisa dipakai bareng pasangan atau tim?',
-    answer: 'Bisa, lewat fitur Kantong Bersama (fitur kolaborator ini berbayar terpisah dari lisensi utama).',
+    answer: 'Bisa, lewat fitur Kantong Bersama.',
   },
   {
     question: 'Ada mode gelap/terang?',
-    answer: 'Ada, toggle Mode Terang/Gelap asli di pengaturan aplikasi.',
+    answer: 'Ada, toggle asli di pengaturan.',
   },
   {
     question: 'Bayarnya pakai apa?',
-    answer: 'Pembayaran lewat Doku, konfirmasi otomatis setelah bayar.',
+    answer: 'Doku, dikonfirmasi otomatis.',
   },
   {
     question: 'Kalau ada masalah/bug, saya hubungi siapa?',
-    answer: 'Ada kolom bantuan/support di dalam aplikasi, tim merespons dalam 1x24 jam — bukan aplikasi yang ditinggal setelah dibeli.',
+    answer: 'Ada kolom bantuan di app, tim merespons 1x24 jam.',
   },
 ];
 

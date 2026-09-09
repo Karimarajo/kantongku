@@ -1,11 +1,12 @@
 import React from 'react';
-import { Users, Repeat, Clock3, ShieldCheck } from 'lucide-react';
+import { Users, RefreshCw, Target, HeadphonesIcon } from 'lucide-react';
 
+// Revisi (prompt 2, poin 14): daftar diganti total.
 const STATS = [
-  { icon: Users, text: 'Dipakai 100+ pengguna early access' },
-  { icon: Repeat, text: '1.000+ transaksi tercatat otomatis' },
-  { icon: Clock3, text: 'Hemat ±5 menit per transaksi' },
-  { icon: ShieldCheck, text: 'Data tersimpan aman di server tersertifikasi' },
+  { icon: Users, text: 'Dipakai 1000+ pengguna' },
+  { icon: RefreshCw, text: 'Selalu update fitur terbaru gratis' },
+  { icon: Target, text: 'Tujuan keuangan tercapai' },
+  { icon: HeadphonesIcon, text: 'Support tim profesional 24 jam' },
 ];
 
 export default function SocialProofStrip() {

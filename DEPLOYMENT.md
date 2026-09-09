@@ -38,7 +38,7 @@ Di service **web app** → tab **Variables**, tambahkan seluruh isi `.env.exampl
 | `GEMINI_API_KEY` | API key Gemini kamu |
 | `APP_URL` | domain HTTPS Railway, mis. `https://kantongku-production.up.railway.app` (isi setelah deploy pertama sukses dan domain ter-generate) |
 | `DATABASE_URL` | dari langkah 2 |
-| `PRICE_AMOUNT` | harga dasar sebelum kode unik, mis. `49000` |
+| `PRICE_AMOUNT` | harga dasar sebelum kode unik, mis. `99000` |
 | `PRICE_LABEL` | mis. `Akses KantongKu Selamanya` |
 | `ADMIN_PASSWORD` | password untuk masuk ke `/admin` — string acak yang cuma kamu tahu |
 | `GOOGLE_CLIENT_ID` | dari langkah 6 |

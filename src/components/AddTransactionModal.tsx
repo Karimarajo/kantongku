@@ -654,7 +654,7 @@ export default function AddTransactionModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={() => { goBack(); onClose(); }} />
       
       {/* Sheet Content */}
-      <div className="relative w-full max-w-md glass-card rounded-t-2xl border-t border-overlay/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transform transition-transform duration-300 translate-y-0 flex flex-col pb-10 z-10 max-h-[85vh] overflow-y-auto no-scrollbar">
+      <div className="relative w-full max-w-md glass-card rounded-t-3xl border-t border-overlay/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transform transition-transform duration-300 translate-y-0 flex flex-col pb-10 z-10 max-h-[85vh] overflow-y-auto no-scrollbar">
         <div className="w-12 h-1.5 bg-outline-variant/30 rounded-full mx-auto mt-3 mb-5 shrink-0" />
         
         {/* Modal Header */}
@@ -684,7 +684,7 @@ export default function AddTransactionModal({
             <div className="flex flex-col gap-4">
               <h3 className="text-on-surface-variant font-label-caps text-xs">{tr('Pilih Cara Catat Uang')}</h3>
 
-              <button onClick={() => setCurrentView('parser')} className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-all text-left group active:scale-[0.98]">
+              <button onClick={() => setCurrentView('parser')} className="flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-all text-left group active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shrink-0">
                   <Brain className="w-6 h-6" />
                 </div>
@@ -700,8 +700,15 @@ export default function AddTransactionModal({
                   light mode jadi terbaca abu-abu kusam/gelap dibanding kartu
                   pastel primary/secondary di sebelahnya — ganti ke token
                   surface-variant/outline yang memang dirancang jadi
-                  permukaan netral terang di kedua tema, bukan tint alpha. */}
-              <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-xl bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
+                  permukaan netral terang di kedua tema, bukan tint alpha.
+                  Revisi lanjutan ("kartunya putih cerah"): surface-variant
+                  (abu kehijauan #e2eaeb di light mode) masih terbaca kusam
+                  dibanding latar sheet yang sekarang bone-white — kelas
+                  penanda `card-elevated` (lihat index.css) menaikkannya ke
+                  --color-surface (putih cerah murni) TAPI HANYA di light
+                  mode; className dasar (bg-surface-variant) tetap dipakai
+                  sebagai tampilan dark mode, tidak berubah sama sekali. */}
+              <button onClick={() => setCurrentView('camera')} className="flex items-center gap-4 p-4 rounded-2xl card-elevated bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-outline flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Camera className="w-6 h-6" />
                 </div>
@@ -712,7 +719,7 @@ export default function AddTransactionModal({
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-on-surface transition-colors shrink-0" />
               </button>
 
-              <button onClick={() => setCurrentView('voice')} className="flex items-center gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10 hover:bg-secondary/10 transition-all text-left group active:scale-[0.98]">
+              <button onClick={() => setCurrentView('voice')} className="flex items-center gap-4 p-4 rounded-2xl bg-secondary/5 border border-secondary/10 hover:bg-secondary/10 transition-all text-left group active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center text-secondary group-hover:scale-110 transition-transform shrink-0">
                   <Mic className="w-6 h-6" />
                 </div>
@@ -723,7 +730,7 @@ export default function AddTransactionModal({
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-secondary transition-colors shrink-0" />
               </button>
 
-              <button onClick={() => setCurrentView('manual')} className="flex items-center gap-4 p-4 rounded-xl bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
+              <button onClick={() => setCurrentView('manual')} className="flex items-center gap-4 p-4 rounded-2xl card-elevated bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-outline flex items-center justify-center text-on-surface-variant group-hover:scale-110 transition-transform shrink-0">
                   <Edit3 className="w-6 h-6" />
                 </div>
@@ -770,7 +777,7 @@ export default function AddTransactionModal({
                         <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Struk')} className="flex justify-between items-center p-3 rounded-lg bg-overlay/5 border border-overlay/5 hover:border-primary/30 transition-colors text-left text-sm" >
                           <div className="flex items-center gap-3">
                             <Receipt className="w-5 h-5 text-primary shrink-0" />
-                            <span className="text-on-surface font-medium">{item.catatan}</span>
+                            <span className="text-on-surface font-medium">{tr(item.catatan)}</span>
                           </div>
                           <span className="font-mono-data text-primary text-xs font-bold">{formatRupiah(item.nominal)}</span>
                         </button>
@@ -830,7 +837,7 @@ export default function AddTransactionModal({
                     <div className="flex flex-col gap-2">
                       {MOCK_VOICES.map((item, idx) => (
                         <button key={idx} onClick={() => applyAiMetadataToForm(item, 'Demo Suara')} className="flex flex-col p-3 rounded-lg bg-surface-variant border border-overlay/5 hover:border-secondary/40 transition-colors text-left text-xs gap-1" >
-                          <span className="italic text-secondary font-medium">{item.text}</span>
+                          <span className="italic text-secondary font-medium">{tr(item.text)}</span>
                         </button>
                       ))}
                     </div>
@@ -845,7 +852,7 @@ export default function AddTransactionModal({
             <div className="flex flex-col gap-4 text-left py-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Input Teks/Suara Bebas')}</label>
-                <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')..." className="h-24 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
+                <textarea id="parser-input-textarea" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={tr("Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')...")} className="h-24 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-sm focus:outline-none focus:border-primary/60 resize-none font-body-md" />
               </div>
 
               <div className="flex gap-2">
@@ -862,13 +869,13 @@ export default function AddTransactionModal({
           {currentView === 'manual' && (
             <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 text-left">
               <div className="flex bg-body-bg rounded-lg p-1 border border-overlay/5 w-fit self-center">
-                <button type="button" onClick={() => setType('outgoing')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'outgoing' ? 'bg-danger text-on-surface shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>{tr('Pengeluaran')}</button>
+                <button type="button" onClick={() => setType('outgoing')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'outgoing' ? 'bg-danger text-on-surface expense-btn-active shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>{tr('Pengeluaran')}</button>
                 <button type="button" onClick={() => setType('incoming')} className={`px-4 py-1.5 rounded-md font-label-caps text-xs transition-all ${type === 'incoming' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant/60 hover:text-on-surface'}`}>{tr('Pemasukan')}</button>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Judul Transaksi')}</label>
-                <input type="text" required placeholder="Contoh: Beli Kopi Susu, Gaji Bulanan" value={title} onChange={(e) => setTitle(e.target.value)} className="h-12 bg-surface-variant/40 border border-overlay/10 rounded-lg px-4 text-on-surface focus:outline-none focus:border-primary/60" />
+                <input type="text" required placeholder={tr('Contoh: Beli Kopi Susu, Gaji Bulanan')} value={title} onChange={(e) => setTitle(e.target.value)} className="h-12 bg-surface-variant/40 border border-overlay/10 rounded-lg px-4 text-on-surface focus:outline-none focus:border-primary/60" />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -998,7 +1005,7 @@ export default function AddTransactionModal({
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Catatan Tambahan (Opsional)')}</label>
-                <textarea placeholder="Tuliskan catatan transaksi..." value={notes} onChange={(e) => setNotes(e.target.value)} className="h-16 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-xs focus:outline-none focus:border-primary/60 resize-none" />
+                <textarea placeholder={tr('Tuliskan catatan transaksi...')} value={notes} onChange={(e) => setNotes(e.target.value)} className="h-16 bg-surface-variant/40 border border-overlay/10 rounded-lg p-3 text-on-surface text-xs focus:outline-none focus:border-primary/60 resize-none" />
               </div>
 
               <button type="submit" className="w-full h-13 mt-2 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_4px_15px_rgba(78,222,163,0.2)]">

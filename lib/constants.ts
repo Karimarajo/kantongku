@@ -14,4 +14,4 @@
 // misconfigured. Deliberately NOT used for the actual charged amount/order
 // total (that stays PRICE_AMOUNT-driven, untouched by this fix) or for the
 // "OrderConfirmed" event (which correctly reports what was actually paid).
-export const PRODUCT_PRICE_IDR = 49000;
+export const PRODUCT_PRICE_IDR = 99000;

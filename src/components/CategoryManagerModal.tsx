@@ -292,16 +292,24 @@ export default function CategoryManagerModal({
                         }`}
                         style={{ borderLeft: isDragOver ? `3px solid #4EDEA3` : `3px solid ${borderHex}` }}
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           {/* Drag handle */}
                           <GripVertical className="w-4 h-4 text-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0" />
-                          <div className="p-1.5 rounded-lg" style={{ backgroundColor: borderHex + '15' }}>
+                          <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: borderHex + '15' }}>
                             <CategoryIcon name={cat.icon} className="w-4 h-4" style={{ color: borderHex }} />
                           </div>
-                          <span className="text-sm font-medium">{cat.name}</span>
+                          <span className="text-sm font-medium truncate">{cat.name}</span>
                         </div>
-                        
-                        {/* Edit button */}
+
+                        {/* Revisi (poin 4): 4 tombol aksi sebelumnya jadi
+                            children langsung dari container justify-between
+                            di atas, jadi ikut tersebar rata di seluruh
+                            baris alih-alih rapat rata kanan — dibungkus satu
+                            grup dengan gap kecil supaya justify-between di
+                            parent cuma memisahkan 2 sisi (nama vs grup
+                            tombol), bukan 5 elemen sekaligus. */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Edit button */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -357,6 +365,7 @@ export default function CategoryManagerModal({
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>
+                        </div>
                       </div>
                     );
                   })

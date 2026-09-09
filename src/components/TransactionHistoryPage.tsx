@@ -197,7 +197,7 @@ export default function TransactionHistoryPage({
       {/* Filter UI */}
       <div className="flex flex-col gap-2">
         <div className="relative">
-          <input type="text" placeholder="Cari deskripsi..." value={search} onChange={e => setSearch(e.target.value)} className="w-full h-11 bg-overlay/5 border border-overlay/10 rounded-xl px-4 text-sm focus:outline-none" />
+          <input type="text" placeholder={tr('Cari deskripsi...')} value={search} onChange={e => setSearch(e.target.value)} className="w-full h-11 bg-overlay/5 border border-overlay/10 rounded-xl px-4 text-sm focus:outline-none" />
           {hasActiveFilters && (
             <button onClick={resetFilters} className="absolute right-3 top-3.5 text-rose-400 text-xs flex items-center gap-1"><RotateCcw className="w-3 h-3"/> {tr('Reset')}</button>
           )}
@@ -276,18 +276,20 @@ export default function TransactionHistoryPage({
       </div>
       {/* Summary Cards Panel */}
       <div className="grid grid-cols-3 gap-2 mt-2">
-        {/* Card 1: Total Masuk */}
-        <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-emerald-500/5 flex flex-col gap-0.5">
-          <span className="text-[9px] font-label-caps text-emerald-400/70 uppercase tracking-wider flex items-center gap-1">
-            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> {tr('Masuk')}
+        {/* Card 1: Total Masuk — Revisi: font/warna diganti biru (semula
+            hijau emerald), sesuai permintaan "kartu masuk di riwayat itu
+            fontnya ganti warna blue". */}
+        <div className="glass-card p-3 rounded-2xl border border-overlay/5 bg-blue-500/5 flex flex-col gap-0.5">
+          <span className="text-[9px] font-label-caps text-blue-400/70 uppercase tracking-wider flex items-center gap-1">
+            <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400 shrink-0" /> {tr('Masuk')}
           </span>
-          <span className="text-xs font-bold text-emerald-400 font-mono-data truncate">
+          <span className="text-xs font-bold text-blue-400 font-mono-data truncate">
             {formatRupiah(totalIncoming, false)}
           </span>
         </div>
 
         {/* Card 2: Total Keluar */}
-        <div className="glass-card p-3 rounded-xl border border-overlay/5 bg-rose-500/5 flex flex-col gap-0.5">
+        <div className="glass-card p-3 rounded-2xl border border-overlay/5 bg-rose-500/5 flex flex-col gap-0.5">
           <span className="text-[9px] font-label-caps text-rose-400/70 uppercase tracking-wider flex items-center gap-1">
             <ArrowUpRight className="w-3.5 h-3.5 text-rose-400 shrink-0" /> {tr('Keluar')}
           </span>
@@ -297,7 +299,7 @@ export default function TransactionHistoryPage({
         </div>
 
         {/* Card 3: Arus Kas Bersih (Total Transaksi) */}
-        <div className={`glass-card p-3 rounded-xl border border-overlay/5 flex flex-col gap-0.5 ${netCashFlow >= 0 ? 'bg-primary/5' : 'bg-amber-500/5'}`}>
+        <div className={`glass-card p-3 rounded-2xl border border-overlay/5 flex flex-col gap-0.5 ${netCashFlow >= 0 ? 'bg-primary/5' : 'bg-amber-500/5'}`}>
           <span className={`text-[9px] font-label-caps uppercase tracking-wider flex items-center gap-1 truncate ${netCashFlow >= 0 ? 'text-primary/70' : 'text-amber-400/70'}`}>
             <Receipt className="w-3.5 h-3.5 shrink-0" /> {tr('Netto')}
           </span>
@@ -327,7 +329,7 @@ export default function TransactionHistoryPage({
             if (entry.kind === 'transfer') {
               const log = entry.transfer;
               return (
-                <div key={`transfer-${log.id}`} className="flex items-center p-3 gap-3 rounded-xl border border-indigo-500/10 bg-indigo-500/5 glass-card">
+                <div key={`transfer-${log.id}`} className="flex items-center p-3 gap-3 rounded-2xl border border-indigo-500/10 bg-indigo-500/5 glass-card">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-indigo-500/15 border border-indigo-500/30">
                     <ArrowLeftRight className="w-4 h-4 text-indigo-300" />
                   </div>
@@ -354,7 +356,7 @@ export default function TransactionHistoryPage({
             const cat = categories.find(c => c.id === t.category);
             const colorHex = getCategoryHexColor(t.category);
             return (
-              <div key={t.id} className="flex items-center p-3 gap-3 hover:bg-overlay/5 rounded-xl border border-overlay/5 glass-card transition-all">
+              <div key={t.id} className="flex items-center p-3 gap-3 hover:bg-overlay/5 rounded-2xl border border-overlay/5 glass-card transition-all">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs shrink-0" style={{ backgroundColor: colorHex + '15', border: `1px solid ${colorHex}30` }}>
                   <CategoryIcon name={cat?.icon || 'receipt'} className="w-4 h-4" style={{ color: colorHex }} />
                 </div>
@@ -370,7 +372,7 @@ export default function TransactionHistoryPage({
                   <p className="text-[10px] text-on-surface/40 font-mono-data mt-0.5">{formatDate(t.date)}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-sm font-bold font-mono-data ${isExpense ? 'text-rose-400' : 'text-primary'}`}>
+                  <span className={`text-sm font-bold font-mono-data ${isExpense ? 'text-rose-400' : 'text-blue-400'}`}>
                     {isExpense ? '-' : '+'}{formatRupiah(t.amount, false)}
                   </span>
                   <div className="flex items-center gap-1 border-l border-overlay/10 pl-2">

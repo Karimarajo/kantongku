@@ -16,7 +16,12 @@ export default function Header({ theme, onToggleTheme, onCtaClick }: HeaderProps
   return (
     <header className="w-full px-6 py-4 flex items-center justify-between border-b border-landing-text/10">
       <div className="flex items-center gap-2">
-        <BrandLogo className="w-8 h-8" glow={false} />
+        {/* Revisi: chip putih di belakang logo — supaya tetap kebaca jelas
+            di atas latar apa pun (termasuk latar bone-white landing yang
+            sekarang nyaris sewarna dengan beberapa elemen logo). */}
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0">
+          <BrandLogo className="w-7 h-7" glow={false} />
+        </div>
         <span className="text-lg font-bold text-landing-text tracking-tight">KantongKu</span>
       </div>
 
@@ -30,12 +35,22 @@ export default function Header({ theme, onToggleTheme, onCtaClick }: HeaderProps
         >
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
+        {/* Revisi: "Mulai Sekarang" -> "Daftar", + tombol "Masuk" baru di
+            sebelahnya (menuju /app — App.tsx sendiri yang menampilkan layar
+            login kalau belum ada sesi, sama seperti link "Masuk ke Halaman
+            Login" yang sudah ada di alur pembayaran). */}
+        <a
+          href="/app"
+          className="h-9 px-4 rounded-full text-xs font-bold border border-landing-text/15 text-landing-text hover:bg-landing-text/5 transition-colors flex items-center justify-center"
+        >
+          Masuk
+        </a>
         <button
           type="button"
           onClick={onCtaClick}
           className="h-9 px-4 rounded-full text-xs font-bold bg-landing-accent text-landing-on-accent hover:opacity-90 active:scale-[0.98] transition-all"
         >
-          Mulai Sekarang
+          Daftar
         </button>
       </div>
     </header>

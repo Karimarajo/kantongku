@@ -13,6 +13,7 @@ import FounderStory from './landing/FounderStory';
 import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
+import SocialProofToast from './landing/SocialProofToast';
 import { PRODUCT_PRICE_IDR } from '../../lib/constants';
 
 type LandingTheme = 'light' | 'dark';
@@ -43,7 +44,7 @@ function getInitialLandingTheme(): LandingTheme {
 // /api/payment/config = PRICE_AMOUNT env) which drives the real order/payment
 // flow — keep these two in sync manually if the promo price changes.
 const PRICE_ORIGINAL = 399000;
-const PRICE_PROMO = 49000;
+const PRICE_PROMO = 99000;
 
 interface PriceConfig {
   amount: number;
@@ -349,18 +350,70 @@ export default function Landing() {
 
   return (
     <div data-landing-theme={theme} className="min-h-screen bg-landing-bg text-landing-text font-body-md overflow-x-hidden">
-      <Header theme={theme} onToggleTheme={toggleTheme} onCtaClick={scrollToPricing} />
-      <Hero theme={theme} onCtaClick={scrollToPricing} />
-      <TrustBar />
-      <SocialProofStrip />
-      <BeforeAfter />
-      <HowItWorks />
-      <Features theme={theme} />
-      <ValueStack />
-      <FounderStory />
-      <Testimonials />
-      <UpdateForever />
+      {/* Revisi (prompt 3, poin 6): notifikasi social proof pojok kiri
+          bawah, posisi di JSX tidak penting (elemennya fixed). */}
+      <SocialProofToast />
 
+      {/* Revisi: badge promo dipindah dari dalam Hero jadi banner sendiri
+          paling atas halaman — di ATAS Header, bukan sejajar/nempel dengan
+          baris "KantongKu" + tombol Masuk/Daftar. */}
+      <div className="w-full py-2 px-4 bg-landing-accent text-landing-on-accent text-center text-xs sm:text-sm font-bold uppercase tracking-wider">
+        🔥 Harga Promo Terbatas, Segera Ambil!
+      </div>
+      <Header theme={theme} onToggleTheme={toggleTheme} onCtaClick={scrollToPricing} />
+
+      {/* Revisi (reorganisasi 9-blok): Blok 1, Headline. */}
+      <Hero theme={theme} onCtaClick={scrollToPricing} />
+
+      {/* Blok 2, Problem + Trust Bar. */}
+      <section className="w-full px-6 py-10 bg-landing-bg">
+        <p className="max-w-xl mx-auto text-center text-sm sm:text-base text-landing-text/80 leading-relaxed">
+          Masalahnya, kita sering{' '}
+          <span className="inline-block border-2 border-landing-accent rounded-full px-2.5 py-0.5">males</span>{' '}
+          nyatet pengeluaran kecil. Yang keinget cuma yang gede kayak beli motor atau bayar cicilan, sementara{' '}
+          <strong className="font-bold">jajan kopi, ojol, sama langganan aplikasi</strong> yang keliatannya
+          receh, itu yang justru numpuk jadi bengkak tanpa disadari.
+        </p>
+      </section>
+      <TrustBar />
+
+      {/* Blok 3, Solution/Services: intro -> How it Works -> Kemudahan -> Features. */}
+      <section className="w-full px-6 py-10 bg-landing-bg">
+        <p className="max-w-xl mx-auto text-center text-sm sm:text-base text-landing-text/80 leading-relaxed">
+          Makanya, <strong className="font-bold">Marajo Tech</strong> bikin{' '}
+          <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">KantongKu</span>. Bukan
+          sekadar aplikasi buat nyatet keuangan, tapi bantu kamu kontrol keuangan pribadi kamu dengan baik.
+        </p>
+      </section>
+      <HowItWorks />
+      <section className="w-full px-6 py-10 bg-landing-bg">
+        <p className="max-w-xl mx-auto text-center text-sm sm:text-base text-landing-text/80 leading-relaxed">
+          <em className="italic">&ldquo;Males emang alasan utama orang gak nyatet keuangan.&rdquo;</em> Makanya
+          di <strong className="font-bold">KantongKu</strong>, kamu cuma butuh waktu{' '}
+          <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">kurang dari 1 menit</span>{' '}
+          buat catat pengeluaran, tinggal ngomong atau foto struk aja, beres.
+        </p>
+      </section>
+      <Features theme={theme} />
+
+      {/* Blok 4, Proof/Portfolio. */}
+      <BeforeAfter />
+
+      {/* Blok 5, Proof/Testimonials. */}
+      <SocialProofStrip />
+      <Testimonials />
+
+      {/* Blok 6, About Us. */}
+      <FounderStory />
+
+      {/* Blok 7, FAQ. */}
+      <FAQ />
+
+      {/* Blok 8, Pricing & CTA. */}
+      <ValueStack />
+      {/* Revisi (prompt 2, poin 21): UpdateForever dipindah kesini, persis
+          di bawah kartu promo harga ValueStack, sebelum form pendaftaran. */}
+      <UpdateForever />
       <section id="pricing" className="w-full px-6 py-16 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-0">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-landing-accent/20 blur-[120px]" />
@@ -369,13 +422,13 @@ export default function Landing() {
         <div className="max-w-md mx-auto flex flex-col items-center gap-8 z-10 relative">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="text-xs font-bold uppercase tracking-wider text-landing-on-accent bg-landing-accent rounded-full px-4 py-2">
-              🔥 Harga Promo — Hemat <span className="font-mono-data">{Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%</span>, Segera Ambil!
+              🔥 Harga Promo, Hemat <span className="font-mono-data">{Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%</span>, Segera Ambil!
             </span>
             <div className="flex flex-col items-center">
               <span className="font-mono-data text-lg text-landing-text/50 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
               <span className="font-mono-data text-4xl font-bold text-landing-text">{formatCurrency(PRICE_PROMO)}</span>
             </div>
-            <p className="text-sm text-landing-text/70">akses selamanya (bukan langganan bulanan) — harga promo, sewaktu-waktu bisa naik</p>
+            <p className="text-sm text-landing-text/70">akses selamanya, bukan langganan bulanan, harga promo, sewaktu-waktu bisa naik</p>
           </div>
 
           <div className="w-full flex flex-col gap-2.5">
@@ -519,7 +572,7 @@ export default function Landing() {
               </a>
               <div className="w-full flex flex-col items-center gap-3">
                 <p className="text-xs text-landing-text/60 text-center max-w-xs">
-                  Halaman pembayaran sudah terbuka di tab baru — pilih QRIS, VA bank, e-wallet, atau kartu apa pun yang paling nyaman.
+                  Halaman pembayaran sudah terbuka di tab baru, pilih QRIS, VA bank, e-wallet, atau kartu apa pun yang paling nyaman.
                 </p>
               </div>
 
@@ -528,7 +581,7 @@ export default function Landing() {
                 <p className="text-sm">Menunggu pembayaran (order {order.order_code})...</p>
               </div>
               <p className="text-xs text-landing-text/50">
-                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran berhasil — akun langsung aktif, tanpa perlu menunggu konfirmasi admin.
+                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran berhasil, akun langsung aktif, tanpa perlu menunggu konfirmasi admin.
               </p>
 
               <a
@@ -584,15 +637,15 @@ export default function Landing() {
 
           <div className="w-full flex items-center justify-center gap-2 text-landing-text/60">
             <ShieldCheck className="w-4 h-4 text-landing-text shrink-0" />
-            <span className="text-xs">Garansi 3 Hari — Uang kembali 100% kalau nggak cocok</span>
+            <span className="text-xs">Garansi 3 Hari, Uang kembali 100% kalau nggak cocok</span>
           </div>
           <p className="text-[10px] text-landing-text/40 text-center uppercase tracking-wider">
-            Pembayaran diverifikasi otomatis oleh Doku — akun aktif dalam hitungan detik.
+            Pembayaran diverifikasi otomatis oleh Doku, akun aktif dalam hitungan detik.
           </p>
         </div>
       </section>
 
-      <FAQ />
+      {/* Blok 9, Footer. */}
       <Footer />
     </div>
   );
