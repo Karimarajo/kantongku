@@ -3,10 +3,11 @@ import { Check, Sparkles } from 'lucide-react';
 
 // Landing-page-revamp Task 3 — "Value Stack" (pengganti framing "Bonus").
 //
-// Revisi dari pemilik produk: total nilai gabungan dibuat pas Rp399.000/bulan
-// — angka ini SENGAJA disamakan dengan PRICE_ORIGINAL yang sudah dipakai di
-// Hero/section harga (lihat Landing.tsx), supaya "coret Rp399.000 → Rp49.000"
-// konsisten di semua tempat harga disebut, bukan angka acak baru.
+// Revisi dari pemilik produk: total nilai gabungan dibuat pas Rp399.000/bulan,
+// angka ini SENGAJA disamakan dengan PRICE_ORIGINAL yang sudah dipakai di
+// Hero/section harga (lihat Landing.tsx), supaya "coret Rp399.000 -> Rp99.000"
+// (prompt final: promo naik dari Rp49.000) konsisten di semua tempat harga
+// disebut, bukan angka acak baru.
 const VALUE_ITEMS = [
   { label: 'Aplikasi pencatatan AI OCR struk & suara', monthly: 99000 },
   { label: 'Fitur multi-wallet & kolaborasi real-time', monthly: 89000 },
@@ -15,7 +16,7 @@ const VALUE_ITEMS = [
 ];
 
 const PRICE_ORIGINAL = 399000;
-const KANTONGKU_PRICE = 49000;
+const KANTONGKU_PRICE = 99000;
 
 export default function ValueStack() {
   const totalMonthly = VALUE_ITEMS.reduce((sum, item) => sum + item.monthly, 0);
@@ -25,6 +26,20 @@ export default function ValueStack() {
   return (
     <section className="w-full px-6 py-16">
       <div className="max-w-2xl mx-auto flex flex-col gap-8">
+        {/* Revisi (prompt final, poin 8; prompt 2, poin 18): narasi pembuka
+            Pricing & CTA, sekarang dengan styling per-kata. */}
+        <p className="text-sm sm:text-base text-landing-text/80 leading-relaxed text-center max-w-xl mx-auto">
+          Aplikasi keuangan lain biasanya jadi harus langganan,{' '}
+          <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">
+            bisa sampai Rp70rb per bulan atau Rp1 juta per tahun
+          </span>
+          . Di <strong className="font-bold">KantongKu</strong>, kamu cukup{' '}
+          <strong className="font-bold">bayar sekali</strong> aja, normalnya{' '}
+          <strong className="font-bold">Rp399rb</strong>, sekarang lagi didiskon jadi{' '}
+          <strong className="font-bold bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Rp99rb</strong>,{' '}
+          <strong className="font-bold">akses selamanya</strong>.
+        </p>
+
         <div className="flex flex-col items-center gap-2 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-landing-text">Kalau Semua Ini Kamu Dapat Terpisah-Pisah...</h2>
           <p className="text-sm text-landing-text/70 max-w-md">
@@ -45,23 +60,23 @@ export default function ValueStack() {
                 <Check className="w-4 h-4 text-landing-text shrink-0" />
                 <span className="text-sm text-landing-text/80">{item.label}</span>
               </div>
-              <span className="text-sm text-landing-text/60 font-mono-data shrink-0 pl-6 sm:pl-0">senilai {formatCurrency(item.monthly)}/bulan</span>
+              <span className="text-sm text-landing-text/60 font-mono-data shrink-0 pl-6 sm:pl-0">senilai {formatCurrency(item.monthly)}</span>
             </div>
           ))}
 
           <div className="flex items-center justify-between gap-4 pt-3 mt-1 border-t border-landing-text/15">
             <span className="text-sm font-bold text-landing-text">Total kalau terpisah</span>
-            <span className="text-lg font-bold text-landing-text/80 font-mono-data">{formatCurrency(totalMonthly)}/bulan</span>
+            <span className="text-lg font-bold text-landing-text/80 font-mono-data">{formatCurrency(totalMonthly)}</span>
           </div>
         </div>
 
         <div className="flex flex-col items-center gap-3 text-center bg-landing-accent/15 border border-landing-accent/40 rounded-2xl p-6 sm:p-8">
           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-landing-text">
-            <Sparkles className="w-4 h-4" /> Harga Promo KantongKu — Segera Ambil!
+            <Sparkles className="w-4 h-4" /> Harga Promo KantongKu, Segera Ambil!
           </span>
           <span className="text-lg text-landing-text/50 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
           <span className="text-4xl sm:text-5xl font-bold text-landing-text">{formatCurrency(KANTONGKU_PRICE)}</span>
-          <span className="text-sm font-semibold text-landing-text">SEKALI BAYAR, SELAMANYA — bukan per bulan</span>
+          <span className="text-sm font-semibold text-landing-text">SEKALI BAYAR, PAKAI SELAMANYA, UPDATE FITUR OTOMATIS</span>
         </div>
       </div>
     </section>

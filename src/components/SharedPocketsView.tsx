@@ -196,7 +196,7 @@ export default function SharedPocketsView({
                         min={1}
                         value={contribAmount || ''}
                         onChange={(e) => setContribAmount(Number(e.target.value) || 0)}
-                        placeholder="Nominal setoran"
+                        placeholder={tr('Nominal setoran')}
                         className="h-9 bg-overlay/5 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface"
                       />
                       {contribError && <span className="text-[10px] text-rose-400">{contribError}</span>}
@@ -224,7 +224,7 @@ export default function SharedPocketsView({
             value={inviteEmail}
             onChange={(e) => { setInviteEmail(e.target.value); if (inviteError) setInviteError(''); }}
             type="email"
-            placeholder="Email rekan (harus sudah punya akun KantongKu aktif)"
+            placeholder={tr('Email rekan (harus sudah punya akun KantongKu aktif)')}
             className="h-10 bg-overlay/5 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface placeholder:text-on-surface-variant/40"
           />
           {inviteError && <span className="text-xs text-rose-400">{inviteError}</span>}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Landmark, Copy, Bell } from 'lucide-react';
+import { Camera, Landmark, Copy, Bell, Mic, BellRing } from 'lucide-react';
 
 // landing-page-revisi-4 — recreated (not photographed) miniature UI
 // excerpts for the Features cards + Hero device frame. Per explicit
@@ -32,13 +32,22 @@ function Frame({ dark, children, className = '' }: MockProps & { children: React
   );
 }
 
+// Revisi (feedback screenshot Features): tambah baris "Suara" di samping
+// "Foto" (sebelumnya cuma foto sendirian) supaya kelihatan dua cara input
+// AI-nya, baru di bawahnya hasil scan-nya (baris Kopi -Rp15.000).
 export function CatatKilatMock({ dark }: MockProps) {
   const p = palette(dark);
   return (
     <Frame dark={dark}>
-      <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ background: p.surface }}>
-        <Camera className="w-3 h-3 shrink-0" style={{ color: p.primary }} />
-        <span className="text-[8px] truncate" style={{ color: p.sub }}>Foto Struk Belanja</span>
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 flex items-center gap-1 rounded-lg px-1.5 py-1" style={{ background: p.surface }}>
+          <Camera className="w-2.5 h-2.5 shrink-0" style={{ color: p.primary }} />
+          <span className="text-[6.5px] truncate" style={{ color: p.sub }}>Foto</span>
+        </div>
+        <div className="flex-1 flex items-center gap-1 rounded-lg px-1.5 py-1" style={{ background: p.surface }}>
+          <Mic className="w-2.5 h-2.5 shrink-0" style={{ color: p.primary }} />
+          <span className="text-[6.5px] truncate" style={{ color: p.sub }}>Suara</span>
+        </div>
       </div>
       <div className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: p.surface }}>
         <span className="text-[9px] font-semibold" style={{ color: p.text }}>Kopi</span>
@@ -76,46 +85,86 @@ export function KolaborasiMock({ dark }: MockProps) {
         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 -ml-1.5" style={{ background: '#a78bfa33', color: '#a78bfa', borderColor: p.bg }}>B</div>
         <span className="text-[8px] ml-1.5" style={{ color: p.sub }}>Kantong Bersama</span>
       </div>
-      <div className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: p.surface }}>
-        <span className="text-[8px] font-semibold" style={{ color: p.text }}>Kas Usaha</span>
-        <span className="text-[7px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: `${p.primary}33`, color: p.primary }}>Bersama</span>
+      <div className="flex items-center justify-between gap-1 rounded-lg px-2 py-1.5" style={{ background: p.surface }}>
+        <span className="text-[8px] font-semibold truncate min-w-0" style={{ color: p.text }}>Target Nikah 2028</span>
+        <span className="text-[7px] px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: `${p.primary}33`, color: p.primary }}>Bersama</span>
       </div>
     </Frame>
   );
 }
 
+// Revisi (feedback screenshot Features): jadi daftar 3 pengingat (bukan
+// cuma satu progress bar cicilan) — Cicilan Motor + 2 tagihan lain, sesuai
+// nama fitur "Pengingat Pembayaran & Kelola Cicilan".
 export function CicilanMock({ dark }: MockProps) {
   const p = palette(dark);
+  const items = [
+    { label: 'Cicilan Motor', due: '5 hari lagi' },
+    { label: 'Bayar Listrik', due: '3 hari lagi' },
+    { label: 'Internet', due: 'Besok' },
+  ];
   return (
-    <Frame dark={dark}>
-      <div className="flex items-center justify-between">
-        <span className="text-[8px] font-semibold" style={{ color: p.text }}>Cicilan Motor</span>
-        <span className="text-[8px] font-bold" style={{ color: p.primary }}>33%</span>
-      </div>
-      <div className="w-full h-1.5 rounded-full" style={{ background: p.surface }}>
-        <div className="h-full rounded-full" style={{ width: '33%', background: p.primary }} />
-      </div>
-      <span className="text-[7px]" style={{ color: p.sub }}>4/12 bulan terbayar</span>
+    <Frame dark={dark} className="gap-1">
+      {items.map((it, i) => (
+        <div key={i} className="flex items-center justify-between rounded-md px-2 py-1" style={{ background: p.surface }}>
+          <div className="flex items-center gap-1 min-w-0">
+            <Bell className="w-2.5 h-2.5 shrink-0" style={{ color: p.primary }} />
+            <span className="text-[7px] truncate" style={{ color: p.text }}>{it.label}</span>
+          </div>
+          <span className="text-[6.5px] shrink-0" style={{ color: p.sub }}>{it.due}</span>
+        </div>
+      ))}
     </Frame>
   );
 }
 
+// Revisi (feedback screenshot Features): bar dibuat PENUH & MERAH (sudah
+// melebihi limit, bukan lagi contoh "baru terpakai sedikit"), plus ikon
+// lonceng alarm supaya kelihatan ini notifikasi peringatan.
 export function TargetLimitMock({ dark }: MockProps) {
   const p = palette(dark);
   return (
     <Frame dark={dark}>
       <div className="flex items-center justify-between">
-        <span className="text-[8px] font-semibold" style={{ color: p.text }}>Belanja</span>
-        <span className="text-[7px]" style={{ color: p.sub }}>45rb/1jt</span>
+        <div className="flex items-center gap-1">
+          <BellRing className="w-3 h-3 shrink-0" style={{ color: '#ef4444' }} />
+          <span className="text-[8px] font-semibold" style={{ color: p.text }}>Belanja</span>
+        </div>
+        <span className="text-[7px] font-bold" style={{ color: '#ef4444' }}>1jt/1jt</span>
       </div>
       <div className="w-full h-1.5 rounded-full" style={{ background: p.surface }}>
-        <div className="h-full rounded-full" style={{ width: '4%', background: p.primary }} />
+        <div className="h-full rounded-full" style={{ width: '100%', background: '#ef4444' }} />
       </div>
-      <span className="text-[7px]" style={{ color: p.sub }}>Sisa 96% dari limit</span>
+      <span className="text-[7px] font-semibold" style={{ color: '#ef4444' }}>Sudah melebihi limit!</span>
     </Frame>
   );
 }
 
+// Revisi (prompt final, Features poin "Target Nabung") — beda dari
+// TargetLimitMock di atas (yang framing-nya "sisa limit belanja"), yang ini
+// framing "terkumpul menuju target tabungan" supaya dua card yang bertetangga
+// (Batasan Pengeluaran & Target Nabung) tidak menampilkan mockup identik.
+// Revisi (feedback screenshot Features): dibuat "hampir tercapai" (90%,
+// sebelumnya cuma 35%) supaya lebih optimis/memotivasi sebagai contoh.
+export function TargetNabungMock({ dark }: MockProps) {
+  const p = palette(dark);
+  return (
+    <Frame dark={dark}>
+      <div className="flex items-center justify-between">
+        <span className="text-[8px] font-semibold" style={{ color: p.text }}>Dana Darurat</span>
+        <span className="text-[7px]" style={{ color: p.sub }}>9jt/10jt</span>
+      </div>
+      <div className="w-full h-1.5 rounded-full" style={{ background: p.surface }}>
+        <div className="h-full rounded-full" style={{ width: '90%', background: p.primary }} />
+      </div>
+      <span className="text-[7px] font-semibold" style={{ color: p.primary }}>Terkumpul 90%, hampir tercapai!</span>
+    </Frame>
+  );
+}
+
+// Revisi (feedback screenshot Features): tambah 1 baris deskripsi singkat
+// di bawah kartu-kartu persen, supaya kelihatan ini bukan cuma angka
+// mentah tapi disertai saran/kesimpulan singkat dari AI.
 export function AnalisisAiMock({ dark }: MockProps) {
   const p = palette(dark);
   return (
@@ -128,6 +177,7 @@ export function AnalisisAiMock({ dark }: MockProps) {
           </div>
         ))}
       </div>
+      <span className="text-[6.5px] leading-tight" style={{ color: p.sub }}>Rasio cicilan aman, tingkatkan tabungan bulanan.</span>
     </Frame>
   );
 }
@@ -144,6 +194,34 @@ export function InfoRekeningMock({ dark }: MockProps) {
         <Copy className="w-3 h-3 shrink-0" style={{ color: p.sub }} />
       </div>
       <span className="text-[9px] font-bold" style={{ color: p.text }}>Rp17.000.000</span>
+    </Frame>
+  );
+}
+
+// Revisi (build ulang Features poin "Pantau Pengeluaran PayLater/Kartu
+// Kredit") — menggantikan placeholder ImageOff, direkreasi dari screenshot
+// modal "Bayar Tagihan" (Paylater) di app asli: ikon bank + judul, baris
+// info tagihan/limit, satu baris item tagihan bercentang, tombol Bayar
+// hijau. Sama pola dengan mock lain (palette+Frame), bukan PNG.
+export function PaylaterMock({ dark }: MockProps) {
+  const p = palette(dark);
+  return (
+    <Frame dark={dark}>
+      <div className="flex items-center gap-1.5">
+        <Landmark className="w-3 h-3 shrink-0" style={{ color: '#3b82f6' }} />
+        <span className="text-[8px] font-semibold" style={{ color: p.text }}>Paylater</span>
+      </div>
+      <span className="text-[6.5px]" style={{ color: p.sub }}>Tagihan Rp300rb dari limit Rp10jt</span>
+      <div className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: p.surface }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="w-2.5 h-2.5 rounded-sm border shrink-0" style={{ borderColor: p.sub }} />
+          <span className="text-[7px] truncate" style={{ color: p.text }}>Belanja Tas</span>
+        </div>
+        <span className="text-[7px] font-bold shrink-0" style={{ color: p.text }}>Rp300rb</span>
+      </div>
+      <div className="rounded-md py-1 flex items-center justify-center" style={{ background: p.primary }}>
+        <span className="text-[7px] font-bold" style={{ color: p.onPrimary }}>Bayar</span>
+      </div>
     </Frame>
   );
 }

@@ -15,8 +15,8 @@ export default function UpdateForever() {
         </div>
         <h3 className="text-lg sm:text-xl font-bold text-landing-text">Sekali Beli, Update Selamanya</h3>
         <p className="text-sm text-landing-text/70 leading-relaxed max-w-lg">
-          Nggak ada biaya langganan bulanan. Semua fitur baru KantongKu ke depannya — termasuk yang belum ada
-          sekarang — otomatis kamu dapatkan gratis, selama aplikasinya masih kamu pakai.
+          Nggak ada biaya langganan bulanan. Semua fitur baru KantongKu ke depannya, termasuk yang belum ada
+          sekarang, otomatis kamu dapatkan gratis, selama aplikasinya masih kamu pakai.
         </p>
       </div>
     </section>

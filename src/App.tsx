@@ -21,6 +21,8 @@ import AccountView from './components/AccountView';
 import BudgetModal from './components/BudgetModal';
 import ProfileView from './components/ProfileView';
 import { AppSettings } from './components/ProfileView';
+import SettingsView from './components/SettingsView';
+import CalendarView from './components/CalendarView';
 import AddTransactionModal from './components/AddTransactionModal';
 import BrandLogo from './components/BrandLogo';
 import PocketManagerModal from './components/PocketManagerModal';
@@ -40,7 +42,7 @@ import SharedPocketsView from './components/SharedPocketsView';
 const TOPUP_CATEGORY: Category = { id: 'topup', name: 'Top Up Saldo', icon: 'piggy', color: 'teal' };
 
 // Icons for navigation
-import { Home, Wallet, PlusCircle, User, Receipt, Users, ChevronsLeft, ChevronsRight, LogOut, X } from 'lucide-react';
+import { Home, Wallet, PlusCircle, User, Receipt, Users, ChevronsLeft, ChevronsRight, LogOut, X, BookOpen, Tag, History, CreditCard, LifeBuoy, CalendarDays, Settings } from 'lucide-react';
 
 
 // Task: pengingat/notifikasi push server-side harus mengikuti waktu
@@ -136,8 +138,12 @@ export default function App() {
   // keduanya sekarang) — bukan tujuan tetap. Dicatat HANYA saat berpindah
   // KE salah satu dari 3 sub-halaman ini, lewat navigateTo di bawah;
   // dipakai sebagai target onBack ketiganya (lihat render masing-masing).
+  // Revisi (sidebar desktop): activity-log & guide ditambahkan ke daftar
+  // ini juga — sekarang keduanya punya entry langsung di sidebar (bukan
+  // cuma lewat Profil), jadi onBack-nya juga perlu ikut ke halaman asal,
+  // bukan selalu hardcoded balik ke 'profile'.
   const [returnTab, setReturnTab] = useState<string>('home');
-  const SUB_VIEWS_WITH_BACK = ['shared-pockets', 'debts', 'monthly-detail'];
+  const SUB_VIEWS_WITH_BACK = ['shared-pockets', 'debts', 'monthly-detail', 'activity-log', 'guide'];
   const navigateTo = (tab: string) => {
     if (SUB_VIEWS_WITH_BACK.includes(tab) && activeTab !== tab) {
       setReturnTab(activeTab);
@@ -213,7 +219,7 @@ export default function App() {
     }
   }, []);
   const handleNavigateGuide = () => {
-    setActiveTab('guide');
+    navigateTo('guide');
     try {
       window.localStorage.setItem(GUIDE_VERSION_STORAGE_KEY, APP_VERSION);
     } catch {
@@ -1511,6 +1517,7 @@ export default function App() {
       name: newPocData.name,
       balance: 0,
       icon: newPocData.icon,
+      logoUrl: newPocData.logoUrl,
       tag: newPocData.tag,
       color: newPocData.color
     };
@@ -1737,6 +1744,7 @@ export default function App() {
         name: newAccData.name,
         balance: 0,
         icon: newAccData.icon,
+        logoUrl: newAccData.logoUrl,
         color: newAccData.color,
         type: 'paylater',
         limit: newAccData.initialBalance || 0,
@@ -1754,6 +1762,7 @@ export default function App() {
       name: newAccData.name,
       balance: newAccData.initialBalance || 0,
       icon: newAccData.icon,
+      logoUrl: newAccData.logoUrl,
       color: newAccData.color,
       accountNumber: newAccData.accountNumber,
       ownerName: newAccData.ownerName,
@@ -2584,7 +2593,13 @@ export default function App() {
 
         {/* Navigation Menu — Task: menu "Analisis" dihapus, grafiknya pindah
             ke tab Riwayat (lihat TransactionHistoryPage.tsx). */}
-        <nav className="flex flex-col gap-2 flex-grow">
+        {/* Revisi (sidebar desktop): dulu cuma 4 tab utama (Home/Wallet/
+            Riwayat/Profil) — seluruh menu Pengaturan (sebelumnya HANYA bisa
+            diakses lewat Profil) sekarang juga langsung ada di sini, jadi
+            `overflow-y-auto` ditambahkan supaya sidebar bisa discroll kalau
+            kontennya lebih tinggi dari layar (mis. layar pendek/zoom besar),
+            footer profil tetap menempel di bawah. */}
+        <nav className="flex flex-col gap-2 flex-grow overflow-y-auto no-scrollbar">
           {/* TAB: Home */}
           <button
             onClick={() => setActiveTab('home')}
@@ -2603,6 +2618,16 @@ export default function App() {
           >
             <Wallet className="w-5 h-5 shrink-0" />
             {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Wallet")}</span>}
+          </button>
+
+          {/* TAB: Kalender */}
+          <button
+            onClick={() => setActiveTab('calendar')}
+            title="Kalender"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'calendar' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+          >
+            <CalendarDays className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Kalender")}</span>}
           </button>
 
           {/* TAB: Riwayat / History (termasuk grafik & analisis) */}
@@ -2624,6 +2649,92 @@ export default function App() {
             <User className="w-5 h-5 shrink-0" />
             {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr("Profil")}</span>}
           </button>
+
+          {/* Revisi (sidebar desktop): seluruh menu "Pengaturan" yang tadinya
+              cuma ada di dalam halaman Profil (lihat ProfileView.tsx) —
+              KECUALI "Riwayat Transaksi" karena itu tujuan yang SAMA persis
+              dengan tab "Riwayat" di atas (onNavigateHistory juga cuma
+              setActiveTab('history')), jadi tidak diduplikasi. */}
+          {!isSidebarCollapsed && (
+            <div className="text-[10px] font-label-caps text-on-surface-variant/50 uppercase tracking-wider px-4 mt-4 mb-1">
+              {tr('Pengaturan')}
+            </div>
+          )}
+          {isSidebarCollapsed && <div className="border-t border-overlay/5 my-2" />}
+
+          <button
+            onClick={handleNavigateGuide}
+            title="Panduan Pengguna"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none relative ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'guide' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+          >
+            <BookOpen className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Panduan Pengguna')}</span>}
+            {hasUnseenGuideUpdate && (
+              <span className={`w-1.5 h-1.5 rounded-full bg-rose-500 ${isSidebarCollapsed ? 'absolute top-2 right-2' : ''}`} />
+            )}
+          </button>
+
+          <button
+            onClick={() => setIsPocketManagerOpen(true)}
+            title="Kelola Kantong"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5`}
+          >
+            <Wallet className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Kelola Kantong')}</span>}
+          </button>
+
+          <button
+            onClick={() => navigateTo('shared-pockets')}
+            title="Kantong Bersama"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none relative ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'shared-pockets' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+          >
+            <Users className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Kantong Bersama')}</span>}
+            {pendingInvitations.length > 0 && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white leading-none ${isSidebarCollapsed ? 'absolute top-1.5 right-1.5' : 'ml-auto'}`}>{pendingInvitations.length}</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setIsCategoryManagerOpen(true)}
+            title="Kelola Kategori"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5`}
+          >
+            <Tag className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Kelola Kategori')}</span>}
+          </button>
+
+          <button
+            onClick={() => navigateTo('activity-log')}
+            title="Log Activity"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'activity-log' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+          >
+            <History className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Log Activity')}</span>}
+          </button>
+
+          <button
+            onClick={() => navigateTo('debts')}
+            title="Cicilan/Hutang"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} ${activeTab === 'debts' ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5'}`}
+          >
+            <CreditCard className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Cicilan/Hutang')}</span>}
+          </button>
+
+          {/* Bukan modal/tab in-app — sama seperti di ProfileView, diarahkan
+              ke halaman Bantuan & Saran di situs utama (target=_blank supaya
+              sesi & tab aktif di app ini tidak hilang). */}
+          <a
+            href="https://kantongku.site/support"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Bantuan & Dukungan"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none ${isSidebarCollapsed ? 'justify-center px-0' : ''} text-on-surface-variant/70 hover:text-on-surface hover:bg-overlay/5`}
+          >
+            <LifeBuoy className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm font-semibold">{tr('Bantuan & Dukungan')}</span>}
+          </a>
         </nav>
 
         {/* User profile section at the bottom of sidebar */}
@@ -2757,20 +2868,42 @@ export default function App() {
           {activeTab === 'profile' && (
             <ProfileView
               userProfile={currentUser}
-              appSettings={appSettings}
               onLogout={handleLogout}
               onResetData={handleResetData}
               onSaveProfile={handleSaveProfile}
+            />
+          )}
+
+          {/* Revisi: "Setting" jadi tab tersendiri di bottom nav (mobile) —
+              menampung semua yang tadinya ada di Profil kecuali identitas &
+              Tindakan Keamanan (lihat SettingsView.tsx untuk alasan
+              pemisahannya). Di desktop menu-menu ini sudah langsung ada di
+              sidebar (lihat section Pengaturan di <aside> di bawah), jadi
+              tab ini murni untuk mobile. */}
+          {activeTab === 'settings' && (
+            <SettingsView
+              appSettings={appSettings}
               onSaveSettings={handleSaveSettings}
               onOpenPocketManager={() => setIsPocketManagerOpen(true)}
               onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
               onNavigateHistory={() => setActiveTab('history')}
-              onNavigateActivityLog={() => setActiveTab('activity-log')}
+              onNavigateActivityLog={() => navigateTo('activity-log')}
               onNavigateDebtManager={() => navigateTo('debts')}
               onNavigateGuide={handleNavigateGuide}
               hasUnseenGuideUpdate={hasUnseenGuideUpdate}
               onNavigateSharedPockets={() => navigateTo('shared-pockets')}
               pendingInvitationCount={pendingInvitations.length}
+            />
+          )}
+
+          {/* Revisi: Kalender — lihat pemasukan/pengeluaran per tanggal,
+              tap tanggal untuk rincian transaksinya. */}
+          {activeTab === 'calendar' && (
+            <CalendarView
+              transactions={transactions}
+              categories={categories}
+              onEditTransactionSelect={handleEditTransactionSelect}
+              onDeleteTransaction={handleDeleteTransaction}
             />
           )}
 
@@ -2794,13 +2927,13 @@ export default function App() {
           {activeTab === 'activity-log' && (
             <ActivityLogView
               activityLog={activityLog}
-              onBack={() => setActiveTab('profile')}
+              onBack={() => setActiveTab(returnTab)}
               onClearLog={handleClearActivityLog}
             />
           )}
 
           {activeTab === 'guide' && (
-            <GuideView onBack={() => setActiveTab('profile')} />
+            <GuideView onBack={() => setActiveTab(returnTab)} />
           )}
 
           {activeTab === 'debts' && (
@@ -2904,7 +3037,7 @@ export default function App() {
 
 
       {/* FIXED BOTTOM HUD NAVIGATION (Verbatim mockups layout) */}
-      <nav className="md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-2xl bg-surface/70 border-t border-overlay/5 backdrop-blur-2xl px-6 pt-2 pb-6 shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
+      <nav className="bottom-nav-bar md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-2xl bg-surface/70 border-t border-overlay/5 backdrop-blur-2xl px-6 pt-2 pb-6 shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center relative">
           
           {/* TAB: Home */}
@@ -2917,7 +3050,7 @@ export default function App() {
           </button>
 
           {/* TAB: Wallet */}
-          <button 
+          <button
             onClick={() => setActiveTab('wallet')}
             className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'wallet' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
@@ -2925,14 +3058,30 @@ export default function App() {
             <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Wallet")}</span>
           </button>
 
-          {/* TAB ACTION EMBED: Add Float trigger */}
-          <div className="w-16 flex justify-center relative -top-7">
-            <button 
+          {/* TAB: Kalender */}
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'calendar' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
+          >
+            <CalendarDays className="w-5 h-5" />
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Kalender")}</span>
+          </button>
+
+          {/* TAB ACTION EMBED: Add Float trigger — Revisi: warna disamakan
+              dengan kartu Total Saldo & tombol Aksi Cepat (#5bffb9 bg,
+              #0e141f ikon — hardcoded, sama persis di dark & light mode),
+              menggantikan bg-primary/text-on-primary yang sebelumnya ikut
+              tema. Revisi lagi: diperkecil & dilepas dari posisi mengambang
+              (-top-7) — sekarang sejajar satu baris dengan tombol lain,
+              `items-center` di kontainer induk yang menjaga pusatnya tetap
+              rata meski tombol ini tidak punya label teks di bawahnya. */}
+          <div className="w-16 flex justify-center">
+            <button
               onClick={() => setIsAddModalOpen(true)}
-              className="w-13 h-13 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-[0_4px_22px_rgba(78,222,163,0.4)] hover:scale-105 active:scale-90 transition-all font-bold group border border-primary/20"
+              className="w-10 h-10 rounded-full bg-[#5bffb9] text-[#0e141f] flex items-center justify-center shadow-[0_4px_16px_rgba(78,222,163,0.35)] hover:scale-105 active:scale-90 transition-all font-bold group border border-overlay/10"
               title="Catat Baru"
             >
-              <PlusCircle className="w-8 h-8 text-on-primary stroke-[2.5]" />
+              <PlusCircle className="w-5 h-5 text-[#0e141f] stroke-[2.5]" />
             </button>
           </div>
 
@@ -2946,13 +3095,26 @@ export default function App() {
             <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Riwayat")}</span>
           </button>
 
-          {/* TAB: Profile Settings */}
-          <button 
+          {/* TAB: Profile */}
+          <button
             onClick={() => setActiveTab('profile')}
             className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 ${activeTab === 'profile' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
           >
             <User className="w-5 h-5" />
             <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Profil")}</span>
+          </button>
+
+          {/* TAB: Setting — lihat SettingsView.tsx untuk daftar lengkap menu
+              yang dipindah kesini dari Profil. */}
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex flex-col items-center gap-1.5 focus:outline-none transition-all active:scale-95 duration-100 relative ${activeTab === 'settings' ? 'text-primary scale-110 drop-shadow-[0_0_8px_rgba(78,222,163,0.3)]' : 'text-on-surface-variant/70 hover:text-on-surface'}`}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="font-label-caps text-[9px] uppercase tracking-wider">{tr("Setting")}</span>
+            {pendingInvitations.length > 0 && (
+              <span className="absolute top-0 right-0.5 w-2 h-2 rounded-full bg-rose-500 border border-background" />
+            )}
           </button>
 
         </div>

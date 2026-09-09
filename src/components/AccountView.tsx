@@ -18,7 +18,9 @@ import {
   Info,
   Undo2,
   Copy,
-  Check
+  Check,
+  Upload,
+  ImageOff
 } from 'lucide-react';
 
 interface AccountViewProps {
@@ -81,6 +83,11 @@ export default function AccountView({
   const [showInitialCalc, setShowInitialCalc] = useState<boolean>(false);
   const [icon, setIcon] = useState('bank');
   const [color, setColor] = useState('indigo');
+  // Revisi (App poin 2): logo custom hasil upload sendiri (data URI base64),
+  // pola resize/compress-nya sama persis dengan avatar upload di
+  // ProfileView.tsx. Kalau diisi, menggantikan ikon preset di atas.
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   // Task (revisi, poin 10): tipe wallet HANYA bisa dipilih saat menambah
   // baru — mengubah tipe wallet yang sudah punya riwayat transaksi akan
   // bikin data allocations/paylaterStatus tidak konsisten, jadi sengaja
@@ -288,6 +295,7 @@ export default function AccountView({
     setInitialBalanceExpr('');
     setIcon('bank');
     setColor('indigo');
+    setLogoUrl(undefined);
     setAccountType('normal');
     setFormMode('add');
     setDeleteWarning(null);
@@ -313,8 +321,43 @@ export default function AccountView({
     setInitialBalanceExpr(displayValue.toString());
     setIcon(acc.icon);
     setColor(acc.color);
+    setLogoUrl(acc.logoUrl);
     setFormMode('edit');
     setDeleteWarning(null);
+  };
+
+  // Revisi (App poin 2): resize/compress ke JPEG kecil sebelum disimpan
+  // sebagai base64 — pola sama persis dengan handleAvatarChange di
+  // ProfileView.tsx, cuma langsung ke state form (bukan langsung
+  // memanggil API) karena logo ini ikut disimpan bareng field lain saat
+  // form di-submit, bukan disimpan instan begitu file dipilih.
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 200;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setLogoUrl(canvas.toDataURL('image/jpeg', 0.75));
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -328,6 +371,7 @@ export default function AccountView({
         accountNumber: accountNumber.trim(),
         ownerName: ownerName.trim(),
         icon,
+        logoUrl,
         color,
         type: accountType,
         initialBalance: initialBalance || 0
@@ -340,6 +384,7 @@ export default function AccountView({
           ...accToEdit,
           name: name.trim(),
           icon,
+          logoUrl,
           color,
           limit: initialBalance || 0,
         });
@@ -351,6 +396,7 @@ export default function AccountView({
           accountNumber: accountNumber.trim(),
           ownerName: ownerName.trim(),
           icon,
+          logoUrl,
           color
         }, balanceDifference);
       }
@@ -476,7 +522,12 @@ export default function AccountView({
     }
   };
 
-  const getAccountIcon = (iconName: string, colorHex: string) => {
+  // Revisi (App poin 2): logoUrl (upload custom) menggantikan ikon preset
+  // kalau diisi — dirender sebagai <img> bulat, bukan ikon lucide-react.
+  const getAccountIcon = (iconName: string, colorHex: string, logoUrl?: string) => {
+    if (logoUrl) {
+      return <img src={logoUrl} alt="" className="w-5 h-5 shrink-0 rounded-full object-cover" />;
+    }
     const found = ICONS.find(i => i.value === iconName);
     const IconComp = found ? found.icon : Landmark;
     return <IconComp className="w-5 h-5 shrink-0" style={{ color: colorHex }} />;
@@ -625,7 +676,7 @@ export default function AccountView({
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          {getAccountIcon(acc.icon, borderHex)}
+                          {getAccountIcon(acc.icon, borderHex, acc.logoUrl)}
                           <h3 className="font-headline-sm text-md text-on-surface font-medium truncate">{acc.name}</h3>
                         </div>
 
@@ -724,7 +775,7 @@ export default function AccountView({
                         <div className="border-b border-overlay/5 pb-3">
                           <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Bayar Tagihan')}</span>
                           <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
-                            {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
+                            {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color), selectedAccount.logoUrl)}
                             {selectedAccount.name}
                           </h3>
                           <p className="text-[11px] text-on-surface-variant/70 mt-1">
@@ -785,7 +836,7 @@ export default function AccountView({
                     <div className="border-b border-overlay/5 pb-2">
                       <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Atur Alokasi Saldo')}</span>
                       <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
-                        {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
+                        {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color), selectedAccount.logoUrl)}
                         {selectedAccount.name}
                       </h3>
                       <p className="text-[11px] text-on-surface-variant/70 mt-1">
@@ -883,7 +934,7 @@ export default function AccountView({
                     <div className="border-b border-overlay/5 pb-3">
                       <span className="text-[10px] font-label-caps text-on-surface-variant uppercase">{tr('Rincian Alokasi Uang')}</span>
                       <h3 className="font-headline-sm text-lg text-on-surface font-bold flex items-center gap-2 mt-0.5">
-                        {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color))}
+                        {getAccountIcon(selectedAccount.icon, getBorderColorHex(selectedAccount.color), selectedAccount.logoUrl)}
                         {selectedAccount.name}
                       </h3>
                     </div>
@@ -976,7 +1027,7 @@ export default function AccountView({
                 type="text"
                 required
                 maxLength={24}
-                placeholder="Contoh: Bank BCA, E-Wallet ShopeePay"
+                placeholder={tr('Contoh: Bank BCA, E-Wallet ShopeePay')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
@@ -1013,7 +1064,7 @@ export default function AccountView({
               <input
                 type="text"
                 maxLength={32}
-                placeholder="Contoh: 1234567890"
+                placeholder={tr('Contoh: 1234567890')}
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
                 className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
@@ -1026,7 +1077,7 @@ export default function AccountView({
               <input
                 type="text"
                 maxLength={40}
-                placeholder="Contoh: Kurnia Ramadhan"
+                placeholder={tr('Contoh: Kurnia Ramadhan')}
                 value={ownerName}
                 onChange={(e) => setOwnerName(e.target.value)}
                 className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"
@@ -1085,6 +1136,43 @@ export default function AccountView({
                     A
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Revisi (App poin 2): logo custom upload sendiri — kalau
+                diisi, MENGGANTIKAN ikon preset di bawah (lihat
+                getAccountIcon). Ditaruh sebelum Icon Selection supaya
+                jelas keduanya opsi yang saling menggantikan, bukan
+                dipakai bersamaan. */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Logo Custom (Opsional)')}</label>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl border border-dashed border-overlay/20 flex items-center justify-center overflow-hidden bg-surface-variant/20 shrink-0">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageOff className="w-5 h-5 text-on-surface-variant/40" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="h-8 px-3 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5" /> {tr('Unggah Logo')}
+                  </button>
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrl(undefined)}
+                      className="text-[10px] text-rose-400 hover:underline text-left"
+                    >
+                      {tr('Hapus logo, pakai ikon preset')}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

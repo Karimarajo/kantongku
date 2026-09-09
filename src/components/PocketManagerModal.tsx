@@ -28,7 +28,9 @@ import {
   Gift,
   Briefcase,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Upload,
+  ImageOff
 } from 'lucide-react';
 import { formatRupiah } from '../utils';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
@@ -120,8 +122,43 @@ export default function PocketManagerModal({
   const [showCalc, setShowCalc] = useState<boolean>(false);
   const [icon, setIcon] = useState('wallet');
   const [color, setColor] = useState('emerald');
+  // Revisi (App poin 2): logo custom hasil upload sendiri, sama pola dengan
+  // AccountView.tsx — kalau diisi, MENGGANTIKAN ikon preset di atas.
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
 
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
+
+  // Revisi (App poin 2): resize/compress ke JPEG kecil sebelum disimpan
+  // sebagai base64 — pola sama dengan AccountView.tsx/ProfileView.tsx.
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 200;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setLogoUrl(canvas.toDataURL('image/jpeg', 0.75));
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Handle open add pocket form
   const handleOpenAdd = () => {
@@ -132,6 +169,7 @@ export default function PocketManagerModal({
     setShowCalc(false);
     setIcon('wallet');
     setColor('emerald');
+    setLogoUrl(undefined);
     setFormMode('add');
     setDeleteWarning(null);
   };
@@ -146,6 +184,7 @@ export default function PocketManagerModal({
     setShowCalc(false);
     setIcon(pocket.icon);
     setColor(pocket.color);
+    setLogoUrl(pocket.logoUrl);
     setFormMode('edit');
     setDeleteWarning(null);
   };
@@ -166,6 +205,7 @@ export default function PocketManagerModal({
       setShowCalc(false);
       setIcon('wallet');
       setColor('emerald');
+      setLogoUrl(undefined);
       setDeleteWarning(null);
     }
   }, [isOpen]);
@@ -211,6 +251,7 @@ export default function PocketManagerModal({
         name: name.trim(),
         tag: tag.trim() || 'Kantong kustom',
         icon,
+        logoUrl,
         color,
         initialBalance: initialBalance || 0
       };
@@ -218,12 +259,13 @@ export default function PocketManagerModal({
     } else if (formMode === 'edit' && editingPocketId) {
       const pocketToEdit = pockets.find(p => p.id === editingPocketId);
       if (!pocketToEdit) return;
-      
+
       const updatedPocket: Pocket = {
         ...pocketToEdit,
         name: name.trim(),
         tag: tag.trim() || 'Kantong kustom',
         icon,
+        logoUrl,
         color
       };
       onEditPocket(updatedPocket);
@@ -243,7 +285,10 @@ export default function PocketManagerModal({
     }
   };
 
-  const getPocketIcon = (iconName: string, colorClass: string) => {
+  const getPocketIcon = (iconName: string, colorClass: string, logoUrlValue?: string) => {
+    if (logoUrlValue) {
+      return <img src={logoUrlValue} alt="" className="w-5 h-5 rounded-full object-cover" />;
+    }
     const found = ICONS.find(i => i.value === iconName);
     const IconComponent = found ? found.icon : Wallet;
     return <IconComponent className={`w-5 h-5 ${colorClass}`} />;
@@ -321,7 +366,7 @@ export default function PocketManagerModal({
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorClass} shrink-0`}>
-                          {getPocketIcon(p.icon, '')}
+                          {getPocketIcon(p.icon, '', p.logoUrl)}
                         </div>
                         <div>
                           <p className="font-body-md text-on-surface font-medium">{p.name}</p>
@@ -467,6 +512,41 @@ export default function PocketManagerModal({
                       A
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Revisi (App poin 2): logo custom upload sendiri — kalau
+                  diisi, MENGGANTIKAN ikon preset di bawah (lihat
+                  getPocketIcon). */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Logo Custom (Opsional)')}</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl border border-dashed border-overlay/20 flex items-center justify-center overflow-hidden bg-surface-variant/20 shrink-0">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageOff className="w-5 h-5 text-on-surface-variant/40" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="h-8 px-3 rounded-lg bg-overlay/5 border border-overlay/10 text-on-surface-variant hover:text-on-surface text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5" /> {tr('Unggah Logo')}
+                    </button>
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrl(undefined)}
+                        className="text-[10px] text-rose-400 hover:underline text-left"
+                      >
+                        {tr('Hapus logo, pakai ikon preset')}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -192,7 +192,7 @@ export default function ReminderModal({
               <input
                 type="text"
                 maxLength={40}
-                placeholder="Contoh: Bayar cicilan atau iuran kas..."
+                placeholder={tr('Contoh: Bayar cicilan atau iuran kas...')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="h-10 bg-body-bg/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-body-md"

@@ -4,11 +4,12 @@ import { ServerCog, ShieldCheck, EyeOff, RotateCcw } from 'lucide-react';
 // landing-page-revisi-2 Task 8 — new section, placed right after Hero and
 // before How It Works. Claims match exactly what's already stated
 // elsewhere on this page (FAQ items 1, 4, 5, 3) — nothing new introduced.
+// Revisi (prompt 2, poin 6-8): 3 dari 4 teks diganti.
 const TRUST_ITEMS = [
-  { icon: ServerCog, text: 'Server sendiri, nyala 24 jam' },
+  { icon: ServerCog, text: 'Server tersertifikasi' },
   { icon: ShieldCheck, text: 'Login 2FA via Google Authenticator' },
-  { icon: EyeOff, text: 'Data tidak bisa dilihat owner' },
-  { icon: RotateCcw, text: 'Garansi uang kembali 3 hari' },
+  { icon: EyeOff, text: 'Jaminan tidak akan kebocoran data' },
+  { icon: RotateCcw, text: 'Support tim profesional jika ada kendala' },
 ];
 
 export default function TrustBar() {

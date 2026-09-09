@@ -218,7 +218,7 @@ export default function DebtManagerView({
         </button>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
-          {tr('Kelola Cicilan/Hutang')}
+          {tr('Cicilan/Hutang')}
         </h1>
       </div>
 
@@ -246,7 +246,7 @@ export default function DebtManagerView({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Nama')}</label>
-            <input type="text" required placeholder="Contoh: Cicilan Motor Honda" value={name} onChange={(e) => setName(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60" />
+            <input type="text" required placeholder={tr('Contoh: Cicilan Motor Honda')} value={name} onChange={(e) => setName(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-on-surface text-sm focus:outline-none focus:border-primary/60" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

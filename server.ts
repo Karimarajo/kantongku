@@ -764,7 +764,7 @@ app.post("/api/analysis/financial-health", requireSession, requireActiveStatus, 
 // ==========================================
 
 // Price for a collaborator seat order (Task 2 revision) — deliberately NOT
-// PRICE_AMOUNT (that's the main license, defaults Rp49.000, a different
+// PRICE_AMOUNT (that's the main license, defaults Rp99.000, a different
 // product). Override via env if needed; 17900 is the agreed default.
 const COLLABORATOR_PRICE_AMOUNT = Number(process.env.COLLABORATOR_PRICE_AMOUNT) || 17900;
 
@@ -1904,14 +1904,14 @@ function sendOrderFollowUpEmail(order: {
        <li>Atur keuangan bareng pasangan/tim secara real-time</li>
        <li>Dapat reminder otomatis + pelacakan cicilan/hutang</li>
        <li>Tahu kondisi kesehatan keuanganmu lewat analisis AI</li>
-       <li>Sekali bayar Rp49.000, pakai selamanya — update fitur baru terus jalan gratis</li>
+       <li>Sekali bayar Rp99.000, pakai selamanya, update fitur baru terus jalan gratis</li>
      </ul>
      <p>Kalau ada kendala pembayaran atau ada yang mau ditanyakan, jangan ragu hubungi kami:</p>
      <p>📸 Instagram: <a href="https://instagram.com/marajotechid">@marajotechid</a><br/>
         💬 Atau kirim pesan langsung lewat: <a href="${supportUrl}">${supportUrl}</a></p>
      <p>Kami tunggu ya!</p>
      <p>Tim KantongKu</p>`,
-    `Halo ${name},\n\nKami lihat kamu baru saja memesan KantongKu (kode order: ${order.order_code}), tapi pembayarannya belum kami terima nih. Tenang, pesananmu masih kami tahan — tinggal selesaikan pembayarannya lewat link berikut:\n\n${paymentLineText}\n\nSekadar mengingatkan, dengan KantongKu kamu bisa:\n- Catat transaksi secepat kilat cukup foto struk, rekam suara, atau ketik bebas — AI yang urus sisanya\n- Pisahkan uang bisnis, pribadi, dan titipan biar nggak kecampur lagi\n- Atur keuangan bareng pasangan/tim secara real-time\n- Dapat reminder otomatis + pelacakan cicilan/hutang\n- Tahu kondisi kesehatan keuanganmu lewat analisis AI\n- Sekali bayar Rp49.000, pakai selamanya — update fitur baru terus jalan gratis\n\nKalau ada kendala pembayaran atau ada yang mau ditanyakan, jangan ragu hubungi kami:\nInstagram: @marajotechid (https://instagram.com/marajotechid)\nAtau kirim pesan langsung lewat: ${supportUrl}\n\nKami tunggu ya!\n\nTim KantongKu`
+    `Halo ${name},\n\nKami lihat kamu baru saja memesan KantongKu (kode order: ${order.order_code}), tapi pembayarannya belum kami terima nih. Tenang, pesananmu masih kami tahan — tinggal selesaikan pembayarannya lewat link berikut:\n\n${paymentLineText}\n\nSekadar mengingatkan, dengan KantongKu kamu bisa:\n- Catat transaksi secepat kilat cukup foto struk, rekam suara, atau ketik bebas — AI yang urus sisanya\n- Pisahkan uang bisnis, pribadi, dan titipan biar nggak kecampur lagi\n- Atur keuangan bareng pasangan/tim secara real-time\n- Dapat reminder otomatis + pelacakan cicilan/hutang\n- Tahu kondisi kesehatan keuanganmu lewat analisis AI\n- Sekali bayar Rp99.000, pakai selamanya, update fitur baru terus jalan gratis\n\nKalau ada kendala pembayaran atau ada yang mau ditanyakan, jangan ragu hubungi kami:\nInstagram: @marajotechid (https://instagram.com/marajotechid)\nAtau kirim pesan langsung lewat: ${supportUrl}\n\nKami tunggu ya!\n\nTim KantongKu`
   ).catch((err: any) => {
     console.error(`Gagal mengirim email follow-up untuk order ${order.order_code}:`, err.message);
   });
@@ -2145,13 +2145,24 @@ app.get("/api/admin/users", requireAdmin, async (req, res) => {
               ), 0) AS total_balance,
               lo.city AS last_open_city,
               lo.region AS last_open_region,
-              lo.opened_at AS last_open_at
+              lo.opened_at AS last_open_at,
+              ord.whatsapp AS whatsapp
        FROM users u
        LEFT JOIN user_app_data uad ON uad.user_id = u.id
        LEFT JOIN LATERAL (
          SELECT city, region, opened_at FROM app_open_logs
          WHERE user_id = u.id ORDER BY opened_at DESC LIMIT 1
        ) lo ON true
+       -- Tidak ada kolom telepon di users sendiri — nomor WhatsApp cuma
+       -- ditangkap di form order (landing page, v7.7). Ambil dari order
+       -- TERBARU milik email ini yang benar-benar mengisi WhatsApp (order
+       -- lama sebelum kolom ini ada, atau kolaborator yang tidak mengisi,
+       -- akan dilewati oleh WHERE whatsapp IS NOT NULL).
+       LEFT JOIN LATERAL (
+         SELECT whatsapp FROM orders
+         WHERE email = u.email AND whatsapp IS NOT NULL
+         ORDER BY created_at DESC LIMIT 1
+       ) ord ON true
        ORDER BY u.joined_at DESC`
     );
     res.json(result.rows);

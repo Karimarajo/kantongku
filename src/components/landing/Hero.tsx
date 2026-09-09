@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import BrandLogo from '../BrandLogo';
 import { ArrowRight } from 'lucide-react';
-import { HomeScreenMock } from './AppUiMockups';
 
 const PROMO_DEADLINE_KEY = 'kantongku_promo_deadline';
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
@@ -21,23 +20,44 @@ const PAIN_POINT_ROTATE_MS = 3500;
 // pair, never a list of all variants. Copy stays within claims already
 // made elsewhere on this page (OCR struk, cicilan reminder, sekali bayar
 // selamanya) — no new features/facts introduced.
-const HEADLINES_BY_UTM_CONTENT: Record<string, { headline: string; subheadline: string }> = {
+// Revisi (poin 1-3): headline/subheadline DEFAULT sekarang butuh styling per
+// kata (background/warna/bold/underline), jadi tipenya diperluas ke
+// React.ReactNode (bukan cuma string lagi) — varian utm_content di bawah
+// TETAP string biasa (string valid sebagai ReactNode juga), tidak disentuh.
+const HEADLINES_BY_UTM_CONTENT: Record<string, { headline: React.ReactNode; subheadline: React.ReactNode }> = {
   as1_ocr: {
     headline: 'Foto Struk Belanja, Sisanya Biar AI yang Catat',
-    subheadline: 'Nggak perlu ketik manual satu-satu — jepret struk belanjaanmu, AI KantongKu langsung baca nominal, kategori, dan tanggalnya otomatis.',
+    subheadline: 'Nggak perlu ketik manual satu-satu, jepret struk belanjaanmu, AI KantongKu langsung baca nominal, kategori, dan tanggalnya otomatis.',
   },
   as3_cicilan: {
     headline: 'Nggak Kena Denda Lagi Gara-Gara Lupa Bayar Cicilan',
     subheadline: 'KantongKu otomatis ingetin kamu sebelum tanggal jatuh tempo cicilan/tagihan, sekaligus pantau sisa utang dan progres pembayarannya.',
   },
   as4_bayar_sekali: {
-    headline: 'Sekali Bayar, Pakai Selamanya — Tanpa Langganan Bulanan',
+    headline: 'Sekali Bayar, Pakai Selamanya, Tanpa Langganan Bulanan',
     subheadline: 'Nggak ada biaya bulanan berulang. Bayar sekali di awal, update fitur baru ke depannya otomatis kamu dapatkan gratis.',
   },
 };
-const DEFAULT_HEADLINE = {
-  headline: 'Uangmu Ada, Tapi Ke Mana Perginya Kamu Nggak Pernah Tahu?',
-  subheadline: 'KantongKu bantu kamu balik pegang kendali — cukup ucapkan atau foto struk belanjaanmu, AI yang urus sisanya. Kelola dompet pribadi & bisnis kamu dalam satu aplikasi.',
+// Revisi (prompt final) — headline & subheadline DEFAULT (fallback untuk
+// trafik tanpa utm_content/nilai tidak dikenal) diganti sesuai wording baru.
+// Varian per utm_content di atas (as1_ocr/as3_cicilan/as4_bayar_sekali)
+// SENGAJA tidak disentuh, tetap seperti sudah diimplementasikan.
+const DEFAULT_HEADLINE: { headline: React.ReactNode; subheadline: React.ReactNode } = {
+  headline: (
+    <>
+      78% Keuangan Orang{' '}
+      <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Hancur</span> Karena Gak Bisa{' '}
+      <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Kontrol Pengeluaran</span> Mereka,{' '}
+      <span className="text-rose-500">Kamu Salah Satunya?</span>
+    </>
+  ),
+  subheadline: (
+    <>
+      <strong className="font-bold">Sebanyak apapun penghasilan kamu, kalau gak bisa kontrol pengeluaran, cepat atau lambat pasti kejatuhan juga.</strong>{' '}
+      Banyak yang mikir nyatet keuangan itu <strong className="font-bold underline">pelit atau itung-itungan</strong>, padahal orang-orang yang udah
+      mapan justru selalu nyatet, biar tau batas aman pengeluaran mereka sendiri.
+    </>
+  ),
 };
 
 // Read synchronously (lazy useState initializer, not an effect) so the
@@ -45,7 +65,7 @@ const DEFAULT_HEADLINE = {
 // flash, and no dependency on Landing.tsx's own UTM-capture effect having
 // run yet (effect order between a child and its parent isn't guaranteed to
 // put this before that).
-function resolveHeadline(): { headline: string; subheadline: string } {
+function resolveHeadline(): { headline: React.ReactNode; subheadline: React.ReactNode } {
   const utmContent = new URLSearchParams(window.location.search).get('utm_content');
   return (utmContent && HEADLINES_BY_UTM_CONTENT[utmContent]) || DEFAULT_HEADLINE;
 }
@@ -81,17 +101,27 @@ function formatCountdown(msRemaining: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-// landing-page-revisi-2 Task 6, extended in landing-page-revisi-4 — the old
-// fake CSS chat-bubble mockup replaced with a phone device frame; per the
-// explicit "recreate the UI in code, not a PNG" instruction, this now holds
-// a recreated Home-screen mockup (AppUiMockups.tsx) instead of a screenshot
-// placeholder, theme-aware to match the landing toggle.
-function HeroDeviceFrame({ dark }: { dark: boolean }) {
+// Revisi — mockup Home-screen hasil recreate kode (AppUiMockups.tsx) diganti
+// screenshot ASLI aplikasi yang dikasih owner (public/mockups/app-desktop.png
+// & app-hp.png, sudah difoto dalam frame laptop/HP dengan background
+// transparan). Disusun komposit: laptop di belakang lebih lebar, HP menumpuk
+// di depan pojok kanan bawah, gaya umum hero section SaaS. Bukan theme-aware
+// lagi (dark/light) karena ini foto asli, bukan digambar ulang di kode.
+function HeroDeviceComposite() {
   return (
-    <div className="w-[220px] sm:w-[240px] mx-auto mt-4 rounded-[2rem] border-[6px] border-landing-text bg-landing-text p-1.5 shadow-2xl">
-      <div className="w-full aspect-[9/19] rounded-[1.5rem] overflow-hidden">
-        <HomeScreenMock dark={dark} />
-      </div>
+    <div className="relative w-full max-w-[640px] mx-auto mt-2">
+      <img
+        src="/mockups/app-desktop.png"
+        alt="Tampilan dashboard KantongKu di desktop"
+        className="w-full h-auto select-none pointer-events-none"
+        draggable={false}
+      />
+      <img
+        src="/mockups/app-hp.png"
+        alt="Tampilan dashboard KantongKu di HP"
+        className="absolute bottom-0 right-0 sm:right-4 w-[26%] sm:w-[24%] h-auto select-none pointer-events-none drop-shadow-2xl"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -150,14 +180,11 @@ export default function Hero({ theme, onCtaClick }: HeroProps) {
           </span>
         </div>
 
-        {/* landing-page-revisi constraint — CTA/Hero must not show a price
-            nominal at all (price first appears down in ValueStack.tsx), so
-            this stays a pure urgency badge: promo framing + a countdown,
-            no rupiah figure. */}
-        <span className="text-xs font-bold uppercase tracking-wider text-landing-on-accent bg-landing-accent rounded-full px-4 py-2">
-          🔥 Harga Promo Terbatas — Segera Ambil!
-        </span>
-
+        {/* Revisi: badge "🔥 Harga Promo Terbatas — Segera Ambil!" pindah
+            jadi banner sendiri di paling atas halaman (lihat Landing.tsx,
+            di atas <Header>) — tidak diulang lagi di sini supaya tidak
+            dobel. Countdown tetap di sini karena tetap relevan sebagai
+            bagian dari Hero. */}
         <div className="flex flex-col items-center gap-1.5">
           <span className="text-xs text-landing-text/60 uppercase tracking-wider">Promo berakhir dalam</span>
           <span className="text-2xl font-bold text-landing-text font-mono tracking-widest">
@@ -173,7 +200,7 @@ export default function Hero({ theme, onCtaClick }: HeroProps) {
           <ArrowRight className="w-5 h-5" />
         </button>
 
-        <HeroDeviceFrame dark={theme === 'dark'} />
+        <HeroDeviceComposite />
       </div>
     </section>
   );

@@ -1,11 +1,25 @@
 import React from 'react';
 import { X, Check } from 'lucide-react';
 
-const ROWS = [
-  { before: 'Buka Excel/notes tiap habis belanja', after: 'Cukup ngomong atau foto struk' },
-  { before: 'Sering lupa catat, keuangan berantakan', after: 'Tercatat otomatis, real-time' },
-  { before: 'Ribet pisah dompet pribadi & bisnis', after: 'Multi-pocket & rekening dalam 1 app' },
-  { before: 'Ngitung budget manual di kepala', after: 'Reminder & alert otomatis kalau lewat budget' },
+// Revisi (prompt 2, poin 12-13; prompt 3, poin 1): daftar Sebelum & Sesudah
+// jadi dua array terpisah (bukan satu ROWS berpasangan per-index seperti
+// sebelumnya) — 2 item baru ditambahkan ke Sebelum, sekarang sama-sama 6.
+const BEFORE_ITEMS = [
+  'Pengeluaran melebihi pemasukan',
+  'Gak tau berapa total income setiap bulan',
+  'Males nyatet karena ribet',
+  'Lupa bayar cicilan atau tagihan',
+  'Uang bisnis dan pribadi kecampur',
+  'Berselisih sama pasangan karena pengeluaran bocor',
+];
+
+const AFTER_ITEMS = [
+  'Hitungan detik transaksi kecatet',
+  'Tau kondisi keuangan real time',
+  'Kepercayaan antar pasangan',
+  'Selalu tepat bayar tagihan',
+  'Rem pengeluaran',
+  'Rajin nabung karena ada target capaian',
 ];
 
 export default function BeforeAfter() {
@@ -18,10 +32,10 @@ export default function BeforeAfter() {
             <h3 className="text-xs font-label-caps uppercase tracking-wider text-landing-text/50 text-center sm:text-left">
               Sebelum (cara lama)
             </h3>
-            {ROWS.map((row, i) => (
+            {BEFORE_ITEMS.map((item, i) => (
               <div key={i} className="flex items-start gap-2.5 bg-landing-text/5 border border-landing-text/10 rounded-xl px-4 py-3">
                 <X className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                <span className="text-sm text-landing-text/70">{row.before}</span>
+                <span className="text-sm text-landing-text/70">{item}</span>
               </div>
             ))}
           </div>
@@ -29,10 +43,10 @@ export default function BeforeAfter() {
             <h3 className="text-xs font-label-caps uppercase tracking-wider text-landing-text/80 text-center sm:text-left">
               Sesudah (pakai KantongKu)
             </h3>
-            {ROWS.map((row, i) => (
+            {AFTER_ITEMS.map((item, i) => (
               <div key={i} className="flex items-start gap-2.5 bg-landing-accent/10 border border-landing-accent/30 rounded-xl px-4 py-3">
                 <Check className="w-4 h-4 text-landing-text shrink-0 mt-0.5" />
-                <span className="text-sm text-landing-text">{row.after}</span>
+                <span className="text-sm text-landing-text">{item}</span>
               </div>
             ))}
           </div>

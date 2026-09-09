@@ -63,6 +63,35 @@ export function formatRupiah(amount: number, withPrefix = true): string {
   return `${isNegative ? '-' : ''}${formatted}`;
 }
 
+// Format ringkas untuk ruang sempit (Kalender: angka masuk/keluar di bawah
+// tiap tanggal) — selalu dibulatkan max 1 angka di belakang koma, pakai
+// singkatan Indonesia (rb/jt/M) khusus mata uang IDR, "K"/"M"/"B"
+// internasional untuk mata uang lain. `withPrefix` menambah simbol mata
+// uang di depan (default false — di sel kalender yang sangat sempit warna
+// hijau/merah sudah cukup menandai masuk/keluar, simbol cuma makan tempat).
+export function formatRupiahCompact(amount: number, withPrefix = false): string {
+  const symbol = CURRENCY_OPTIONS.find(c => c.code === activeCurrencyCode)?.symbol || 'Rp';
+  const isIDR = activeCurrencyCode === 'IDR';
+  const isNegative = amount < 0;
+  const abs = Math.abs(amount);
+  const prefix = withPrefix ? symbol : '';
+
+  const round1 = (n: number) => {
+    const r = Math.round(n * 10) / 10;
+    return Number.isInteger(r) ? String(r) : r.toFixed(1).replace('.', ',');
+  };
+
+  const TIERS_IDR: [number, string][] = [[1_000_000_000, 'M'], [1_000_000, 'jt'], [1_000, 'rb']];
+  const TIERS_INTL: [number, string][] = [[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'K']];
+
+  for (const [threshold, suffix] of (isIDR ? TIERS_IDR : TIERS_INTL)) {
+    if (abs >= threshold) {
+      return `${isNegative ? '-' : ''}${prefix}${round1(abs / threshold)}${suffix}`;
+    }
+  }
+  return `${isNegative ? '-' : ''}${prefix}${Math.round(abs)}`;
+}
+
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();

@@ -62,6 +62,17 @@ const EN: Record<string, string> = {
   'Notifikasi': 'Notifications',
   'baru': 'new',
   'Tidak ada notifikasi baru': 'No new notifications',
+  // Revisi (App poin 3): modal Transfer & Top Up yang belum dibungkus tr().
+  'Transfer Antar Wallet': 'Transfer Between Wallets',
+  'Dari': 'From',
+  'Ke': 'To',
+  'Nominal Transfer': 'Transfer Amount',
+  'Catatan (Opsional)': 'Note (Optional)',
+  'Contoh: Isi ulang GoPay': 'Example: Top up GoPay',
+  'Top Up Wallet': 'Top Up Wallet',
+  'Wallet Tujuan': 'Destination Wallet',
+  'Nominal Top Up': 'Top Up Amount',
+  'Contoh: Setor tunai dari ATM': 'Example: Cash deposit from ATM',
 
   // Aksi Cepat — label per tombol (HomeDashboard.tsx ALL_ACTIONS)
   'Add Transaksi': 'Add Transaction',
@@ -85,6 +96,13 @@ const EN: Record<string, string> = {
   'Pengaturan': 'Settings',
   'Keluar dari Aplikasi': 'Log Out',
   'Terdaftar Sejak:': 'Member Since:',
+  // Revisi (App poin 3): ProfileView.tsx yang sebelumnya belum dibungkus tr().
+  'Profil Pengguna': 'User Profile',
+  'Identitas akun dan tindakan keamanan KantongKu Anda.': 'Your KantongKu account identity and security actions.',
+  'Tindakan Keamanan': 'Security Actions',
+  'Apakah Anda yakin ingin melakukan RESET DATA? Seluruh transaksi yang ditambahkan akan dihapus dan kembali ke mock data awal.':
+    'Are you sure you want to RESET DATA? All added transactions will be deleted and reverted to the initial mock data.',
+  'Reset Data Ke Mockup Awal': 'Reset Data To Initial Mockup',
 
   // AddTransactionModal.tsx
   'Mohon isi judul transaksi': 'Please fill in the transaction title',
@@ -115,6 +133,17 @@ const EN: Record<string, string> = {
   'Input Teks/Suara Bebas': 'Free Text/Voice Input',
   'Mohon isi teks terlebih dahulu': 'Please fill in the text first',
   'Parse Teks via AI': 'Parse Text via AI',
+  // Revisi (App poin 3): placeholder & data mock demo yang belum dibungkus tr().
+  "Ketik kalimat bebas (cth: 'jajan kopi tuku 15rb pakai bca kategori jajan')...":
+    "Type freely (e.g. 'bought coffee 15k using bca category snacks')...",
+  'Contoh: Beli Kopi Susu, Gaji Bulanan': 'Example: Buy Milk Coffee, Monthly Salary',
+  'Tuliskan catatan transaksi...': 'Write transaction notes...',
+  'Beli Kopi Nangka': 'Buy Coffee',
+  'Iuran Kas Futsal': 'Futsal Cash Dues',
+  'Belanja Dimsum Pack': 'Buy Dimsum Pack',
+  '"Tadi bayar iuran futsal seratus ribu pakai uang kas"': '"Just paid futsal dues, one hundred thousand, using cash"',
+  '"Makan gulai nasi padang lima puluh ribu rupiah uang sendiri"': '"Ate padang curry rice, fifty thousand rupiah, my own money"',
+  '"Ada omset grosiran masuk dua juta ke kas bisnis"': '"Wholesale revenue came in, two million, to business cash"',
   'Pengeluaran': 'Expense',
   'Pemasukan': 'Income',
   'Judul Transaksi': 'Transaction Title',
@@ -124,6 +153,13 @@ const EN: Record<string, string> = {
   'Kemarin': 'Yesterday',
   'Lusa': 'Day After Tomorrow',
   'Kalender': 'Calendar',
+  // Revisi (bottom nav): tab "Setting" baru — CalendarView.tsx.
+  'Setting': 'Settings',
+  'Lihat pemasukan & pengeluaran per tanggal.': 'View income & expenses by date.',
+  'Tidak ada transaksi di tanggal ini': 'No transactions on this date',
+  // 'Bulan sebelumnya' / 'Bulan berikutnya' sudah ada di bawah (dipakai
+  // BudgetModal dkk) — tidak didefinisikan ulang di sini.
+  'Kembali ke hari ini': 'Back to today',
   'Sumber Dana / Kantong': 'Funding Source / Pocket',
   'Bersama': 'Shared',
   'Sumber Dana': 'Funding Source',
@@ -137,7 +173,11 @@ const EN: Record<string, string> = {
   'Simpan Perubahan': 'Save Changes',
   'Simpan Transaksi': 'Save Transaction',
 
-  // AccountView.tsx
+  // AccountView.tsx (2 entri di bawah dipakai bersama juga oleh
+  // PocketManagerModal.tsx — sama-sama fitur upload logo custom, poin 2).
+  'Logo Custom (Opsional)': 'Custom Logo (Optional)',
+  'Unggah Logo': 'Upload Logo',
+  'Hapus logo, pakai ikon preset': 'Remove logo, use preset icon',
   'Dompet & Wallet': 'Wallet & Accounts',
   'Kelola simpanan fisik (Bank/E-Wallet/Dompet) dan pantau alokasi kantong di dalamnya.':
     'Manage your physical savings (Bank/E-Wallet/Cash) and track pocket allocations within them.',
@@ -145,8 +185,14 @@ const EN: Record<string, string> = {
   'Tidak Dapat Dihapus': 'Cannot Be Deleted',
   'Saya Mengerti': 'I Understand',
   'Belum ada rekening dibuat. Silakan tambah rekening baru.': 'No account created yet. Please add a new one.',
+  'Contoh: Bank BCA, E-Wallet ShopeePay': 'Example: BCA Bank, ShopeePay E-Wallet',
+  'Contoh: 1234567890': 'Example: 1234567890',
+  'Contoh: Kurnia Ramadhan': 'Example: John Doe',
   'Tagihan Berjalan': 'Current Bill',
   'dari limit': 'of limit',
+  'dari target': 'of target',
+  'Sudah melebihi limit': 'Already over limit',
+  'Target tercapai 🎉': 'Target reached 🎉',
   'Saldo Total': 'Total Balance',
   'a.n.': 'a/n',
   'Pemberian Alokasi': 'Allocation Breakdown',
@@ -201,6 +247,7 @@ const EN: Record<string, string> = {
   'Nama rekening tidak boleh kosong': 'Account name cannot be empty',
 
   // TransactionHistoryPage.tsx
+  'Cari deskripsi...': 'Search description...',
   'Semua Data': 'All Data',
   'Reset': 'Reset',
   'Opsi Penyaringan Tingkat Lanjut': 'Advanced Filter Options',
@@ -221,6 +268,8 @@ const EN: Record<string, string> = {
   'Hapus transaksi': 'Delete transaction',
 
   // SharedPocketsView.tsx
+  'Nominal setoran': 'Contribution amount',
+  'Email rekan (harus sudah punya akun KantongKu aktif)': 'Partner email (must already have an active KantongKu account)',
   'Undangan Menunggu': 'Pending Invitations',
   'Seseorang': 'Someone',
   'mengajak Anda ke kantong': 'invited you to the pocket',
@@ -248,6 +297,7 @@ const EN: Record<string, string> = {
   'dari kantong': 'from the pocket',
 
   // DebtManagerView.tsx
+  'Contoh: Cicilan Motor Honda': 'Example: Honda Motorcycle Installment',
   'Mohon isi nama cicilan/hutang': 'Please fill in the debt/installment name',
   'Total pokok harus lebih besar dari 0': 'Principal amount must be greater than 0',
   'Cicilan per bulan harus lebih besar dari 0': 'Monthly installment must be greater than 0',
@@ -264,6 +314,13 @@ const EN: Record<string, string> = {
   'Hapus riwayat pembayaran ini? Transaksi terkait di Riwayat Transaksi juga akan terhapus.':
     'Delete this payment history? The related transaction in Transaction History will also be deleted.',
   'Kelola Cicilan/Hutang': 'Manage Debts/Installments',
+  // Revisi: label menu/sidebar dipendekkan dari "Kelola Cicilan/Hutang" —
+  // kepanjangan di sidebar desktop & baris menu Profil/Setting. Dipakai di
+  // App.tsx (sidebar), SettingsView.tsx, dan DebtManagerView.tsx (judul
+  // halaman) — key lama di atas TETAP ada, masih dipakai GuideView.tsx
+  // (judul bab & prosa panduan). Entry 'Cicilan/Hutang' sendiri SUDAH ada
+  // di atas (dekat 'Kelola Kategori' dll, untuk daftar menu Aksi Cepat) —
+  // tidak didefinisikan ulang di sini supaya tidak duplicate key.
   'Sekali input, dua manfaat: otomatis diingatkan tiap tanggal jatuh tempo (lewat Pengingat) sekaligus terpantau progresnya di sini. Tekan "Sudah Bayar" untuk otomatis mencatat transaksinya.':
     'One entry, two benefits: automatically reminded on each due date (via Reminders) and its progress tracked here. Tap "Paid" to automatically record the transaction.',
   'Tambah Cicilan/Hutang': 'Add Debt/Installment',
@@ -281,6 +338,7 @@ const EN: Record<string, string> = {
   'Sudah Lunas': 'Paid Off',
 
   // ReminderModal.tsx
+  'Contoh: Bayar cicilan atau iuran kas...': 'Example: Pay installment or cash dues...',
   'Sekali Saja': 'Once',
   'Setiap Hari': 'Every Day',
   'Setiap Minggu': 'Every Week',
@@ -303,6 +361,7 @@ const EN: Record<string, string> = {
     'Linked to a Debt/Installment — manage & "Pay" from the Debts/Installments menu',
 
   // BudgetModal.tsx
+  'Misal: Limit Kopi, Target Laptop': 'E.g.: Coffee Limit, Laptop Target',
   'Mohon isi nama Aturan Target & Limit': 'Please fill in the Target & Limit rule name',
   'Sediakan batas jajan / target dana alarm yang valid': 'Provide a valid spending limit / target fund amount',
   'Mohon pilih minimal satu kategori untuk target & limit ini': 'Please select at least one category for this target & limit',

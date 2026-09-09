@@ -182,7 +182,7 @@ const GUIDE_SECTIONS: GuideSection[] = [
         <H4>Reminder Tagihan</H4>
         <P>Tambahkan pengingat untuk tagihan rutin (listrik, internet, sewa, dll) lengkap tanggal jatuh tempo — KantongKu mengingatkan sebelum tanggal tersebut tiba.</P>
         <H4><CreditCard className="w-3 h-3 inline mr-1 text-primary" />Kelola Cicilan/Hutang</H4>
-        <P>Untuk cicilan/utang (motor, KPR, pinjaman), gunakan menu <b className="text-on-surface">Kelola Cicilan/Hutang</b> di Profil. Satu kali input, dapat dua manfaat: reminder otomatis tiap jatuh tempo, dan pelacakan progres (pokok, cicilan terbayar, sisa utang).</P>
+        <P>Untuk cicilan/utang (motor, KPR, pinjaman), gunakan menu <b className="text-on-surface">Cicilan/Hutang</b> di Profil (atau langsung dari sidebar di layar desktop). Satu kali input, dapat dua manfaat: reminder otomatis tiap jatuh tempo, dan pelacakan progres (pokok, cicilan terbayar, sisa utang).</P>
         <Bullets
           items={[
             'Nama Cicilan/Hutang — mis. "Cicilan Motor Honda"',

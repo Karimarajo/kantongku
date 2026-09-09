@@ -5,10 +5,13 @@
 // Seeds two things:
 //   1. The [DEV] Login test account (dev-test-user@kantongku.local, same one
 //      POST /api/dev/login-as-test-user creates on first use) — full-featured
-//      smoke-test data: 100 transactions spread across the last 3 months,
-//      plus real Anggaran (budgets), Pengingat (reminders), Cicilan/Hutang
-//      (debts + payment history), Notifikasi, and Transfer Wallet logs, so
-//      every feature in the app has something to look at, not just Transaksi.
+//      smoke-test data: 200 transactions across FIXED calendar months Juli,
+//      Agustus, September 2026 (absolute dates, not "last 3 months from
+//      whenever this script runs" — re-running it in October still seeds
+//      those same 3 months), plus real Anggaran (budgets), Pengingat
+//      (reminders), Cicilan/Hutang (debts + payment history), Notifikasi, and
+//      Transfer Wallet logs, so every feature in the app has something to
+//      look at, not just Transaksi.
 //   2. THREE independent dummy owner accounts (Task 3) with distinctly
 //      different wallets/categories/transactions, plus a 4th dummy email
 //      invited + activated as User A's collaborator — so you can prove data
@@ -381,32 +384,46 @@ async function writeAppData(userId: string, config: DummyUserConfig) {
   );
 }
 
-// ── Config 1: the main quick-test account — Task "buat transaksi selama 3
-// bulan sebanyak 100 transaksi, data di seluruh fitur terisi": 100
-// transactions spread across the last 3 months (~90 days), plus real data in
+// ── Config 1: the main quick-test account — Task "buat 200 transaksi selama
+// 3 bulan dari bulan September, Agustus, Juli 2026, pastikan setiap fitur ada
+// datanya": 200 transactions across the FIXED calendar months Juli, Agustus,
+// September 2026 (absolute dates — see ymdDaysAgo below), plus real data in
 // every other feature (Anggaran, Pengingat, Cicilan/Hutang, Notifikasi,
 // Transfer Wallet) so the whole app is exercisable, not just Transaksi. ──
 
-// One fixed "start of month window" per of the 3 months (oldest first);
-// `i` (0/1/2) lets amounts drift slightly month over month instead of being
-// perfectly identical, like a real income/bill history would.
-const DEV_MONTH_WINDOW_STARTS = [89, 59, 29];
+// Converts an absolute 2026 calendar date to the `daysAgo` value that makes
+// daysAgoToISO(daysAgo, now) reproduce that exact date, regardless of what
+// day this script actually happens to run on — noon UTC avoids any
+// DST/timezone rounding nudging the result into the wrong local day.
+function ymdDaysAgo(year: number, month1to12: number, day: number): number {
+  const target = Date.UTC(year, month1to12 - 1, day, 12, 0, 0);
+  return Math.round((Date.now() - target) / (24 * 60 * 60 * 1000));
+}
+
+function daysInMonth2026(month1to12: number): number {
+  return new Date(2026, month1to12, 0).getDate();
+}
+
+// Juli, Agustus, September 2026 — in that fixed order, exactly as requested.
+const DEV_MONTHS_2026 = [7, 8, 9];
 
 // 9 recurring monthly anchors (gaji, 2x omset toko online, top up GoPay,
-// listrik/internet/air/pulsa, cicilan motor) × 3 months = 27 transactions.
+// listrik/internet/air/pulsa, cicilan motor) × 3 months = 27 transactions,
+// each dated on a fixed day-of-month so the same script run always produces
+// the same calendar dates.
 function buildDevMonthlyAnchors(): TransactionConfig[] {
   const anchors: TransactionConfig[] = [];
-  DEV_MONTH_WINDOW_STARTS.forEach((start, i) => {
+  DEV_MONTHS_2026.forEach((m, i) => {
     anchors.push(
-      { title: "Gaji Bulanan", amount: 8_500_000, type: "incoming", category: "pendapatan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: start - 2 },
-      { title: "Omset Jualan Online", amount: 2_200_000 + i * 300_000, type: "incoming", category: "pendapatan", accountId: "acc-bca", pocketId: "bisnis", daysAgo: start - 9 },
-      { title: "Omset Jualan Online", amount: 1_850_000 + i * 250_000, type: "incoming", category: "pendapatan", accountId: "acc-bca", pocketId: "bisnis", daysAgo: start - 23 },
-      { title: "Top Up GoPay", amount: 500_000, type: "incoming", category: "topup", accountId: "acc-gopay", pocketId: "pribadi", daysAgo: start - 14 },
-      { title: "Bayar Listrik PLN", amount: 245_000 + i * 10_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: start - 4 },
-      { title: "Bayar Internet Indihome", amount: 350_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: start - 5 },
-      { title: "Bayar Air PDAM", amount: 90_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: start - 6 },
-      { title: "Isi Pulsa & Paket Data", amount: 100_000, type: "outgoing", category: "tagihan", accountId: "acc-gopay", pocketId: "pribadi", daysAgo: start - 7 },
-      { title: "Cicilan Motor Honda Vario", amount: 850_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: start - 3 }
+      { title: "Gaji Bulanan", amount: 8_500_000, type: "incoming", category: "pendapatan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 25) },
+      { title: "Omset Jualan Online", amount: 2_200_000 + i * 300_000, type: "incoming", category: "pendapatan", accountId: "acc-bca", pocketId: "bisnis", daysAgo: ymdDaysAgo(2026, m, 10) },
+      { title: "Omset Jualan Online", amount: 1_850_000 + i * 250_000, type: "incoming", category: "pendapatan", accountId: "acc-bca", pocketId: "bisnis", daysAgo: ymdDaysAgo(2026, m, 20) },
+      { title: "Top Up GoPay", amount: 500_000, type: "incoming", category: "topup", accountId: "acc-gopay", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 15) },
+      { title: "Bayar Listrik PLN", amount: 245_000 + i * 10_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 5) },
+      { title: "Bayar Internet Indihome", amount: 350_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 6) },
+      { title: "Bayar Air PDAM", amount: 90_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 7) },
+      { title: "Isi Pulsa & Paket Data", amount: 100_000, type: "outgoing", category: "tagihan", accountId: "acc-gopay", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 8) },
+      { title: "Cicilan Motor Honda Vario", amount: 850_000, type: "outgoing", category: "tagihan", accountId: "acc-bca", pocketId: "pribadi", daysAgo: ymdDaysAgo(2026, m, 5) }
     );
   });
   return anchors;
@@ -444,17 +461,55 @@ const DEV_DAILY_TEMPLATES: Omit<TransactionConfig, "daysAgo">[] = [
   { title: "Beli Kemasan Produk", amount: 120_000, type: "outgoing", category: "belanja", accountId: "acc-bca", pocketId: "bisnis" },
 ];
 
-// 27 monthly anchors + N daily-cycle transactions = exactly 100, spread
-// across the full ~90-day / 3-month window (evenly spaced oldest → newest).
+// Last 3 templates are 'bisnis'-pocket entries (see the comment on them
+// above) — split out so buildDevDailyTransactions can place them on safe
+// fixed days (after that month's two 'Omset Jualan Online' bisnis credits,
+// days 10 & 20) instead of wherever a naive cyclic index happens to land
+// them, which could otherwise put the very first bisnis debit BEFORE July's
+// first bisnis credit and get it floored to 0 by the Math.max(0, ...) clamp
+// in buildAppData.
+const DEV_NON_BISNIS_TEMPLATES = DEV_DAILY_TEMPLATES.slice(0, -3);
+const DEV_BISNIS_TEMPLATES = DEV_DAILY_TEMPLATES.slice(-3);
+const DEV_BISNIS_SAFE_DAYS = [21, 24, 27]; // all safely after day 20's Omset credit
+
+// Spreads `count` day-to-day transactions evenly across each of the 3 fixed
+// 2026 months (Juli/Agustus/September), cycling the non-bisnis templates for
+// variety and reserving one slot per bisnis template per month on a
+// guaranteed-safe day.
+function buildDevDailyTransactions(count: number): TransactionConfig[] {
+  const numMonths = DEV_MONTHS_2026.length;
+  const perMonthBase = Math.floor(count / numMonths);
+  const leftover = count - perMonthBase * numMonths; // given to the last `leftover` months
+  const result: TransactionConfig[] = [];
+  let globalIdx = 0;
+
+  DEV_MONTHS_2026.forEach((m, mi) => {
+    const monthCount = perMonthBase + (mi >= numMonths - leftover ? 1 : 0);
+    const bisnisCount = Math.min(DEV_BISNIS_TEMPLATES.length, monthCount);
+    const nonBisnisCount = monthCount - bisnisCount;
+    const totalDays = daysInMonth2026(m);
+
+    for (let k = 0; k < nonBisnisCount; k++) {
+      const template = DEV_NON_BISNIS_TEMPLATES[k % DEV_NON_BISNIS_TEMPLATES.length];
+      const day = nonBisnisCount > 1 ? Math.round(1 + (k * (totalDays - 1)) / (nonBisnisCount - 1)) : 1;
+      result.push({ ...template, amount: template.amount + ((globalIdx + k) % 5) * 1_000, daysAgo: ymdDaysAgo(2026, m, day) });
+    }
+    for (let b = 0; b < bisnisCount; b++) {
+      const day = Math.min(totalDays, DEV_BISNIS_SAFE_DAYS[b]);
+      result.push({ ...DEV_BISNIS_TEMPLATES[b], daysAgo: ymdDaysAgo(2026, m, day) });
+    }
+    globalIdx += monthCount;
+  });
+
+  return result;
+}
+
+// 27 monthly anchors + 173 daily-cycle transactions = exactly 200, spread
+// across the fixed Juli–September 2026 window (evenly spaced within each
+// calendar month).
 function buildDevTestTransactions(): TransactionConfig[] {
   const anchors = buildDevMonthlyAnchors();
-  const remaining = 100 - anchors.length; // 73
-  const daily: TransactionConfig[] = [];
-  for (let k = 0; k < remaining; k++) {
-    const template = DEV_DAILY_TEMPLATES[k % DEV_DAILY_TEMPLATES.length];
-    const daysAgo = Math.round(89 - (k * 89) / (remaining - 1));
-    daily.push({ ...template, amount: template.amount + (k % 5) * 1_000, daysAgo });
-  }
+  const daily = buildDevDailyTransactions(200 - anchors.length); // 173
   return [...anchors, ...daily];
 }
 
@@ -510,9 +565,9 @@ const DEV_TEST_USER: DummyUserConfig = {
   // Pengingat: satu terhubung ke Cicilan Motor (lihat debts di bawah), dua
   // lainnya berdiri sendiri (tagihan bulanan + setoran tabungan mingguan).
   reminders: [
-    { id: "seed-dev-reminder-cicilan-motor", title: "Bayar Cicilan Motor", time: "09:00", repeatType: "every_month", isActive: true, dayOfWeek: 0, dayOfMonth: 5, createdDaysAgo: 89 },
-    { id: "seed-dev-reminder-tagihan", title: "Bayar Tagihan Listrik & Internet", time: "08:00", repeatType: "every_month", isActive: true, dayOfWeek: 0, dayOfMonth: 5, createdDaysAgo: 89 },
-    { id: "seed-dev-reminder-tabungan", title: "Setor Tabungan Mingguan", time: "19:00", repeatType: "every_week", isActive: true, dayOfWeek: 1, dayOfMonth: 1, createdDaysAgo: 60 },
+    { id: "seed-dev-reminder-cicilan-motor", title: "Bayar Cicilan Motor", time: "09:00", repeatType: "every_month", isActive: true, dayOfWeek: 0, dayOfMonth: 5, createdDaysAgo: ymdDaysAgo(2026, 7, 1) },
+    { id: "seed-dev-reminder-tagihan", title: "Bayar Tagihan Listrik & Internet", time: "08:00", repeatType: "every_month", isActive: true, dayOfWeek: 0, dayOfMonth: 5, createdDaysAgo: ymdDaysAgo(2026, 7, 1) },
+    { id: "seed-dev-reminder-tabungan", title: "Setor Tabungan Mingguan", time: "19:00", repeatType: "every_week", isActive: true, dayOfWeek: 1, dayOfMonth: 1, createdDaysAgo: ymdDaysAgo(2026, 8, 1) },
   ],
   // Cicilan/Hutang: Cicilan Motor's 3 payments below match the "Cicilan
   // Motor Honda Vario" anchor transactions exactly (same amount/date) — real
@@ -520,18 +575,18 @@ const DEV_TEST_USER: DummyUserConfig = {
   // (Debt/DebtPayment intentionally don't reconcile against
   // Transaction/Account balances — see the comment on the Debt type).
   debts: [
-    { id: "seed-dev-debt-cicilan-motor", name: "Cicilan Motor Honda Vario", principalAmount: 18_000_000, monthlyInstallment: 850_000, tenorMonths: 24, dueDay: 5, startDaysAgo: 89, status: "active", createdDaysAgo: 89, reminderId: "seed-dev-reminder-cicilan-motor" },
-    { id: "seed-dev-debt-pinjaman-usaha", name: "Pinjaman Modal Usaha Bisnis", principalAmount: 5_000_000, monthlyInstallment: 550_000, tenorMonths: 10, dueDay: 20, startDaysAgo: 55, status: "active", createdDaysAgo: 55 },
+    { id: "seed-dev-debt-cicilan-motor", name: "Cicilan Motor Honda Vario", principalAmount: 18_000_000, monthlyInstallment: 850_000, tenorMonths: 24, dueDay: 5, startDaysAgo: ymdDaysAgo(2026, 7, 5), status: "active", createdDaysAgo: ymdDaysAgo(2026, 7, 1), reminderId: "seed-dev-reminder-cicilan-motor" },
+    { id: "seed-dev-debt-pinjaman-usaha", name: "Pinjaman Modal Usaha Bisnis", principalAmount: 5_000_000, monthlyInstallment: 550_000, tenorMonths: 10, dueDay: 20, startDaysAgo: ymdDaysAgo(2026, 8, 20), status: "active", createdDaysAgo: ymdDaysAgo(2026, 8, 20) },
   ],
   debtPayments: [
-    ...DEV_MONTH_WINDOW_STARTS.map((start, idx) => ({
+    ...DEV_MONTHS_2026.map((m, idx) => ({
       id: `seed-dev-debtpay-cicilan-motor-${idx}`,
       debtId: "seed-dev-debt-cicilan-motor",
       paidAmount: 850_000,
-      paidDaysAgo: start - 3,
+      paidDaysAgo: ymdDaysAgo(2026, m, 5), // sama persis dengan tanggal transaksi "Cicilan Motor Honda Vario"
     })),
-    { id: "seed-dev-debtpay-pinjaman-usaha-0", debtId: "seed-dev-debt-pinjaman-usaha", paidAmount: 550_000, paidDaysAgo: 55 },
-    { id: "seed-dev-debtpay-pinjaman-usaha-1", debtId: "seed-dev-debt-pinjaman-usaha", paidAmount: 550_000, paidDaysAgo: 25 },
+    { id: "seed-dev-debtpay-pinjaman-usaha-0", debtId: "seed-dev-debt-pinjaman-usaha", paidAmount: 550_000, paidDaysAgo: ymdDaysAgo(2026, 8, 20) },
+    { id: "seed-dev-debtpay-pinjaman-usaha-1", debtId: "seed-dev-debt-pinjaman-usaha", paidAmount: 550_000, paidDaysAgo: ymdDaysAgo(2026, 9, 20) },
   ],
   // Notifikasi: campuran info/warning/success, sebagian sudah dibaca —
   // supaya badge "belum dibaca" dan daftar riwayat sama-sama ada isinya.
@@ -545,15 +600,15 @@ const DEV_TEST_USER: DummyUserConfig = {
   // Transfer Wallet: tarik tunai bulanan BCA→Cash (yang menjaga saldo Cash
   // tetap positif meski dipakai jajan harian) + satu transfer GoPay→Cash.
   walletTransferLogs: [
-    ...DEV_MONTH_WINDOW_STARTS.map((start, idx) => ({
+    ...DEV_MONTHS_2026.map((m, idx) => ({
       id: `seed-dev-transfer-tarik-tunai-${idx}`,
       fromAccountId: "acc-bca",
       toAccountId: "acc-cash",
       amount: 700_000,
       note: "Tarik tunai ATM",
-      daysAgo: start - 1,
+      daysAgo: ymdDaysAgo(2026, m, 26), // sehari setelah gajian tanggal 25
     })),
-    { id: "seed-dev-transfer-gopay-cash", fromAccountId: "acc-gopay", toAccountId: "acc-cash", amount: 150_000, note: "Transfer saldo GoPay ke Cash", daysAgo: 40 },
+    { id: "seed-dev-transfer-gopay-cash", fromAccountId: "acc-gopay", toAccountId: "acc-cash", amount: 150_000, note: "Transfer saldo GoPay ke Cash", daysAgo: ymdDaysAgo(2026, 8, 10) },
   ],
 };
 
