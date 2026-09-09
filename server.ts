@@ -908,6 +908,7 @@ async function createOrderRecord(params: CreateOrderParams): Promise<CreateOrder
       eventSourceUrl: params.requestReferer,
       userData: {
         email,
+        phone: params.whatsapp || undefined,
         clientIpAddress: params.requestIp || undefined,
         clientUserAgent: params.requestUserAgent,
         fbp: utm.fbp || undefined,

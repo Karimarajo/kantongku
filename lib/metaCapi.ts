@@ -8,8 +8,21 @@ export function hashForMeta(value: string): string {
   return crypto.createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
 }
 
+// Meta requires phone numbers normalized to digits-only + country code (no
+// "+", spaces, or dashes) before hashing — e.g. "0812-3456-789" -> "628123456789".
+// Indonesian-specific: strips everything but digits, then fixes up the
+// leading prefix (local "0..." -> "62...", already-"62..." left alone,
+// anything else assumed to be missing the country code entirely).
+export function normalizePhoneID(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("0")) return "62" + digits.slice(1);
+  if (digits.startsWith("62")) return digits;
+  return "62" + digits;
+}
+
 interface MetaCapiUserData {
   email?: string; // plaintext in, hashed below before it leaves this process
+  phone?: string; // plaintext in, normalized + hashed below before it leaves this process
   clientIpAddress?: string;
   clientUserAgent?: string;
   fbp?: string;
@@ -51,8 +64,9 @@ export async function sendMetaCapiEvent(eventName: string, eventId: string, opts
 
   console.log(`[Meta CAPI] Mengirim event "${eventName}" (event_id=${eventId})...`);
 
-  const userData: Record<string, string> = {};
+  const userData: Record<string, string | string[]> = {};
   if (opts.userData?.email) userData.em = hashForMeta(opts.userData.email);
+  if (opts.userData?.phone) userData.ph = [hashForMeta(normalizePhoneID(opts.userData.phone))];
   if (opts.userData?.clientIpAddress) userData.client_ip_address = opts.userData.clientIpAddress;
   if (opts.userData?.clientUserAgent) userData.client_user_agent = opts.userData.clientUserAgent;
   if (opts.userData?.fbp) userData.fbp = opts.userData.fbp;
