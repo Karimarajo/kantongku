@@ -5,9 +5,13 @@ import { Check, Sparkles } from 'lucide-react';
 //
 // Revisi dari pemilik produk: total nilai gabungan dibuat pas Rp399.000/bulan,
 // angka ini SENGAJA disamakan dengan PRICE_ORIGINAL yang sudah dipakai di
-// Hero/section harga (lihat Landing.tsx), supaya "coret Rp399.000 -> Rp99.000"
-// (prompt final: promo naik dari Rp49.000) konsisten di semua tempat harga
-// disebut, bukan angka acak baru.
+// Hero/section harga (lihat Landing.tsx), supaya "coret Rp399.000 -> Rp49.000"
+// konsisten di semua tempat harga disebut, bukan angka acak baru.
+//
+// Harga promo di-revert dari Rp99.000 balik ke Rp49.000 (harga sebelumnya —
+// Rp99.000 belum terbukti kasih konversi lebih baik). KANTONGKU_PRICE di
+// bawah HARUS selalu sama dengan PRICE_PROMO di Landing.tsx — jangan pernah
+// ubah salah satu tanpa yang lain.
 const VALUE_ITEMS = [
   { label: 'Aplikasi pencatatan AI OCR struk & suara', monthly: 99000 },
   { label: 'Fitur multi-wallet & kolaborasi real-time', monthly: 89000 },
@@ -16,7 +20,7 @@ const VALUE_ITEMS = [
 ];
 
 const PRICE_ORIGINAL = 399000;
-const KANTONGKU_PRICE = 99000;
+const KANTONGKU_PRICE = 49000;
 
 export default function ValueStack() {
   const totalMonthly = VALUE_ITEMS.reduce((sum, item) => sum + item.monthly, 0);
@@ -36,7 +40,7 @@ export default function ValueStack() {
           . Di <strong className="font-bold">KantongKu</strong>, kamu cukup{' '}
           <strong className="font-bold">bayar sekali</strong> aja, normalnya{' '}
           <strong className="font-bold">Rp399rb</strong>, sekarang lagi didiskon jadi{' '}
-          <strong className="font-bold bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Rp99rb</strong>,{' '}
+          <strong className="font-bold bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Rp49rb</strong>,{' '}
           <strong className="font-bold">akses selamanya</strong>.
         </p>
 

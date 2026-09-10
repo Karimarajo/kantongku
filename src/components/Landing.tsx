@@ -44,7 +44,7 @@ function getInitialLandingTheme(): LandingTheme {
 // /api/payment/config = PRICE_AMOUNT env) which drives the real order/payment
 // flow — keep these two in sync manually if the promo price changes.
 const PRICE_ORIGINAL = 399000;
-const PRICE_PROMO = 99000;
+const PRICE_PROMO = 49000;
 
 interface PriceConfig {
   amount: number;
