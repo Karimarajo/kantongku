@@ -122,6 +122,18 @@
   background-color: #ffffff;
 }
 
+/* FounderStory's "KantongKu bukan cuma buat nyatet" highlight — mint text
+   with no background reads fine on dark mode's dark surface, but is washed
+   out sitting directly on light mode's white/near-white section background
+   (poor contrast). Dark mode is intentionally left untouched — mint text
+   there is already legible — so this override is scoped to light mode
+   only, giving the highlight its own dark chip (--color-landing-text is
+   the dark forest green light-mode value) so the mint text pops the same
+   way in both themes. */
+[data-landing-theme="light"] .founder-highlight {
+  background-color: var(--color-landing-text);
+}
+
 [data-landing-theme="dark"] {
   --color-landing-bg: #0e141f;
   --color-landing-text: #f8fdf9;

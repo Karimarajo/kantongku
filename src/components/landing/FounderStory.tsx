@@ -17,7 +17,11 @@ export default function FounderStory() {
           <strong className="font-bold">KantongKu</strong> dibangun oleh developer berpengalaman yang
           sebelumnya juga bikin <strong className="font-bold">KasirKu</strong>, sistem kasir yang sampai
           sekarang masih dipakai beberapa brand. Dengan fitur-fitur lengkapnya,{' '}
-          <span className="text-landing-accent font-semibold">KantongKu bukan cuma buat nyatet</span>, tapi
+          {/* founder-highlight: dark chip behind this in light mode only —
+              see the matching override in src/index.css. In dark mode this
+              class does nothing (no matching selector there), so it keeps
+              rendering exactly as before (plain mint text, no background). */}
+          <span className="founder-highlight text-landing-accent font-semibold rounded px-1.5 py-0.5 box-decoration-clone">KantongKu bukan cuma buat nyatet</span>, tapi
           bantu kamu ambil keputusan keuangan dengan lebih bijak. Soal keamanan, kamu gak usah ragu,
           aplikasinya dibangun dengan standar keamanan yang{' '}
           <strong className="font-bold">ketat dan tersertifikasi</strong>, data kamu disimpan aman, bahkan
