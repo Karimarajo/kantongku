@@ -183,7 +183,10 @@ export default function Landing() {
   // way. Also carries `eventId` (set once in src/main.tsx, shared with the
   // fbq('track', 'PageView', ..., { eventID }) call already fired there) so
   // the server's Meta CAPI PageView call in server.ts dedupes against the
-  // browser Pixel's PageView instead of double-counting it.
+  // browser Pixel's PageView instead of double-counting it. `fbclid` ikut
+  // dikirim supaya server bisa membentuk fallback cookie `_fbc` (format resmi
+  // Meta) untuk pengunjung yang fbevents.js-nya diblokir ad-blocker/DNS
+  // filter — lihat handler-nya di server.ts.
   useEffect(() => {
     const utm = readStoredUtmParams();
     fetch('/api/track/pageview', {
@@ -194,6 +197,7 @@ export default function Landing() {
         utm_source: utm.utm_source,
         utm_medium: utm.utm_medium,
         utm_campaign: utm.utm_campaign,
+        fbclid: utm.fbclid,
         eventId: window.__metaPageviewEventId,
       }),
     }).catch(() => {

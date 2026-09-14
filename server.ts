@@ -972,10 +972,17 @@ app.post("/api/payment/create", async (req, res) => {
       return res.status(500).json({ error: "Konfigurasi harga (PRICE_AMOUNT) belum diatur di server" });
     }
 
+    // Fallback ke cookie first-party (termasuk yang baru saja di-set oleh
+    // /api/track/pageview untuk pengunjung ber-Pixel-blokir) kalau client
+    // tidak mengirim fbp/fbc sama sekali — biar order dari pengunjung itu
+    // juga ikut punya fbp/fbc terisi, bukan cuma PageView-nya saja.
+    const resolvedFbp = (typeof fbp === "string" && fbp) || (req.cookies?._fbp as string | undefined) || undefined;
+    const resolvedFbc = (typeof fbc === "string" && fbc) || (req.cookies?._fbc as string | undefined) || undefined;
+
     const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
     const result = await createOrderRecord({
       name, email, whatsapp, baseAmount, orderType: "license",
-      utm: { source: utm_source, medium: utm_medium, campaign: utm_campaign, content: utm_content, term: utm_term, fbclid, fbp, fbc },
+      utm: { source: utm_source, medium: utm_medium, campaign: utm_campaign, content: utm_content, term: utm_term, fbclid, fbp: resolvedFbp, fbc: resolvedFbc },
       requestIp: forwardedFor || req.socket.remoteAddress || undefined,
       requestUserAgent: req.headers["user-agent"] as string | undefined,
       requestReferer: req.headers.referer as string | undefined,
@@ -1389,14 +1396,59 @@ function resolveVisitorIp(req: express.Request): string {
   return req.socket.remoteAddress || "";
 }
 
-app.post("/api/track/pageview", (req, res) => {
-  res.json({ success: true });
+// ~60% pengunjung punya fbevents.js (Meta Pixel) diblokir ad-blocker/DNS
+// filter — untuk mereka cookie _fbp/_fbc (yang normalnya dibuat SCRIPT Pixel
+// itu sendiri) tidak pernah terbentuk sama sekali, jadi event CAPI cuma bawa
+// IP+User-Agent, lemah untuk pencocokan identitas Meta. 90 hari meniru masa
+// berlaku cookie Pixel asli.
+const FBP_FBC_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
+app.post("/api/track/pageview", (req, res) => {
   // Declared here (not inside the first try block below) so the Meta CAPI
   // try block further down — deliberately separate from the internal-
   // analytics try block, see its own comment — can still reference them.
   const path = typeof req.body?.path === "string" ? req.body.path.slice(0, 500) : "/";
   const ip = resolveVisitorIp(req);
+
+  // Fallback first-party _fbp/_fbc — HARUS dihitung & di-set (res.cookie)
+  // SEBELUM res.json di bawah, karena sekali header response terkirim,
+  // cookie baru tidak akan pernah sampai ke browser. Kalau cookie bikinan
+  // Pixel SUDAH ada (browser yang Pixel-nya TIDAK diblokir), nilai itu yang
+  // dipakai — server di sini cuma mengisi kekosongan, tidak pernah menimpa.
+  // Sengaja BUKAN httpOnly: fbevents.js sendiri perlu bisa baca cookie ini
+  // lewat document.cookie untuk pengunjung yang Pixel-nya jalan normal —
+  // kalau httpOnly, nilai versi browser vs versi server akan beda dan
+  // dedup event_id jadi kacau.
+  const cookieOpts = {
+    path: "/",
+    maxAge: FBP_FBC_COOKIE_MAX_AGE_MS,
+    sameSite: "lax" as const,
+    secure: true,
+  };
+
+  let fbp = req.cookies?._fbp as string | undefined;
+  if (!fbp) {
+    // Format resmi Meta: fb.<subdomain_index>.<unix_ms>.<random>
+    fbp = `fb.1.${Date.now()}.${crypto.randomInt(1_000_000_000, 9_999_999_999)}`;
+    res.cookie("_fbp", fbp, cookieOpts);
+  }
+
+  let fbc = req.cookies?._fbc as string | undefined;
+  if (!fbc) {
+    const fbclid =
+      (typeof req.body?.fbclid === "string" && req.body.fbclid) ||
+      (typeof req.query?.fbclid === "string" && req.query.fbclid) ||
+      undefined;
+    // Tanpa fbclid tidak ada apa pun yang bisa dibentuk jadi _fbc — beda
+    // dengan _fbp yang randomnya bisa dibuat kapan saja, _fbc secara
+    // definisi HARUS mengandung fbclid asli dari klik iklan.
+    if (fbclid) {
+      fbc = `fb.1.${Date.now()}.${fbclid}`;
+      res.cookie("_fbc", fbc, cookieOpts);
+    }
+  }
+
+  res.json({ success: true });
 
   (async () => {
     try {
@@ -1462,12 +1514,12 @@ app.post("/api/track/pageview", (req, res) => {
     // that event just won't dedupe with anything, better than dropping it.
     try {
       const eventId = typeof req.body?.eventId === "string" && req.body.eventId ? req.body.eventId : crypto.randomUUID();
-      // Plain (unsigned) cookies set by the Pixel script itself — read
-      // straight from the request rather than trusting the client to relay
-      // them, per the same reasoning CF-Connecting-IP is preferred over a
-      // client-supplied IP in resolveVisitorIp above.
-      const fbp = req.cookies?._fbp;
-      const fbc = req.cookies?._fbc;
+      // `fbp`/`fbc` sudah dihitung di atas (sebelum res.json) — entah dibaca
+      // dari cookie asli bikinan Pixel (req.cookies), atau baru saja
+      // di-generate sebagai fallback first-party di atas. TIDAK dibaca ulang
+      // dari req.cookies di sini karena res.cookie() yang baru dipanggil di
+      // atas tidak akan pernah tercermin balik ke req.cookies pada request
+      // yang sama (itu efeknya baru kelihatan di request BERIKUTNYA).
       await sendMetaCapiEvent("PageView", eventId, {
         eventSourceUrl: `${process.env.APP_URL || ""}${path}`,
         userData: {
