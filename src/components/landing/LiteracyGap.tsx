@@ -70,8 +70,8 @@ export default function LiteracyGap() {
         <div className="flex flex-col sm:flex-row items-center gap-3 justify-center text-center sm:text-left bg-landing-accent/10 border border-landing-accent/30 rounded-2xl p-5">
           <HeartPulse className="w-6 h-6 text-landing-accent shrink-0" />
           <p className="text-sm text-landing-text/80 leading-relaxed">
-            Ini persis yang dibantu <strong className="font-bold">Analisis Kesehatan Keuangan AI</strong> di
-            KantongKu, biar kamu gak lagi nebak-nebak kondisi keuanganmu sendiri.
+            KantongKu juga ada <strong className="font-bold">Analisis Kesehatan Keuangan AI</strong>, untuk bantu
+            kamu tau kesehatan finansial kamu.
           </p>
         </div>
       </div>
