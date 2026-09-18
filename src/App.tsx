@@ -2211,20 +2211,28 @@ export default function App() {
     persistUserData({ reminders: nextReminders });
   };
 
-  // Task: tombol "Sudah Bayar" di Pengingat — membuat transaksi otomatis
-  // dari nominal/wallet/kategori yang sudah diisi saat reminder ini dibuat/
-  // diedit, LALU menandai reminder ini "sudah selesai untuk siklus ini" via
-  // lastTriggeredDate = tanggal hari ini — EXACT mekanisme yang sama yang
-  // sudah dipakai checkAlarms di bawah untuk mem-suppress alarm sampai
-  // kemunculan berikutnya (minggu/bulan depan, tergantung repeatType), jadi
-  // tidak perlu state/flag baru: begitu tanggal berputar ke siklus
-  // berikutnya, lastTriggeredDate otomatis tidak match lagi dan reminder ini
-  // aktif kembali dengan sendirinya. Reminder 'once' langsung nonaktif
-  // permanen, sama seperti saat alarm 'once' benar-benar berbunyi sendiri.
-  const handleMarkReminderPaid = (reminderId: string) => {
+  // Task: tombol "Bayar" di Pengingat — membuat transaksi otomatis dari
+  // nominal yang sudah diisi saat reminder ini dibuat/diedit, LALU menandai
+  // reminder ini "sudah selesai untuk siklus ini" via lastTriggeredDate =
+  // tanggal hari ini — EXACT mekanisme yang sama yang sudah dipakai
+  // checkAlarms di bawah untuk mem-suppress alarm sampai kemunculan
+  // berikutnya (minggu/bulan depan, tergantung repeatType), jadi tidak
+  // perlu state/flag baru: begitu tanggal berputar ke siklus berikutnya,
+  // lastTriggeredDate otomatis tidak match lagi dan reminder ini aktif
+  // kembali dengan sendirinya. Reminder 'once' langsung nonaktif permanen,
+  // sama seperti saat alarm 'once' benar-benar berbunyi sendiri.
+  //
+  // Revisi: kantong/wallet/kategori TIDAK LAGI dibaca dari reminder.pocketId/
+  // accountId/category (dulu wajib diisi saat reminder dibuat) — sekarang
+  // jadi PARAMETER, diisi user lewat PaymentConfirmModal SAAT tombol "Bayar"
+  // ditekan (lihat ReminderModal.tsx). Ketiganya lalu ditulis BALIK ke
+  // reminder ini sebagai "terakhir dipakai" — jadi default yang sudah
+  // ke-pre-fill di PaymentConfirmModal kali berikutnya, tanpa memaksa
+  // dipakai lagi (murni hint, bisa diganti user kapan saja).
+  const handleMarkReminderPaid = (reminderId: string, pocketId: string, accountId: string, category: string) => {
     const reminder = reminders.find(r => r.id === reminderId);
     if (!reminder || !reminder.isActive) return;
-    if (!reminder.amount || !reminder.accountId || !reminder.category) return; // tombol seharusnya disembunyikan kalau ini terjadi
+    if (!reminder.amount) return; // tombol seharusnya disembunyikan kalau ini terjadi
 
     const now = new Date();
     const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -2232,6 +2240,9 @@ export default function App() {
       ...r,
       lastTriggeredDate: currentDateStr,
       isActive: r.repeatType === 'once' ? false : r.isActive,
+      pocketId,
+      accountId,
+      category,
     } : r);
 
     handleAddTransaction(
@@ -2239,9 +2250,9 @@ export default function App() {
         title: reminder.title,
         amount: reminder.amount,
         type: 'outgoing',
-        pocketId: reminder.pocketId || pockets[0]?.id || 'pribadi',
-        accountId: reminder.accountId,
-        category: reminder.category,
+        pocketId,
+        accountId,
+        category,
         notes: 'Ditandai sudah bayar dari Pengingat',
       },
       { reminders: nextReminders, activityNote: 'dari Pengingat' }
@@ -2312,21 +2323,24 @@ export default function App() {
   // mirrors the SQL version's "COUNT(*) >= tenor_months" check the prompt
   // described, just evaluated over the JSONB array instead of a table.
   //
-  // Task: also creates a real Transaction (via handleAddTransaction, using
-  // this debt's own accountId/category/pocketId) and suppresses the debt's
-  // linked monthly reminder for this cycle (lastTriggeredDate = today) —
-  // paying early shouldn't still fire a "jatuh tempo" alarm/push later this
-  // same month. transactionId is generated HERE (not left to
-  // handleAddTransaction's default) so it can be stored on the DebtPayment
-  // record up front, in the SAME atomic persist (see updateStateAndStorage's
-  // `extra` — two separate persist calls in one tick would race).
-  const handleMarkDebtPaid = (debtId: string) => {
+  // Task: also creates a real Transaction (via handleAddTransaction) and
+  // suppresses the debt's linked monthly reminder for this cycle
+  // (lastTriggeredDate = today) — paying early shouldn't still fire a
+  // "jatuh tempo" alarm/push later this same month. transactionId is
+  // generated HERE (not left to handleAddTransaction's default) so it can
+  // be stored on the DebtPayment record up front, in the SAME atomic
+  // persist (see updateStateAndStorage's `extra` — two separate persist
+  // calls in one tick would race).
+  //
+  // Revisi: kantong/wallet/kategori TIDAK LAGI dibaca dari debt.pocketId/
+  // accountId/category (dulu wajib diisi lewat Edit sebelum bisa "Sudah
+  // Bayar") — sekarang jadi PARAMETER, diisi user lewat PaymentConfirmModal
+  // SAAT tombol "Sudah Bayar Bulan Ini" ditekan (lihat DebtManagerView.tsx).
+  // Ketiganya ditulis BALIK ke debt ini sebagai "terakhir dipakai", sama
+  // pola dengan handleMarkReminderPaid di atas.
+  const handleMarkDebtPaid = (debtId: string, pocketId: string, accountId: string, category: string) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt || debt.status === 'paid_off') return;
-    if (!debt.accountId || !debt.category) {
-      alert('Wallet dan Kategori cicilan ini belum diisi — buka Edit untuk melengkapinya dulu sebelum menandai sudah bayar.');
-      return;
-    }
 
     const transactionId = `t-${Date.now()}`;
     const newPayment: DebtPayment = {
@@ -2339,7 +2353,13 @@ export default function App() {
     const nextPayments = [...debtPayments, newPayment];
     const paidCount = nextPayments.filter(p => p.debtId === debtId).length;
     const isNowPaidOff = paidCount >= debt.tenorMonths;
-    const nextDebts = debts.map(d => d.id === debtId ? { ...d, status: (isNowPaidOff ? 'paid_off' : d.status) as Debt['status'] } : d);
+    const nextDebts = debts.map(d => d.id === debtId ? {
+      ...d,
+      status: (isNowPaidOff ? 'paid_off' : d.status) as Debt['status'],
+      pocketId,
+      accountId,
+      category,
+    } : d);
 
     let nextReminders: Reminder[] | undefined;
     if (debt.reminderId) {
@@ -2354,9 +2374,9 @@ export default function App() {
         title: debt.name,
         amount: debt.monthlyInstallment,
         type: 'outgoing',
-        pocketId: debt.pocketId || pockets[0]?.id || 'pribadi',
-        accountId: debt.accountId,
-        category: debt.category,
+        pocketId,
+        accountId,
+        category,
         notes: 'Pembayaran cicilan/hutang',
       },
       { debts: nextDebts, debtPayments: nextPayments, reminders: nextReminders, activityNote: isNowPaidOff ? 'cicilan lunas' : 'cicilan' }
@@ -2857,6 +2877,10 @@ export default function App() {
               userProfile={currentUser}
               categories={categories}
               budgets={budgets}
+              reminders={reminders}
+              debts={debts}
+              onMarkReminderPaid={handleMarkReminderPaid}
+              onMarkDebtPaid={handleMarkDebtPaid}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onDeleteTransaction={handleDeleteTransaction}
               onTransferBetweenWallets={handleTransferBetweenWallets}

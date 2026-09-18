@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budget, SharedPocketBundle } from '../types';
+import { Pocket, Transaction, Notification, UserProfile, Category, Account, Budget, SharedPocketBundle, Reminder, Debt } from '../types';
 import type { AppSettings } from './ProfileView';
 import BrandLogo from './BrandLogo';
 import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
@@ -8,6 +8,7 @@ import { useHorizontalDragScroll } from '../hooks/useHorizontalDragScroll';
 import CategoryIcon from './CategoryIcon';
 import PushNotificationToggle from './PushNotificationToggle';
 import QuickActionOrderModal, { QuickActionMeta } from './QuickActionOrderModal';
+import PaymentConfirmModal from './PaymentConfirmModal';
 import {
   RefreshCw,
   Bell,
@@ -47,7 +48,8 @@ import {
   Tag,
   Settings2,
   Sun,
-  Moon
+  Moon,
+  CheckCircle2
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -62,6 +64,14 @@ interface HomeDashboardProps {
   userProfile: UserProfile;
   categories: Category[];
   budgets: Budget[];
+  // Revisi: kartu Paylater/Kartu Kredit + Pengingat Terdekat di atas Target
+  // & Limit — butuh reminders/debts + handler bayarnya (SAMA persis dipakai
+  // ReminderModal.tsx/DebtManagerView.tsx, sekarang minta kantong/wallet/
+  // kategori lewat PaymentConfirmModal, bukan lagi baca dari record-nya).
+  reminders: Reminder[];
+  debts: Debt[];
+  onMarkReminderPaid: (id: string, pocketId: string, accountId: string, category: string) => void;
+  onMarkDebtPaid: (id: string, pocketId: string, accountId: string, category: string) => void;
   // Task: urutan tombol Aksi Cepat (drag & drop, disimpan per-akun).
   appSettings: AppSettings;
   onSaveSettings: (settings: AppSettings) => void;
@@ -89,6 +99,10 @@ export default function HomeDashboard({
   userProfile,
   categories,
   budgets,
+  reminders,
+  debts,
+  onMarkReminderPaid,
+  onMarkDebtPaid,
   appSettings,
   onSaveSettings,
   onOpenAddModal,
@@ -177,6 +191,76 @@ export default function HomeDashboard({
     });
     return map;
   }, [transactions, pockets, sharedPockets]);
+
+  // Revisi: wallet Paylater/Kartu Kredit yang sudah dibuat (Account.type ===
+  // 'paylater') — ditampilkan sebagai kartu ringkas di atas Target & Limit.
+  const paylaterAccounts = useMemo(() => accounts.filter(a => a.type === 'paylater'), [accounts]);
+
+  // Revisi: kartu "Pengingat Terdekat" — cari SATU reminder/cicilan yang
+  // paling dekat jatuh temponya, dari `reminders` (cicilan sudah otomatis
+  // punya reminder every_month sendiri lewat handleAddDebt di App.tsx, jadi
+  // ini otomatis mencakup cicilan juga tanpa logic terpisah). Heuristik
+  // "hari lagi" ini sengaja sederhana (dipakai cuma untuk sorting kartu
+  // mana yang paling relevan ditonjolkan, bukan mesin penjadwalan presisi)
+  // — cukup konsisten dengan matching pattern yang sudah dipakai checkAlarms
+  // di App.tsx (dayOfWeek/dayOfMonth literal, tidak menangani edge-case
+  // akhir bulan mis. dayOfMonth 31 di bulan 30 hari).
+  const daysUntilNext = (reminder: Reminder): number => {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (reminder.repeatType === 'once') {
+      if (!reminder.targetDate) return Infinity;
+      const target = new Date(`${reminder.targetDate}T00:00:00`);
+      return Math.round((target.getTime() - todayMidnight.getTime()) / 86400000);
+    }
+    if (reminder.repeatType === 'every_day') return 0;
+    if (reminder.repeatType === 'every_week') {
+      return (reminder.dayOfWeek - todayMidnight.getDay() + 7) % 7;
+    }
+    // every_month
+    const currentDay = todayMidnight.getDate();
+    if (reminder.dayOfMonth >= currentDay) return reminder.dayOfMonth - currentDay;
+    const daysInMonth = new Date(todayMidnight.getFullYear(), todayMidnight.getMonth() + 1, 0).getDate();
+    return (daysInMonth - currentDay) + reminder.dayOfMonth;
+  };
+
+  // NOTE: pakai Date.now() baru langsung di sini, BUKAN state `now` di atas
+  // (itu punya nama sama tapi tujuannya beda — jam header, di-update tiap
+  // 30 detik lewat setInterval) untuk menghindari redeclare variabel di
+  // scope yang sama.
+  const todayDateStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+
+  const nearestPayable = useMemo(() => {
+    const debtByReminderId = new Map(
+      debts.filter(d => d.reminderId && d.status === 'active').map(d => [d.reminderId as string, d])
+    );
+    const eligible = reminders
+      .filter(r => {
+        if (!r.isActive || r.lastTriggeredDate === todayDateStr) return false;
+        // Debt-linked reminder (handleAddDebt di App.tsx) TIDAK PERNAH
+        // punya amount sendiri — nominalnya diambil dari
+        // debt.monthlyInstallment di bawah, jadi di sini cukup pastikan
+        // debt-nya masih aktif (sudah difilter di debtByReminderId).
+        // Reminder biasa (bukan cicilan) tetap butuh amount-nya sendiri.
+        return debtByReminderId.has(r.id) || !!r.amount;
+      })
+      .map(r => {
+        const debt = debtByReminderId.get(r.id);
+        return { reminder: r, debt, amount: debt ? debt.monthlyInstallment : r.amount!, daysUntil: daysUntilNext(r) };
+      })
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+    return eligible[0];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders, debts, todayDateStr]);
+
+  // Revisi: id item (reminder ATAU debt) yang lagi dalam proses konfirmasi
+  // bayar dari kartu "Pengingat Terdekat" — PaymentConfirmModal-nya dirender
+  // di akhir file, routing ke onMarkReminderPaid/onMarkDebtPaid tergantung
+  // apakah reminder terdekat itu ternyata terhubung ke sebuah Debt.
+  const [payingNearest, setPayingNearest] = useState(false);
 
   // Keep the transfer wallet selections valid as `accounts` changes — the
   // destination always excludes whichever wallet is currently the source.
@@ -674,6 +758,98 @@ export default function HomeDashboard({
 
       </div>
 
+      {/* Revisi: ROW 1.5 — kartu Paylater/Kartu Kredit (kiri) + Pengingat
+          Terdekat (kanan), DI ATAS Target & Limit. Masing-masing render
+          sendiri-sendiri (bisa satu, bisa dua-duanya, bisa tidak sama
+          sekali kalau tidak ada data) — baris ini sendiri hilang total
+          kalau keduanya kosong. */}
+      {(paylaterAccounts.length > 0 || nearestPayable) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full min-w-0">
+          {paylaterAccounts.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
+                <h3 className="font-headline-sm text-lg text-on-surface flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-primary" /> {tr('Paylater & Kartu Kredit')}
+                </h3>
+                <button
+                  onClick={() => onChangeTab('wallet')}
+                  className="font-label-caps text-xs text-primary hover:opacity-80 transition-opacity shrink-0"
+                >
+                  {tr('Lihat Semua')}
+                </button>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {paylaterAccounts.map((acc) => {
+                  const limit = acc.limit || 0;
+                  const outstanding = acc.balance || 0;
+                  const percentage = limit > 0 ? Math.min(100, Math.max(0, (outstanding / limit) * 100)) : 0;
+                  return (
+                    <button
+                      key={acc.id}
+                      onClick={() => onChangeTab('wallet')}
+                      className="glass-card rounded-2xl p-3.5 flex flex-col gap-2 border border-overlay/5 hover:bg-overlay/5 transition-all text-left"
+                    >
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-xs font-semibold text-on-surface truncate flex items-center gap-2">
+                          {acc.logoUrl ? (
+                            <img src={acc.logoUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <CreditCard className="w-4 h-4 text-primary shrink-0" />
+                          )}
+                          {acc.name}
+                        </span>
+                        <span className="text-[10px] font-mono-data text-on-surface-variant shrink-0">
+                          {formatRupiah(outstanding, false)} / {formatRupiah(limit, false)}
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-overlay/5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${percentage >= 90 ? 'bg-rose-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-primary'}`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant/70">
+                        {Math.round(percentage)}% {tr('dari limit')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {nearestPayable && (
+            <section className="flex flex-col gap-3">
+              <div className="flex justify-between items-center border-b border-overlay/5 pb-2">
+                <h3 className="font-headline-sm text-lg text-on-surface flex items-center gap-1.5">
+                  <AlarmClock className="w-4 h-4 text-primary" /> {tr('Pengingat Terdekat')}
+                </h3>
+              </div>
+              <div className="glass-card rounded-2xl p-3.5 flex flex-col gap-2.5 border border-overlay/5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-on-surface truncate">{nearestPayable.reminder.title}</span>
+                  <span className="font-mono-data text-sm text-primary shrink-0">{formatRupiah(nearestPayable.amount, false)}</span>
+                </div>
+                <span className="text-[11px] text-on-surface-variant/70">
+                  {nearestPayable.daysUntil < 0
+                    ? tr('Terlewat')
+                    : nearestPayable.daysUntil === 0
+                    ? tr('Jatuh tempo hari ini')
+                    : `${nearestPayable.daysUntil} ${tr('hari')} ${tr('lagi')}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPayingNearest(true)}
+                  className="h-9 w-full rounded-lg bg-primary text-on-primary text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> {tr('Bayar')}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
       {/* ROW 2 — Target & Limit (kiri) + Aktivitas Terakhir (kanan), di
           BAWAH Row 1 (Task 2). */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
@@ -1033,6 +1209,31 @@ export default function HomeDashboard({
         actions={orderedActions}
         onSave={handleSaveQuickActionOrder}
       />
+
+      {/* Revisi: popup konfirmasi bayar dari kartu "Pengingat Terdekat" —
+          routing ke onMarkDebtPaid kalau reminder terdekat itu ternyata
+          terhubung ke sebuah Debt, kalau tidak ya onMarkReminderPaid biasa. */}
+      {payingNearest && nearestPayable && (
+        <PaymentConfirmModal
+          title={nearestPayable.reminder.title}
+          amount={nearestPayable.amount}
+          pockets={pockets}
+          accounts={accounts}
+          categories={categories}
+          defaultPocketId={(nearestPayable.debt || nearestPayable.reminder).pocketId}
+          defaultAccountId={(nearestPayable.debt || nearestPayable.reminder).accountId}
+          defaultCategory={(nearestPayable.debt || nearestPayable.reminder).category}
+          onConfirm={(pId, aId, cat) => {
+            if (nearestPayable.debt) {
+              onMarkDebtPaid(nearestPayable.debt.id, pId, aId, cat);
+            } else {
+              onMarkReminderPaid(nearestPayable.reminder.id, pId, aId, cat);
+            }
+            setPayingNearest(false);
+          }}
+          onClose={() => setPayingNearest(false)}
+        />
+      )}
     </div>
   );
 }

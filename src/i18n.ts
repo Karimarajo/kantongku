@@ -572,6 +572,21 @@ const EN: Record<string, string> = {
   'Mode Gelap/Terang': 'Dark/Light Mode',
   'Bantuan & Dukungan': 'Help & Support',
   'Pertanyaan yang Sering Diajukan (FAQ)': 'Frequently Asked Questions (FAQ)',
+
+  // Revisi (bayar pengingat/cicilan) — PaymentConfirmModal.tsx, kartu Paylater
+  // & Pengingat Terdekat di HomeDashboard.tsx.
+  'Konfirmasi Pembayaran': 'Confirm Payment',
+  'Kantong': 'Pocket',
+  'Wallet/Bank': 'Wallet/Bank',
+  'Paylater & Kartu Kredit': 'Paylater & Credit Card',
+  'Belum ada wallet Paylater/Kartu Kredit.': 'No Paylater/Credit Card wallet yet.',
+  // 'dari limit' sudah ada di atas (dipakai Target & Limit).
+  'Pengingat Terdekat': 'Nearest Reminder',
+  'Tidak ada pengingat/cicilan mendatang.': 'No upcoming reminder/installment.',
+  'Jatuh tempo hari ini': 'Due today',
+  'Terlewat': 'Overdue',
+  'hari': 'day(s)',
+  'lagi': 'left',
 };
 
 // Fallback param cuma dipakai untuk teks yang mengandung interpolasi

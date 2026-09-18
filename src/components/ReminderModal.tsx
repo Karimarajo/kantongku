@@ -3,6 +3,7 @@ import { Reminder, Debt, Pocket, Account, Category } from '../types';
 import { formatRupiah } from '../utils';
 import { t as tr } from '../i18n';
 import { X, Plus, Trash2, Bell, AlarmClock, CalendarDays, Clock, RefreshCw, Edit3, CheckCircle2, Save, Link2 } from 'lucide-react';
+import PaymentConfirmModal from './PaymentConfirmModal';
 
 interface ReminderModalProps {
   isOpen: boolean;
@@ -20,7 +21,11 @@ interface ReminderModalProps {
   onEditReminder: (reminder: Reminder) => void;
   onToggleReminder: (id: string) => void;
   onDeleteReminder: (id: string) => void;
-  onMarkPaid: (id: string) => void;
+  // Revisi: kantong/wallet/kategori TIDAK LAGI diisi saat bikin reminder —
+  // sekarang ditanya lewat PaymentConfirmModal begitu tombol "Bayar" ditekan
+  // (lihat pemakaiannya di bawah), jadi handler ini sekarang butuh ketiganya
+  // sebagai parameter, bukan lagi baca dari reminder.pocketId/accountId/category.
+  onMarkPaid: (id: string, pocketId: string, accountId: string, category: string) => void;
 }
 
 export default function ReminderModal({
@@ -43,13 +48,17 @@ export default function ReminderModal({
   const [targetDateTime, setTargetDateTime] = useState('');
   const [repeatType, setRepeatType] = useState<'once' | 'every_day' | 'every_week' | 'every_month'>('once');
 
-  // Task: detail transaksi otomatis untuk tombol "Sudah Bayar" — opsional,
-  // tombolnya sendiri baru muncul di daftar kalau ketiganya terisi.
+  // Task: nominal otomatis untuk tombol "Bayar" — opsional, tombolnya
+  // sendiri baru muncul di daftar kalau ini terisi. Revisi: kantong/wallet/
+  // kategori TIDAK LAGI diisi di sini — sekarang ditanya lewat
+  // PaymentConfirmModal begitu "Bayar" ditekan (lihat payingId di bawah).
   const [amount, setAmount] = useState<number>(0);
   const [amountDisplay, setAmountDisplay] = useState('');
-  const [pocketId, setPocketId] = useState<string>(pockets[0]?.id || '');
-  const [accountId, setAccountId] = useState<string>(accounts[0]?.id || '');
-  const [category, setCategory] = useState<string>(categories[0]?.id || '');
+
+  // Revisi: id reminder yang sedang dalam proses konfirmasi bayar — begitu
+  // diisi, PaymentConfirmModal dirender di atas modal ini menanyakan
+  // kantong/wallet/kategori pembayarannya baru dikirim ke onMarkPaid.
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -66,9 +75,6 @@ export default function ReminderModal({
     setRepeatType('once');
     setAmount(0);
     setAmountDisplay('');
-    setPocketId(pockets[0]?.id || '');
-    setAccountId(accounts[0]?.id || '');
-    setCategory(categories[0]?.id || '');
   };
 
   const handleOpenEdit = (reminder: Reminder) => {
@@ -83,9 +89,6 @@ export default function ReminderModal({
     setRepeatType(reminder.repeatType);
     setAmount(reminder.amount || 0);
     setAmountDisplay(reminder.amount ? new Intl.NumberFormat('id-ID').format(reminder.amount) : '');
-    setPocketId(reminder.pocketId || pockets[0]?.id || '');
-    setAccountId(reminder.accountId || accounts[0]?.id || '');
-    setCategory(reminder.category || categories[0]?.id || '');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -103,11 +106,13 @@ export default function ReminderModal({
     // 2. Ambil tanggal mulai asli (Format: YYYY-MM-DD)
     const dateFormatted = targetDateTime.split('T')[0];
 
+    // Revisi: pocketId/accountId/category TIDAK disentuh di sini lagi —
+    // kalau ini edit reminder yang sudah pernah dibayar, nilai "terakhir
+    // dipakai" itu tetap tersimpan apa adanya di `existing` (dipakai
+    // PaymentConfirmModal sebagai default berikutnya); reminder baru
+    // memang belum punya nilai itu sama sekali sampai dibayar pertama kali.
     const detailTransaksi = {
       amount: amount > 0 ? amount : undefined,
-      pocketId: amount > 0 ? pocketId : undefined,
-      accountId: amount > 0 ? accountId : undefined,
-      category: amount > 0 ? category : undefined,
     };
 
     if (editingId) {
@@ -231,11 +236,12 @@ export default function ReminderModal({
               </div>
             </div>
 
-            {/* Task: detail transaksi opsional — kalau diisi, tombol "Sudah
-                Bayar" muncul di daftar dan otomatis mencatat transaksi ini. */}
+            {/* Revisi: cuma nominal — kalau diisi, tombol "Bayar" muncul di
+                daftar. Kantong/wallet/kategori TIDAK ditanya di sini lagi,
+                baru ditanya lewat popup begitu tombol "Bayar" itu ditekan. */}
             <div className="flex flex-col gap-1.5 pt-1 border-t border-overlay/5">
               <label className="text-xs text-on-surface-variant/70 font-medium flex items-center gap-1 mt-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> {tr('Detail Transaksi (opsional — untuk tombol "Sudah Bayar")')}
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> {tr('Nominal (opsional — untuk tombol "Bayar")')}
               </label>
               <div className="relative flex items-center">
                 <span className="absolute left-3 font-bold text-primary font-mono-data text-xs">Rp</span>
@@ -252,20 +258,6 @@ export default function ReminderModal({
                   className="h-10 w-full bg-body-bg/40 border border-overlay/10 rounded-lg pl-9 pr-3 text-sm text-on-surface focus:outline-none focus:border-primary/60 font-mono-data"
                 />
               </div>
-
-              {amount > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
-                  <select value={pocketId} onChange={(e) => setPocketId(e.target.value)} className="h-9 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
-                    {pockets.map(p => <option key={p.id} value={p.id} className="bg-surface text-on-surface">{p.name}</option>)}
-                  </select>
-                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
-                    {accounts.map(a => <option key={a.id} value={a.id} className="bg-surface text-on-surface">{a.name}</option>)}
-                  </select>
-                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-9 bg-body-bg/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
-                    {categories.map(c => <option key={c.id} value={c.id} className="bg-surface text-on-surface">{c.name}</option>)}
-                  </select>
-                </div>
-              )}
             </div>
 
             <button
@@ -299,14 +291,17 @@ export default function ReminderModal({
 
                   const tampilanWaktuLokal = `${gabunganWaktu.toLocaleDateString('id-ID', formatOpsi)} - Pukul ${reminder.time}`;
                   const isDebtLinked = debts.some(d => d.reminderId === reminder.id);
-                  const hasPaymentDetail = !!reminder.amount && !!reminder.accountId && !!reminder.category;
+                  // Revisi: cuma butuh amount sekarang — kantong/wallet/
+                  // kategori ditanya belakangan lewat PaymentConfirmModal,
+                  // bukan syarat lagi buat tombol "Bayar" muncul.
+                  const hasAmount = !!reminder.amount;
                   // Task: sudah dibayar SIKLUS INI — lastTriggeredDate ini
                   // sama persis yang dipakai untuk menekan alarm sampai
                   // siklus berikutnya (lihat handleMarkReminderPaid di
                   // App.tsx), jadi "Sudah Bayar" otomatis kembali jadi
                   // "Bayar" begitu tanggalnya berganti siklus (minggu/bulan).
-                  const isPaidThisCycle = hasPaymentDetail && reminder.lastTriggeredDate === todayDateStr;
-                  const canMarkPaid = reminder.isActive && !isDebtLinked && hasPaymentDetail && !isPaidThisCycle;
+                  const isPaidThisCycle = hasAmount && reminder.lastTriggeredDate === todayDateStr;
+                  const canMarkPaid = reminder.isActive && !isDebtLinked && hasAmount && !isPaidThisCycle;
 
                   return (
                     <div
@@ -388,7 +383,7 @@ export default function ReminderModal({
                       {canMarkPaid && (
                         <button
                           type="button"
-                          onClick={() => onMarkPaid(reminder.id)}
+                          onClick={() => setPayingId(reminder.id)}
                           className="h-9 w-full rounded-lg bg-primary text-on-primary text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition-all"
                         >
                           <CheckCircle2 className="w-4 h-4" /> {tr('Bayar')} ({formatRupiah(reminder.amount!)})
@@ -409,6 +404,28 @@ export default function ReminderModal({
 
         </div>
       </div>
+
+      {payingId && (() => {
+        const payingReminder = reminders.find(r => r.id === payingId);
+        if (!payingReminder || !payingReminder.amount) return null;
+        return (
+          <PaymentConfirmModal
+            title={payingReminder.title}
+            amount={payingReminder.amount}
+            pockets={pockets}
+            accounts={accounts}
+            categories={categories}
+            defaultPocketId={payingReminder.pocketId}
+            defaultAccountId={payingReminder.accountId}
+            defaultCategory={payingReminder.category}
+            onConfirm={(pId, aId, cat) => {
+              onMarkPaid(payingReminder.id, pId, aId, cat);
+              setPayingId(null);
+            }}
+            onClose={() => setPayingId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

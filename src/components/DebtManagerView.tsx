@@ -5,6 +5,7 @@ import { t as tr } from '../i18n';
 import {
   ChevronLeft, Plus, X, CreditCard, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Trash2, PartyPopper, Edit3, Save
 } from 'lucide-react';
+import PaymentConfirmModal from './PaymentConfirmModal';
 
 interface DebtManagerViewProps {
   debts: Debt[];
@@ -16,7 +17,10 @@ interface DebtManagerViewProps {
   onBack: () => void;
   onAddDebt: (input: Omit<Debt, 'id' | 'createdAt' | 'status' | 'reminderId'>) => void;
   onEditDebt: (debtId: string, input: Omit<Debt, 'id' | 'createdAt' | 'status' | 'reminderId'>) => void;
-  onMarkPaid: (debtId: string) => void;
+  // Revisi: kantong/wallet/kategori TIDAK LAGI diisi saat bikin cicilan —
+  // sekarang ditanya lewat PaymentConfirmModal begitu tombol "Sudah Bayar
+  // Bulan Ini" ditekan, jadi handler ini butuh ketiganya sebagai parameter.
+  onMarkPaid: (debtId: string, pocketId: string, accountId: string, category: string) => void;
   onDeleteDebt: (debtId: string) => void;
   // Task: hapus/edit satu baris riwayat pembayaran — Edit membuka transaksi
   // tertautnya lewat modal edit transaksi yang sama dipakai di seluruh app
@@ -40,9 +44,11 @@ export default function DebtManagerView({
   const [tenorMonths, setTenorMonths] = useState<number>(12);
   const [dueDay, setDueDay] = useState<number>(5);
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [pocketId, setPocketId] = useState<string>(pockets[0]?.id || '');
-  const [accountId, setAccountId] = useState<string>(accounts[0]?.id || '');
-  const [category, setCategory] = useState<string>(categories[0]?.id || '');
+
+  // Revisi: id debt yang sedang dalam proses konfirmasi bayar — begitu
+  // diisi, PaymentConfirmModal dirender menanyakan kantong/wallet/kategori
+  // pembayarannya (tidak lagi diisi di form pembuatan cicilan di bawah).
+  const [payingDebtId, setPayingDebtId] = useState<string | null>(null);
 
   const resetForm = () => {
     setEditingId(null);
@@ -52,9 +58,6 @@ export default function DebtManagerView({
     setTenorMonths(12);
     setDueDay(5);
     setStartDate(new Date().toISOString().slice(0, 10));
-    setPocketId(pockets[0]?.id || '');
-    setAccountId(accounts[0]?.id || '');
-    setCategory(categories[0]?.id || '');
   };
 
   const handleOpenEdit = (debt: Debt) => {
@@ -65,9 +68,6 @@ export default function DebtManagerView({
     setTenorMonths(debt.tenorMonths);
     setDueDay(debt.dueDay);
     setStartDate(debt.startDate);
-    setPocketId(debt.pocketId || pockets[0]?.id || '');
-    setAccountId(debt.accountId || accounts[0]?.id || '');
-    setCategory(debt.category || categories[0]?.id || '');
     setShowForm(true);
   };
 
@@ -79,7 +79,12 @@ export default function DebtManagerView({
     if (tenorMonths <= 0) return alert(tr('Tenor harus lebih besar dari 0'));
     if (dueDay < 1 || dueDay > 31) return alert(tr('Tanggal jatuh tempo harus antara 1-31'));
 
-    const input = { name: name.trim(), principalAmount, monthlyInstallment, tenorMonths, dueDay, startDate, pocketId, accountId, category };
+    // Revisi: pocketId/accountId/category TIDAK disertakan di sini lagi —
+    // kalau ini edit cicilan yang sudah pernah dibayar, nilai "terakhir
+    // dipakai" itu tetap tersimpan apa adanya (dipakai PaymentConfirmModal
+    // sebagai default berikutnya); cicilan baru memang belum punya nilai
+    // itu sampai dibayar pertama kali.
+    const input = { name: name.trim(), principalAmount, monthlyInstallment, tenorMonths, dueDay, startDate };
     if (editingId) {
       onEditDebt(editingId, input);
     } else {
@@ -100,7 +105,6 @@ export default function DebtManagerView({
     const progressPercent = Math.min(100, Math.round((paidCount / debt.tenorMonths) * 100));
     const isExpanded = expandedId === debt.id;
     const isPaidOff = debt.status === 'paid_off';
-    const missingPaymentDetail = !debt.accountId || !debt.category;
 
     return (
       <div key={debt.id} className={`flex flex-col gap-3 p-4 rounded-xl border glass-card ${isPaidOff ? 'border-primary/20 opacity-70' : 'border-overlay/5'}`}>
@@ -143,8 +147,7 @@ export default function DebtManagerView({
           </div>
           {!isPaidOff && (
             <button
-              onClick={() => onMarkPaid(debt.id)}
-              title={missingPaymentDetail ? 'Lengkapi Wallet & Kategori (Edit) dulu' : undefined}
+              onClick={() => setPayingDebtId(debt.id)}
               className="h-10 px-4 rounded-xl bg-primary text-on-primary text-xs font-bold flex items-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition-all shrink-0"
             >
               <CheckCircle2 className="w-4 h-4" /> {tr('Sudah Bayar Bulan Ini')}
@@ -156,12 +159,6 @@ export default function DebtManagerView({
             </span>
           )}
         </div>
-
-        {missingPaymentDetail && !isPaidOff && (
-          <p className="text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
-            {tr('Wallet & Kategori pembayaran belum diisi — buka Edit untuk melengkapinya sebelum menandai sudah bayar.')}
-          </p>
-        )}
 
         {payments.length > 0 && (
           <div className="border-t border-overlay/5 pt-2">
@@ -276,22 +273,6 @@ export default function DebtManagerView({
             <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60" />
           </div>
 
-          {/* Task: detail transaksi otomatis untuk "Sudah Bayar" */}
-          <div className="flex flex-col gap-1.5 pt-1 border-t border-overlay/5">
-            <label className="text-xs font-label-caps text-on-surface-variant uppercase mt-2">{tr('Dibayar Dari (untuk tombol "Sudah Bayar")')}</label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <select value={pocketId} onChange={(e) => setPocketId(e.target.value)} className="h-10 bg-surface-variant/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
-                {pockets.map(p => <option key={p.id} value={p.id} className="bg-surface text-on-surface">{p.name}</option>)}
-              </select>
-              <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-10 bg-surface-variant/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
-                {accounts.map(a => <option key={a.id} value={a.id} className="bg-surface text-on-surface">{a.name}</option>)}
-              </select>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 bg-surface-variant/40 border border-overlay/10 rounded-lg px-2 text-xs text-on-surface focus:outline-none focus:border-primary/60">
-                {categories.map(c => <option key={c.id} value={c.id} className="bg-surface text-on-surface">{c.name}</option>)}
-              </select>
-            </div>
-          </div>
-
           <button type="submit" className="w-full h-12 mt-1 bg-primary text-on-primary font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all">
             {editingId ? <><Save className="w-5 h-5" /> {tr('Simpan Perubahan')}</> : <><Plus className="w-5 h-5" /> {tr('Simpan Cicilan/Hutang')}</>}
           </button>
@@ -316,6 +297,28 @@ export default function DebtManagerView({
           {paidOffDebts.map(renderDebtCard)}
         </div>
       )}
+
+      {payingDebtId && (() => {
+        const payingDebt = debts.find(d => d.id === payingDebtId);
+        if (!payingDebt) return null;
+        return (
+          <PaymentConfirmModal
+            title={payingDebt.name}
+            amount={payingDebt.monthlyInstallment}
+            pockets={pockets}
+            accounts={accounts}
+            categories={categories}
+            defaultPocketId={payingDebt.pocketId}
+            defaultAccountId={payingDebt.accountId}
+            defaultCategory={payingDebt.category}
+            onConfirm={(pId, aId, cat) => {
+              onMarkPaid(payingDebt.id, pId, aId, cat);
+              setPayingDebtId(null);
+            }}
+            onClose={() => setPayingDebtId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
