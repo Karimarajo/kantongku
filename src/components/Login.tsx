@@ -54,12 +54,21 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
   // be tested that way. Server-side this 404s outright in production (see
   // POST /api/dev/login-as-test-user in server.ts) — that's the real gate;
   // devLoginAvailable above just keeps this button's visibility in sync
-  // with it at runtime.
-  const handleDevLogin = async () => {
+  // with it at runtime. `email` param (optional) routes through
+  // resolveLoginAccess's own explicit-email branch (server.ts) instead of
+  // the default forced-'active' dummy user — lets a demo/preview link boot
+  // straight into ANY existing test account (e.g. a trial-expired one) via
+  // ?dev_email=... below, without needing a real Google login for it.
+  const handleDevLogin = async (email?: string) => {
     setError('');
     setDevLoading(true);
     try {
-      const res = await fetch('/api/dev/login-as-test-user', { method: 'POST', credentials: 'include' });
+      const res = await fetch('/api/dev/login-as-test-user', {
+        method: 'POST',
+        credentials: 'include',
+        headers: email ? { 'Content-Type': 'application/json' } : undefined,
+        body: email ? JSON.stringify({ email }) : undefined,
+      });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Gagal login sebagai test user.');
@@ -72,6 +81,20 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
       setDevLoading(false);
     }
   };
+
+  // Demo/preview convenience: opening /app?dev_email=<email> auto-triggers
+  // the dev bypass above for that SPECIFIC existing account the moment the
+  // login screen mounts (no click needed) — e.g. to preview the
+  // trial-expired lock-screen for an account seeded to already be past its
+  // trial_ends_at. Gated the exact same way as the button itself
+  // (devLoginAvailable, itself mirroring the server's NODE_ENV check) —
+  // never fires in production.
+  useEffect(() => {
+    if (!devLoginAvailable) return;
+    const devEmail = new URLSearchParams(window.location.search).get('dev_email');
+    if (devEmail) handleDevLogin(devEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devLoginAvailable]);
 
   const handleCredentialResponse = async (response: GoogleCredentialResponse) => {
     setError('');
@@ -169,7 +192,7 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
           {devLoginAvailable && (
             <button
               type="button"
-              onClick={handleDevLogin}
+              onClick={() => handleDevLogin()}
               disabled={devLoading}
               className="text-xs font-label-caps uppercase tracking-wider text-amber-400 hover:text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-full px-4 py-2 transition-colors disabled:opacity-50"
             >
