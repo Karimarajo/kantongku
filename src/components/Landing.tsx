@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { User, Mail, Phone, ArrowRight, CheckCircle2, Loader2, Copy, Check, ShieldCheck, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { User, Mail, Phone, ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import Header from './landing/Header';
 import Hero from './landing/Hero';
 import TrustBar from './landing/TrustBar';
@@ -9,13 +9,11 @@ import BeforeAfter from './landing/BeforeAfter';
 import HowItWorks from './landing/HowItWorks';
 import Testimonials from './landing/Testimonials';
 import Features from './landing/Features';
-import ValueStack from './landing/ValueStack';
 import FounderStory from './landing/FounderStory';
 import UpdateForever from './landing/UpdateForever';
 import FAQ from './landing/FAQ';
 import Footer from './landing/Footer';
 import SocialProofToast from './landing/SocialProofToast';
-import { PRODUCT_PRICE_IDR } from '../../lib/constants';
 
 type LandingTheme = 'light' | 'dark';
 const LANDING_THEME_KEY = 'kantongku_landing_theme';
@@ -39,26 +37,11 @@ function getInitialLandingTheme(): LandingTheme {
   return 'light';
 }
 
-// Anchoring price shown on marketing sections (Hero, Pricing badge). Change
-// here to update everywhere it's displayed. This is separate from the actual
-// charged amount below (`price.amount`, fetched live from
-// /api/payment/config = PRICE_AMOUNT env) which drives the real order/payment
-// flow — keep these two in sync manually if the promo price changes.
-const PRICE_ORIGINAL = 399000;
-const PRICE_PROMO = 49000;
-
-interface PriceConfig {
-  amount: number;
-  label: string;
-}
-
-interface OrderDetails {
-  order_code: string;
-  total_amount: number;
-  paymentUrl: string;
-}
-
-type Step = 'form' | 'paying' | 'success' | 'expired' | 'error';
+// Task 9 (trial + landing revisi) — the registration form's own outcome
+// states. Much simpler than the old order-flow's Step type (form -> paying
+// -> success/expired/error, all moved verbatim to PaymentPage.tsx) since
+// there's no payment/polling here anymore, just "submitted" or not.
+type RegisterStep = 'form' | 'done';
 
 // Marketing attribution captured from the landing URL on first load, kept in
 // sessionStorage (survives reload/scroll, cleared when the tab closes) so
@@ -109,8 +92,9 @@ function readCookie(name: string): string | null {
 
 // landing-page-revisi-2 Task 13 — 6 item lama + 4 tambahan (Analisis
 // Kesehatan Keuangan AI, Kelola Cicilan/Hutang, Kolaborasi, Info Rekening),
-// "via WhatsApp" dihapus dari item support.
-const PRICING_CHECKLIST = [
+// "via WhatsApp" dihapus dari item support. Task 9 — masih relevan sebagai
+// daftar fitur di section "Daftar Gratis" (tidak menyebut harga sama sekali).
+const FEATURE_CHECKLIST = [
   'Input transaksi via suara & foto struk (AI)',
   'Multi-pocket & rekening tanpa batas',
   'Budgeting & reminder otomatis',
@@ -128,20 +112,11 @@ export default function Landing() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [price, setPrice] = useState<PriceConfig | null>(null);
-  const [step, setStep] = useState<Step>('form');
+  const [registerStep, setRegisterStep] = useState<RegisterStep>('form');
+  const [registerMessage, setRegisterMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [order, setOrder] = useState<OrderDetails | null>(null);
-  const [copied, setCopied] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    fetch('/api/payment/config')
-      .then((r) => r.json())
-      .then((data) => setPrice(data))
-      .catch(() => setError('Gagal memuat informasi harga. Coba muat ulang halaman.'));
-  }, []);
+  const [showSupportLink, setShowSupportLink] = useState(false);
 
   // landing-page-revisi-2 Task 3 — persist the visitor's explicit choice.
   // The attribute itself lives on THIS component's own root element (see
@@ -206,46 +181,11 @@ export default function Landing() {
     });
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
-  // Once settlement is confirmed, auto-redirect to the login page after a
-  // short delay so the "Pembayaran dikonfirmasi!" message is actually seen.
-  useEffect(() => {
-    if (step !== 'success') return;
-    const timer = setTimeout(() => {
-      window.location.href = '/app';
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [step]);
-
-  const startPolling = (order_code: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/payment/status/${order_code}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === 'settlement') {
-          setStep('success');
-          if (pollRef.current) clearInterval(pollRef.current);
-        } else if (data.status === 'expired') {
-          setStep('expired');
-          if (pollRef.current) clearInterval(pollRef.current);
-        } else if (data.status === 'cancelled') {
-          setStep('error');
-          setError('Order dibatalkan. Silakan daftar ulang.');
-          if (pollRef.current) clearInterval(pollRef.current);
-        }
-      } catch {
-        // Ignore transient polling errors
-      }
-    }, 5000);
-  };
-
+  // Task 9 (trial + landing revisi) — form pendaftaran ini sekarang memicu
+  // POST /api/trial/register (Task 7), BUKAN /api/payment/create. Validasi
+  // (nama/email/nomor WA) TIDAK berubah dari alur order lama. Tidak ada lagi
+  // polling/Doku di sini — itu semua sudah pindah ke PaymentPage.tsx
+  // (/bayar), dipakai nanti begitu trial habis.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -257,10 +197,6 @@ export default function Landing() {
       setError('Format email tidak valid');
       return;
     }
-    // landing-page-revisi-2 Task 14 — basic sanity check only (digits, +,
-    // spaces/dashes, reasonable length), matching how loosely email/name
-    // are already validated here — the real validation that matters is a
-    // human on the other end actually reading it.
     const whatsappDigits = whatsapp.replace(/[^0-9]/g, '');
     if (whatsappDigits.length < 9) {
       setError('Nomor WhatsApp tidak valid');
@@ -268,11 +204,12 @@ export default function Landing() {
     }
 
     setError('');
+    setShowSupportLink(false);
     setLoading(true);
 
     try {
       const utm = readStoredUtmParams();
-      const createRes = await fetch('/api/payment/create', {
+      const registerRes = await fetch('/api/trial/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -289,42 +226,28 @@ export default function Landing() {
           fbc: readCookie('_fbc'),
         }),
       });
-      const createData = await createRes.json();
-      if (!createRes.ok) {
-        throw new Error(createData.error || 'Gagal membuat order pembayaran');
+      const registerData = await registerRes.json();
+      if (!registerRes.ok) {
+        if (registerData.status === 'blocked') setShowSupportLink(true);
+        throw new Error(registerData.error || 'Gagal mendaftar');
       }
 
-      // eventID must match the server-side CAPI "Lead" event's event_id
-      // (= order_code) exactly, so Meta dedups the two into a single event
-      // instead of double-counting it. Fires only if the Pixel was actually
-      // initialized (VITE_META_PIXEL_ID set) — see src/main.tsx.
-      //
-      // value/currency use the shared PRODUCT_PRICE_IDR constant (not
-      // createData.total_amount) — see lib/constants.ts for why: a
-      // request-derived amount going momentarily undefined/stale was
-      // exactly what caused 37% of Lead events to arrive with no
-      // value/currency in Meta's diagnostics.
-      if (window.fbq) {
-        window.fbq('track', 'Lead', { value: PRODUCT_PRICE_IDR, currency: 'IDR' }, { eventID: createData.order_code });
-      } else {
-        // Silently no-op-ing here (via `window.fbq?.(...)`) is exactly how a
-        // missing/unbuilt VITE_META_PIXEL_ID goes unnoticed — the only symptom
-        // is Meta Events Manager showing an auto-detected "Lead" (cs_est: true,
-        // no order data) instead of this explicit one. Log it loudly instead.
-        console.error('[Meta Pixel] window.fbq belum siap — event "Lead" TIDAK terkirim. Cek VITE_META_PIXEL_ID sudah di-set saat build.');
+      // Standard Meta event for a completed signup — deliberately NOT
+      // "Lead" (that stays reserved for /bayar, an actual payment intent —
+      // see PaymentPage.tsx) and NO value/currency (this isn't a
+      // transaction). Same event_id (the new user's id) on both browser
+      // Pixel and server CAPI so Meta dedupes them — see the matching
+      // sendMetaCapiEvent("CompleteRegistration", user.id, ...) in server.ts.
+      if (registerData.status === 'trial_started' && registerData.userId) {
+        if (window.fbq) {
+          window.fbq('track', 'CompleteRegistration', {}, { eventID: registerData.userId });
+        } else {
+          console.error('[Meta Pixel] window.fbq belum siap — event "CompleteRegistration" TIDAK terkirim. Cek VITE_META_PIXEL_ID sudah di-set saat build.');
+        }
       }
 
-      setOrder(createData);
-      setStep('paying');
-      startPolling(createData.order_code);
-
-      // Auto-open Doku's payment page in a NEW tab (not a same-tab redirect)
-      // — this tab's polling above must keep running uninterrupted so it
-      // detects settlement and moves to the success step the moment payment
-      // completes, exactly like before. The "Bayar Sekarang" button in the
-      // 'paying' step below is the manual fallback for a blocked popup or a
-      // tab closed too early — same reusable link either way.
-      window.open(createData.paymentUrl, '_blank', 'noopener,noreferrer');
+      setRegisterMessage(registerData.message || 'Cek email kamu untuk link masuk ke aplikasi.');
+      setRegisterStep('done');
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan. Silakan coba lagi.');
     } finally {
@@ -333,24 +256,14 @@ export default function Landing() {
   };
 
   const handleReset = () => {
-    setStep('form');
-    setOrder(null);
+    setRegisterStep('form');
+    setRegisterMessage('');
     setError('');
+    setShowSupportLink(false);
   };
 
-  const handleCopyAmount = () => {
-    if (!order) return;
-    navigator.clipboard?.writeText(String(order.total_amount)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-
-  const scrollToPricing = () => {
-    document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToDaftar = () => {
+    document.getElementById('daftar')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -359,16 +272,16 @@ export default function Landing() {
           bawah, posisi di JSX tidak penting (elemennya fixed). */}
       <SocialProofToast />
 
-      {/* Revisi: badge promo dipindah dari dalam Hero jadi banner sendiri
-          paling atas halaman — di ATAS Header, bukan sejajar/nempel dengan
-          baris "KantongKu" + tombol Masuk/Daftar. */}
+      {/* Task 9 (trial + landing revisi) — banner ini dulu menyebut "Harga
+          Promo Terbatas", sekarang diganti ajakan coba gratis, konsisten
+          dengan penghapusan semua elemen harga di landing page utama. */}
       <div className="w-full py-2 px-4 bg-landing-accent text-landing-on-accent text-center text-xs sm:text-sm font-bold uppercase tracking-wider">
-        🔥 Harga Promo Terbatas, Segera Ambil!
+        🔥 Coba KantongKu Gratis, Akses Penuh Langsung!
       </div>
-      <Header theme={theme} onToggleTheme={toggleTheme} onCtaClick={scrollToPricing} />
+      <Header theme={theme} onToggleTheme={toggleTheme} onCtaClick={scrollToDaftar} />
 
       {/* Revisi (reorganisasi 9-blok): Blok 1, Headline. */}
-      <Hero theme={theme} onCtaClick={scrollToPricing} />
+      <Hero theme={theme} onCtaClick={scrollToDaftar} />
 
       {/* Blok 2, Problem + Trust Bar. */}
       <section className="w-full px-6 py-10 bg-landing-bg">
@@ -387,7 +300,13 @@ export default function Landing() {
           Evergreen, tampil untuk semua traffic. */}
       <LiteracyGap />
 
-      {/* Blok 3, Solution/Services: intro -> How it Works -> Kemudahan -> Features. */}
+      {/* Task 9 (trial + landing revisi), poin 1 — Features sekarang render
+          SEBELUM HowItWorks (dulu sesudah). Paragraf intro + kemudahan di
+          bawah TETAP menempel ke HowItWorks seperti sebelumnya, cuma
+          posisinya ikut bergeser turun satu slot. */}
+      <Features theme={theme} />
+
+      {/* Blok 3, Solution/Services: intro -> How it Works -> Kemudahan. */}
       <section className="w-full px-6 py-10 bg-landing-bg">
         <p className="max-w-xl mx-auto text-center text-sm sm:text-base text-landing-text/80 leading-relaxed">
           Makanya, <strong className="font-bold">Marajo Tech</strong> bikin{' '}
@@ -404,7 +323,6 @@ export default function Landing() {
           buat catat pengeluaran, tinggal ngomong atau foto struk aja, beres.
         </p>
       </section>
-      <Features theme={theme} />
 
       {/* Blok 4, Proof/Portfolio. */}
       <BeforeAfter />
@@ -419,12 +337,18 @@ export default function Landing() {
       {/* Blok 7, FAQ. */}
       <FAQ />
 
-      {/* Blok 8, Pricing & CTA. */}
-      <ValueStack />
-      {/* Revisi (prompt 2, poin 21): UpdateForever dipindah kesini, persis
-          di bawah kartu promo harga ValueStack, sebelum form pendaftaran. */}
+      {/* Task 9 (trial + landing revisi), poin 3 — <ValueStack /> (rincian
+          harga vs value) DIHAPUS dari render di sini (file-nya TETAP ada di
+          codebase, cuma tidak dipakai di landing page utama lagi). */}
       <UpdateForever />
-      <section id="pricing" className="w-full px-6 py-16 relative overflow-hidden">
+
+      {/* Blok 8, Task 9 poin 4-5 — section ini dulu "Pricing & CTA" (form
+          order + harga), sekarang jadi "Daftar Gratis" murni: id diganti
+          dari "pricing" ke "daftar", form yang sama (nama/email/WA) memicu
+          /api/trial/register (bukan /api/payment/create lagi), tombol
+          "Bayar" -> "Daftar Gratis", tidak ada lagi tampilan harga/nominal
+          di sini sama sekali. */}
+      <section id="daftar" className="w-full px-6 py-16 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-0">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-landing-accent/20 blur-[120px]" />
         </div>
@@ -432,17 +356,14 @@ export default function Landing() {
         <div className="max-w-md mx-auto flex flex-col items-center gap-8 z-10 relative">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="text-xs font-bold uppercase tracking-wider text-landing-on-accent bg-landing-accent rounded-full px-4 py-2">
-              🔥 Harga Promo, Hemat <span className="font-mono-data">{Math.round(((PRICE_ORIGINAL - PRICE_PROMO) / PRICE_ORIGINAL) * 100)}%</span>, Segera Ambil!
+              🔥 Coba Gratis Sekarang!
             </span>
-            <div className="flex flex-col items-center">
-              <span className="font-mono-data text-lg text-landing-text/50 line-through">{formatCurrency(PRICE_ORIGINAL)}</span>
-              <span className="font-mono-data text-4xl font-bold text-landing-text">{formatCurrency(PRICE_PROMO)}</span>
-            </div>
-            <p className="text-sm text-landing-text/70">akses selamanya, bukan langganan bulanan, harga promo, sewaktu-waktu bisa naik</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-landing-text">Daftar, Langsung Akses Penuh</h2>
+            <p className="text-sm text-landing-text/70">Gak perlu bayar dulu buat mulai nyoba.</p>
           </div>
 
           <div className="w-full flex flex-col gap-2.5">
-            {PRICING_CHECKLIST.map((item, i) => (
+            {FEATURE_CHECKLIST.map((item, i) => (
               <div key={i} className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-landing-text shrink-0" />
                 <span className="text-sm text-landing-text/70">{item}</span>
@@ -450,17 +371,7 @@ export default function Landing() {
             ))}
           </div>
 
-          {/* ===== Form pendaftaran + pembayaran (logic tidak diubah, cuma direposisi ke sini) ===== */}
-
-          {price && step === 'form' && (
-            <div className="w-full bg-landing-surface/25 border border-landing-text/10 rounded-2xl p-5 text-center">
-              <p className="text-xs font-label-caps text-landing-text/70 tracking-wider uppercase mb-1">Paket Akses</p>
-              <p className="font-mono-data text-3xl font-bold text-landing-text">{formatCurrency(price.amount)}</p>
-              <p className="text-sm text-landing-text/70 mt-1">{price.label}</p>
-            </div>
-          )}
-
-          {step === 'form' && (
+          {registerStep === 'form' && (
             <form onSubmit={handleSubmit} className="w-full flex flex-col gap-5">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-label-caps text-landing-text/70 tracking-wider">Nama Lengkap</label>
@@ -503,8 +414,6 @@ export default function Landing() {
                 </p>
               </div>
 
-              {/* landing-page-revisi-2 Task 14 — new field, same pattern as
-                  Nama Lengkap/Email above. */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-label-caps text-landing-text/70 tracking-wider">Nomor WhatsApp</label>
                 <div className="relative flex items-center">
@@ -524,134 +433,45 @@ export default function Landing() {
                 </div>
               </div>
 
-              {/* landing-page-revisi-2 Task 15 — shortened per the exact
-                  wording given, replacing the previous longer explanation. */}
               <div className="flex items-center gap-2 text-xs text-landing-text/60 bg-landing-text/5 border border-landing-text/10 rounded-xl px-4 py-3">
                 <ShieldCheck className="w-4 h-4 text-landing-text shrink-0" />
-                <span>Pembayaran dikonfirmasi otomatis via Doku.</span>
+                <span>Link masuk otomatis dikirim ke email kamu.</span>
               </div>
 
               {error && (
-                <span className="text-xs text-rose-600 block px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
-                  {error}
-                </span>
+                <div className="text-xs text-rose-600 flex flex-col gap-1 px-1 border border-rose-500/10 p-2 rounded-lg bg-rose-500/5 text-center">
+                  <span>{error}</span>
+                  {showSupportLink && (
+                    <a href="/support" className="underline font-semibold">
+                      Hubungi Support
+                    </a>
+                  )}
+                </div>
               )}
 
               <button
                 type="submit"
-                disabled={loading || !price}
+                disabled={loading}
                 className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md mt-2 bg-landing-accent text-landing-on-accent disabled:opacity-50"
               >
-                {loading ? 'Memproses...' : 'Bayar'}
+                {loading ? 'Memproses...' : 'Daftar Gratis'}
                 <ArrowRight className="w-5 h-5" />
               </button>
             </form>
           )}
 
-          {step === 'paying' && order && (
-            <div className="w-full flex flex-col items-center gap-5 text-center">
-              <div className="w-full bg-landing-surface/25 border border-landing-text/10 rounded-2xl p-5">
-                <p className="text-xs font-label-caps text-landing-text/70 tracking-wider uppercase mb-1">
-                  Total yang harus dibayar
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <p className="font-mono-data text-4xl font-bold text-landing-text">{formatCurrency(order.total_amount)}</p>
-                  <button
-                    type="button"
-                    onClick={handleCopyAmount}
-                    className="text-landing-text/50 hover:text-landing-text transition-colors"
-                    title="Salin nominal"
-                  >
-                    {copied ? <Check className="w-5 h-5 text-landing-text" /> : <Copy className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Doku Checkout — sudah auto-dibuka di tab baru begitu order
-                  ini dibuat (lihat handleSubmit); tombol ini adalah
-                  fallback manual kalau tab-nya diblokir popup blocker atau
-                  kebetulan tertutup. Link yang sama bisa diklik berkali-kali
-                  (Doku Checkout tetap valid sampai lunas/kedaluwarsa). */}
-              <a
-                href={order.paymentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
-              >
-                Bayar Sekarang <ExternalLink className="w-5 h-5" />
-              </a>
-              <div className="w-full flex flex-col items-center gap-3">
-                <p className="text-xs text-landing-text/60 text-center max-w-xs">
-                  Halaman pembayaran sudah terbuka di tab baru, pilih QRIS, VA bank, e-wallet, atau kartu apa pun yang paling nyaman.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 text-landing-text/70">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <p className="text-sm">Menunggu pembayaran (order {order.order_code})...</p>
-              </div>
-              <p className="text-xs text-landing-text/50">
-                Order ini berlaku 24 jam. Halaman ini otomatis update begitu pembayaran berhasil, akun langsung aktif, tanpa perlu menunggu konfirmasi admin.
-              </p>
-
-              <a
-                href="/app"
+          {registerStep === 'done' && (
+            <div className="w-full flex flex-col items-center gap-4 text-center">
+              <Check className="w-12 h-12 text-landing-text" />
+              <p className="text-landing-text font-headline-sm">{registerMessage}</p>
+              <button
+                onClick={handleReset}
                 className="w-full h-12 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all border border-landing-text/15 bg-landing-surface/20 text-landing-text"
               >
-                Masuk ke Halaman Login
-              </a>
-              <p className="text-xs text-landing-text/50">
-                Link untuk masuk ke aplikasi juga akan dikirimkan ke email kamu setelah pembayaran dikonfirmasi.
-              </p>
-            </div>
-          )}
-
-          {step === 'success' && (
-            <div className="w-full flex flex-col items-center gap-4 text-center">
-              <CheckCircle2 className="w-12 h-12 text-landing-text" />
-              <p className="text-landing-text font-headline-sm">Pembayaran dikonfirmasi!</p>
-              <div className="flex items-center gap-2 text-landing-text/70">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <p className="text-sm">Mengalihkan ke halaman login...</p>
-              </div>
-            </div>
-          )}
-
-          {step === 'expired' && (
-            <div className="w-full flex flex-col items-center gap-4 text-center">
-              <span className="text-xs text-rose-600 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-                Order sudah kedaluwarsa (lebih dari 24 jam belum dikonfirmasi). Silakan daftar ulang.
-              </span>
-              <button
-                onClick={handleReset}
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
-              >
-                Daftar Ulang
+                Daftar Email Lain
               </button>
             </div>
           )}
-
-          {step === 'error' && (
-            <div className="w-full flex flex-col items-center gap-4 text-center">
-              <span className="text-xs text-rose-600 block px-3 py-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-                {error || 'Terjadi kesalahan.'}
-              </span>
-              <button
-                onClick={handleReset}
-                className="w-full h-14 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
-              >
-                Coba Lagi
-              </button>
-            </div>
-          )}
-
-          <div className="w-full flex items-center justify-center gap-2 text-landing-text/60">
-            <ShieldCheck className="w-4 h-4 text-landing-text shrink-0" />
-            <span className="text-xs">Garansi 3 Hari, Uang kembali 100% kalau nggak cocok</span>
-          </div>
-          <p className="text-[10px] text-landing-text/40 text-center uppercase tracking-wider">
-            Pembayaran diverifikasi otomatis oleh Doku, akun aktif dalam hitungan detik.
-          </p>
         </div>
       </section>
 

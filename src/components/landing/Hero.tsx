@@ -2,9 +2,6 @@ import React, { useEffect, useState } from 'react';
 import BrandLogo from '../BrandLogo';
 import { ArrowRight } from 'lucide-react';
 
-const PROMO_DEADLINE_KEY = 'kantongku_promo_deadline';
-const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
-
 // Task 1 (landing-page-revamp) — secondary pain points, auto-rotated below
 // the main headline. Plain setInterval, no new library.
 const PAIN_POINTS = [
@@ -38,24 +35,28 @@ const HEADLINES_BY_UTM_CONTENT: Record<string, { headline: React.ReactNode; subh
     subheadline: 'Nggak ada biaya bulanan berulang. Bayar sekali di awal, update fitur baru ke depannya otomatis kamu dapatkan gratis.',
   },
 };
-// Revisi (prompt final) — headline & subheadline DEFAULT (fallback untuk
-// trafik tanpa utm_content/nilai tidak dikenal) diganti sesuai wording baru.
-// Varian per utm_content di atas (as1_ocr/as3_cicilan/as4_bayar_sekali)
-// SENGAJA tidak disentuh, tetap seperti sudah diimplementasikan.
+// Task 9 (trial + landing revisi) — headline & subheadline DEFAULT (fallback
+// untuk trafik tanpa utm_content/nilai tidak dikenal) diganti mengangkat
+// angle "Inclusion Literacy Gap" (konsisten dengan section LiteracyGap.tsx
+// di bawah TrustBar), gantikan angle lama "78% Kontrol Pengeluaran". Buka
+// dengan pertanyaan senada carousel edukasi, subheadline mengarah ke skor
+// kesehatan finansial — TIDAK menyebut harga atau angka "3 hari" sama sekali
+// (boleh muncul di dalam app/email, bukan di landing page). Varian per
+// utm_content di atas (as1_ocr/as3_cicilan/as4_bayar_sekali) SENGAJA tidak
+// disentuh, tetap seperti sudah diimplementasikan.
 const DEFAULT_HEADLINE: { headline: React.ReactNode; subheadline: React.ReactNode } = {
   headline: (
     <>
-      78% Keuangan Orang{' '}
-      <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Hancur</span> Karena Gak Bisa{' '}
-      <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Kontrol Pengeluaran</span> Mereka,{' '}
-      <span className="text-rose-500">Kamu Salah Satunya?</span>
+      Kenapa Gaji Berasa{' '}
+      <span className="bg-landing-accent/40 rounded px-1.5 box-decoration-clone">Gak Pernah Cukup</span>, Padahal
+      Kamu Udah <span className="text-rose-500">Kerja Keras</span>?
     </>
   ),
   subheadline: (
     <>
-      <strong className="font-bold">Sebanyak apapun penghasilan kamu, kalau gak bisa kontrol pengeluaran, cepat atau lambat pasti kejatuhan juga.</strong>{' '}
-      Banyak yang mikir nyatet keuangan itu <strong className="font-bold underline">pelit atau itung-itungan</strong>, padahal orang-orang yang udah
-      mapan justru selalu nyatet, biar tau batas aman pengeluaran mereka sendiri.
+      <strong className="font-bold">Skor kesehatan finansial orang Indonesia cuma 40,6 dari 100</strong>, padahal
+      hampir semua udah melek produk keuangan digital. Bukan soal kurang cuan, tapi soal{' '}
+      <strong className="font-bold underline">gak tau ke mana perginya uang kamu tiap bulan</strong>.
     </>
   ),
 };
@@ -73,32 +74,6 @@ function resolveHeadline(): { headline: React.ReactNode; subheadline: React.Reac
 interface HeroProps {
   theme: 'light' | 'dark';
   onCtaClick: () => void;
-}
-
-// Reads the promo deadline from localStorage, or starts a fresh 5h window if
-// it's missing/expired — so the countdown survives a reload but still resets
-// periodically rather than being hardcoded to a date that would eventually look stale.
-function getOrInitDeadline(): number {
-  const stored = localStorage.getItem(PROMO_DEADLINE_KEY);
-  const now = Date.now();
-  if (stored) {
-    const deadline = Number(stored);
-    if (Number.isFinite(deadline) && deadline > now) {
-      return deadline;
-    }
-  }
-  const deadline = now + FIVE_HOURS_MS;
-  localStorage.setItem(PROMO_DEADLINE_KEY, String(deadline));
-  return deadline;
-}
-
-function formatCountdown(msRemaining: number): string {
-  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 // Revisi — mockup Home-screen hasil recreate kode (AppUiMockups.tsx) diganti
@@ -127,21 +102,8 @@ function HeroDeviceComposite() {
 }
 
 export default function Hero({ theme, onCtaClick }: HeroProps) {
-  const [deadline, setDeadline] = useState<number>(() => getOrInitDeadline());
-  const [now, setNow] = useState(() => Date.now());
   const [painPointIndex, setPainPointIndex] = useState(0);
   const [{ headline, subheadline }] = useState(() => resolveHeadline());
-
-  useEffect(() => {
-    const intervalId = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    if (now >= deadline) {
-      setDeadline(getOrInitDeadline());
-    }
-  }, [now, deadline]);
 
   useEffect(() => {
     const rotateId = setInterval(() => {
@@ -180,23 +142,14 @@ export default function Hero({ theme, onCtaClick }: HeroProps) {
           </span>
         </div>
 
-        {/* Revisi: badge "🔥 Harga Promo Terbatas — Segera Ambil!" pindah
-            jadi banner sendiri di paling atas halaman (lihat Landing.tsx,
-            di atas <Header>) — tidak diulang lagi di sini supaya tidak
-            dobel. Countdown tetap di sini karena tetap relevan sebagai
-            bagian dari Hero. */}
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-xs text-landing-text/60 uppercase tracking-wider">Promo berakhir dalam</span>
-          <span className="text-2xl font-bold text-landing-text font-mono tracking-widest">
-            {formatCountdown(deadline - now)}
-          </span>
-        </div>
-
+        {/* Task 9 (trial + landing revisi) — badge countdown promo harga
+            dihapus (landing page utama sekarang tidak menyebut harga/hari
+            sama sekali). CTA diganti mengajak coba gratis. */}
         <button
           onClick={onCtaClick}
           className="h-14 px-8 font-headline-sm rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-md bg-landing-accent text-landing-on-accent"
         >
-          Ambil Promo Sekarang
+          Coba Gratis Sekarang
           <ArrowRight className="w-5 h-5" />
         </button>
 

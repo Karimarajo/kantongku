@@ -6,6 +6,12 @@ import { Infinity as InfinityIcon } from 'lucide-react';
 // ..." caveat line (and its Users icon) has been removed entirely per the
 // explicit instruction; nothing else about this section changed besides
 // that removal and the re-theme onto --color-landing-* tokens.
+// Task 9 (trial + landing revisi) — judul & kalimat sebelumnya menautkan
+// janji "update selamanya" langsung ke model harga ("Sekali Beli", "Nggak
+// ada biaya langganan bulanan") — direvisi supaya pesannya berdiri sendiri,
+// independen dari harga (landing page utama sekarang tidak menyebut harga
+// sama sekali). Section ini TETAP tampil (beda dengan ValueStack.tsx yang
+// di-unrender total dari Landing.tsx).
 export default function UpdateForever() {
   return (
     <section className="w-full px-6 py-12">
@@ -13,10 +19,10 @@ export default function UpdateForever() {
         <div className="w-12 h-12 rounded-full bg-landing-accent/20 border border-landing-accent/40 flex items-center justify-center">
           <InfinityIcon className="w-6 h-6 text-landing-text" />
         </div>
-        <h3 className="text-lg sm:text-xl font-bold text-landing-text">Sekali Beli, Update Selamanya</h3>
+        <h3 className="text-lg sm:text-xl font-bold text-landing-text">Update Fitur Selamanya</h3>
         <p className="text-sm text-landing-text/70 leading-relaxed max-w-lg">
-          Nggak ada biaya langganan bulanan. Semua fitur baru KantongKu ke depannya, termasuk yang belum ada
-          sekarang, otomatis kamu dapatkan gratis, selama aplikasinya masih kamu pakai.
+          Semua fitur baru KantongKu ke depannya, termasuk yang belum ada sekarang, otomatis kamu dapatkan gratis,
+          selama aplikasinya masih kamu pakai.
         </p>
       </div>
     </section>

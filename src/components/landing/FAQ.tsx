@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 // Revisi (prompt final) — 16 Q&A, verbatim content dari task, urutan tetap.
+// Task 9 (trial + landing revisi) — jawaban item "gak cocok" diganti, tidak
+// boleh lagi menyebut garansi/nominal/angka hari di landing page utama;
+// framing sekarang "coba gratis dulu sebelum bayar".
 const FAQS = [
   {
     question: 'Aman gak data keuangan saya di KantongKu?',
@@ -13,7 +16,7 @@ const FAQS = [
   },
   {
     question: 'Kalau saya beli terus gak cocok, gimana?',
-    answer: 'Ada garansi uang kembali 3 hari.',
+    answer: 'Kamu bisa coba dulu gratis sebelum bayar, jadi bisa mastiin dulu cocok apa enggak sebelum berlangganan.',
   },
   {
     question: 'Siapa yang bisa lihat data transaksi saya?',
