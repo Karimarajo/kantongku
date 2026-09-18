@@ -62,11 +62,23 @@ CREATE TABLE IF NOT EXISTS users (
   -- forever, which is exactly what keeps it OUT of the trial branch in
   -- requireActiveStatus (that check requires trial_ends_at to be set).
   trial_started_at TIMESTAMPTZ,
-  trial_ends_at TIMESTAMPTZ
+  trial_ends_at TIMESTAMPTZ,
+  -- v14 (Task 7): collected once at manual trial registration
+  -- (POST /api/trial/register) — mirrors orders.whatsapp, but that column is
+  -- per-ORDER (attribution), this one is per-ACCOUNT so it survives even
+  -- before any order ever exists. Google sign-in never sets this (no
+  -- WhatsApp number involved in that flow) — stays NULL for those rows.
+  whatsapp TEXT,
+  -- v14 (Task 8): guards the one-shot "trial habis, yuk bayar" reminder
+  -- email sweep (runTrialPaymentReminderSweep) — same NULL-guard idempotency
+  -- pattern as orders.follow_up_sent_at.
+  trial_payment_reminder_sent_at TIMESTAMPTZ
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_payment_reminder_sent_at TIMESTAMPTZ;
 -- v13: widen the status CHECK to allow 'trial'. This CANNOT be a plain
 -- `ALTER TABLE ... ADD CONSTRAINT ... EXCEPTION WHEN duplicate_object` (the
 -- pattern used elsewhere in this file, e.g. orders_order_type_check below)

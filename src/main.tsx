@@ -4,6 +4,7 @@ import App from './App.tsx';
 import Landing from './components/Landing.tsx';
 import AdminConsole from './components/AdminConsole.tsx';
 import SupportPage from './components/SupportPage.tsx';
+import PaymentPage from './components/PaymentPage.tsx';
 import './index.css';
 
 // One event_id per pageview, shared between the client-side Pixel PageView
@@ -81,6 +82,11 @@ function Root() {
   if (path === '/') return <Landing />;
   if (path === '/admin') return <AdminConsole />;
   if (path === '/support') return <SupportPage />;
+  // Task 8 — standalone payment page (?email=... query param), reachable
+  // from the in-app trial-expired lock-screen and the trial-reminder email,
+  // without needing an active session (public, same as /api/payment/create
+  // itself, which this page calls).
+  if (path === '/bayar') return <PaymentPage />;
   return <App />;
 }
 

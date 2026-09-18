@@ -2540,25 +2540,19 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Trial feature (Task 4) — full-screen lock, EARLY RETURN (not an overlay
-  // drawn on top) so there is zero chance of any dashboard interaction
-  // leaking through underneath it. currentUser is still populated (loaded
-  // fine from /api/me, which doesn't require active status) and every slice
-  // of app state loaded during the trial is still sitting in React state
-  // untouched — this just blocks the UI that would show it until payment
-  // settles. onUnlocked() re-runs the normal boot sequence, which will now
-  // come back 'active' from the server.
+  // Trial feature (Task 4, simplified per Task 8) — full-screen lock, EARLY
+  // RETURN (not an overlay drawn on top) so there is zero chance of any
+  // dashboard interaction leaking through underneath it. currentUser is
+  // still populated (loaded fine from /api/me, which doesn't require active
+  // status) and every slice of app state loaded during the trial is still
+  // sitting in React state untouched — this just blocks the UI that would
+  // show it until payment settles. TrialExpiredLock links OUT to the
+  // standalone /bayar page rather than creating/polling an order itself;
+  // once payment settles there it redirects to /app on its own (a full page
+  // load), which naturally re-runs this component's boot sequence fresh and
+  // comes back unlocked — no callback needed here.
   if (trialExpired) {
-    return (
-      <TrialExpiredLock
-        email={currentUser.email}
-        name={currentUser.name}
-        onUnlocked={() => {
-          setTrialExpired(false);
-          loadSessionAndData();
-        }}
-      />
-    );
+    return <TrialExpiredLock email={currentUser.email} />;
   }
 
   return (

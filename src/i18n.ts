@@ -573,16 +573,13 @@ const EN: Record<string, string> = {
   'Bantuan & Dukungan': 'Help & Support',
   'Pertanyaan yang Sering Diajukan (FAQ)': 'Frequently Asked Questions (FAQ)',
 
-  // Trial feature (Task 4) — TrialExpiredLock.tsx
+  // Trial feature (Task 4, simplified per Task 8) — TrialExpiredLock.tsx.
+  // No day-count in the ID text itself (landing/app copy no longer states
+  // "3 hari" explicitly, per Task 9's constraint) — the EN side follows suit.
   'Masa Coba Gratis Sudah Berakhir': 'Your Free Trial Has Ended',
-  'Masa coba 3 hari kamu sudah habis. Datamu tetap aman tersimpan — lanjutkan berlangganan untuk bisa akses lagi.':
-    'Your 3-day trial is over. Your data is still safely saved — subscribe to get access again.',
-  'Menunggu konfirmasi pembayaran...': 'Waiting for payment confirmation...',
-  'Belum diarahkan? Buka halaman pembayaran': "Not redirected yet? Open the payment page",
+  'Masa coba kamu sudah habis. Datamu tetap aman tersimpan — lanjutkan berlangganan untuk bisa akses lagi.':
+    'Your trial is over. Your data is still safely saved — subscribe to get access again.',
   'Lanjutkan Berlangganan': 'Continue Subscription',
-  'Order dibatalkan/kedaluwarsa. Silakan coba lagi.': 'Order was cancelled/expired. Please try again.',
-  'Gagal membuat order pembayaran': 'Failed to create payment order',
-  'Terjadi kesalahan. Silakan coba lagi.': 'Something went wrong. Please try again.',
 };
 
 // Fallback param cuma dipakai untuk teks yang mengandung interpolasi

@@ -1009,6 +1009,120 @@ app.post("/api/payment/create", async (req, res) => {
   }
 });
 
+// Task 7 — manual registration form on the landing page's "Daftar Gratis"
+// section (Task 9). Payload shape mirrors /api/payment/create above
+// (name/email/whatsapp + the same utm_*/fbclid/fbp/fbc attribution fields),
+// but this is NOT a payment/order — no `orders` row, no Doku, no "Lead"
+// event. It grants the SAME 3-day trial provisionTrialUser gives a
+// first-time Google sign-in (see resolveLoginAccess above — this endpoint
+// is the second, and only other, caller of that same helper, by design).
+app.post("/api/trial/register", async (req, res) => {
+  try {
+    // utm_source/medium/campaign/content/term/fbclid are accepted in the
+    // payload (mirrors /api/payment/create) but deliberately UNUSED here —
+    // there's no `orders` row for this non-payment endpoint to attribute
+    // them to, and per the task spec they must not be force-persisted onto
+    // `users`. Only fbp/fbc actually matter here (forwarded to Meta CAPI
+    // below) — fbclid itself is never sent as its own Meta CAPI field, it's
+    // already embedded inside fbc by the fallback-cookie mechanism.
+    const { name, email, whatsapp, fbp, fbc } = req.body;
+
+    // Same validation as Landing.tsx's own handleSubmit (client-side) —
+    // duplicated here because this endpoint must also be safe to call
+    // directly, not just from a form that already validated.
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Harap masukkan nama Anda" });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ error: "Format email tidak valid" });
+    }
+    const whatsappDigits = String(whatsapp || "").replace(/[^0-9]/g, "");
+    if (whatsappDigits.length < 9) {
+      return res.status(400).json({ error: "Nomor WhatsApp tidak valid" });
+    }
+
+    const existingResult = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
+    const existing = existingResult.rows[0];
+
+    if (existing) {
+      if (existing.status === "active") {
+        // Already a paying customer — nothing to provision, just remind
+        // them they already have full access. Not an error: the form
+        // doesn't know their status ahead of time, this is a normal outcome.
+        return res.json({
+          status: "already_active",
+          message: "Kamu sudah punya akses penuh, cek email untuk link masuk.",
+        });
+      }
+      if (existing.status === "trial") {
+        // Anti-abuse (explicit constraint): re-submitting the form must NEVER
+        // reset/extend trial_started_at/trial_ends_at — only refresh
+        // name/whatsapp if they changed, and resend the SAME access email.
+        // Idempotent by design: safe to call this branch any number of times.
+        await pool.query(
+          `UPDATE users SET name = COALESCE($2, name), whatsapp = COALESCE($3, whatsapp) WHERE id = $1`,
+          [existing.id, name || null, whatsapp || null]
+        );
+        sendTrialAccessEmail({ name: name || existing.name, email, isResend: true });
+        return res.json({
+          status: "trial_resent",
+          message: "Kamu sudah terdaftar, kami kirim ulang email akses ke inbox kamu.",
+        });
+      }
+      // status === 'pending' or 'suspended' — an old/blocked account from
+      // before this trial feature existed. Per the explicit product
+      // decision: NOT retroactively granted a trial, rejected with a clear
+      // reason instead of a generic error.
+      return res.status(403).json({
+        status: "blocked",
+        error: "Akun ini sudah terdaftar sebelumnya. Silakan hubungi support kami untuk bantuan.",
+      });
+    }
+
+    // Genuinely brand-new email — SAME helper resolveLoginAccess uses for a
+    // first-time Google sign-in, see its own comment for why this must stay
+    // the one and only place that decides what "start a trial" means.
+    const user = await provisionTrialUser(email, { name, whatsapp });
+    sendTrialAccessEmail({ name, email });
+
+    // Meta CAPI counterpart to the client-side `fbq('track',
+    // 'CompleteRegistration', ...)` call (Landing.tsx) — same event_id
+    // (this new user's id) on both sides so Meta dedupes them into one
+    // event, same pattern as "Lead"/orderCode above. Deliberately no
+    // value/currency: this isn't a transaction. Fire-and-forget, same
+    // footing as every other Meta CAPI call in this file — a failed send
+    // must never fail the registration response.
+    const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    const resolvedFbp = (typeof fbp === "string" && fbp) || (req.cookies?._fbp as string | undefined) || undefined;
+    const resolvedFbc = (typeof fbc === "string" && fbc) || (req.cookies?._fbc as string | undefined) || undefined;
+    sendMetaCapiEvent("CompleteRegistration", user.id, {
+      eventSourceUrl: req.headers.referer as string | undefined,
+      userData: {
+        email,
+        phone: whatsapp || undefined,
+        clientIpAddress: resolveVisitorIp(req) || forwardedFor || req.socket.remoteAddress || undefined,
+        clientUserAgent: req.headers["user-agent"] as string | undefined,
+        fbp: resolvedFbp,
+        fbc: resolvedFbc,
+      },
+    }).catch((err: any) => {
+      console.error("Gagal mengirim event Meta CAPI (CompleteRegistration):", err.message);
+    });
+
+    notifyAdminPush(`Trial Baru: ${email}`, name || "");
+
+    res.json({
+      status: "trial_started",
+      userId: user.id,
+      message: "Trial 3 hari kamu sudah aktif! Cek email kamu untuk link masuk ke aplikasi.",
+    });
+  } catch (error: any) {
+    console.error("Gagal mendaftarkan trial:", error);
+    res.status(500).json({ error: error.message || "Gagal mendaftarkan trial" });
+  }
+});
+
 // Poll order status from the landing page. Lazily flips a stale pending order to
 // 'expired' the moment it's checked past its expires_at — no cron job needed.
 app.get("/api/payment/status/:order_code", async (req, res) => {
@@ -1208,6 +1322,29 @@ async function runOrderFollowUpSweep() {
     }
   } catch (error: any) {
     console.error("Order follow-up sweep gagal (akan dicoba lagi tick berikutnya):", error.message);
+  }
+}
+
+// Task 8 — one-shot "trial habis, yuk bayar" reminder email. Deliberately NO
+// upper-bound window (unlike runOrderFollowUpSweep's 30-40 minute window
+// above) — there's no narrow "moment" this needs to land in, just "some tick
+// after trial_ends_at has passed", so the `trial_payment_reminder_sent_at IS
+// NULL` guard alone is enough to keep this idempotent regardless of how many
+// ticks late it gets caught (a restarted server, a slow tick, etc. all still
+// send exactly once, never zero, never twice).
+async function runTrialPaymentReminderSweep() {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email FROM users
+       WHERE status = 'trial' AND trial_ends_at <= now() AND trial_payment_reminder_sent_at IS NULL`
+    );
+    for (const user of result.rows) {
+      sendTrialPaymentReminderEmail(user);
+      await pool.query(`UPDATE users SET trial_payment_reminder_sent_at = now() WHERE id = $1`, [user.id]);
+      notifyAdminPush(`Trial Habis: ${user.email}`, "Email pengingat pembayaran terkirim");
+    }
+  } catch (error: any) {
+    console.error("Trial payment-reminder sweep gagal (akan dicoba lagi tick berikutnya):", error.message);
   }
 }
 
@@ -1889,6 +2026,65 @@ function getGuideAttachment(): { filename: string; path: string }[] | undefined 
   return [{ filename: "Panduan-Instalasi-KantongKu-1Halaman.png", path: GUIDE_ATTACHMENT_PATH }];
 }
 
+// Task 7 — the "you're in" email for a brand-new trial signup from POST
+// /api/trial/register. Deliberately generic enough to double as the
+// idempotent RESEND when someone submits the same form again mid-trial
+// (isResend just tweaks the subject/opening line — the link and instructions
+// are identical either way, since it's the same account either way). Same
+// best-effort/fire-and-forget footing as every other customer email here —
+// a failed send must never fail the registration request itself.
+function sendTrialAccessEmail(params: { name: string | null; email: string; isResend?: boolean }) {
+  const { name, email, isResend } = params;
+  const greetingName = name ? ` ${name}` : "";
+  const loginUrl = `${process.env.APP_URL || ""}/app`;
+  const subject = isResend
+    ? "[KantongKu] Ini Link Akses Kamu Lagi"
+    : "[KantongKu] Akses Trial 3 Hari Kamu Sudah Aktif!";
+  const openingLine = isResend
+    ? "Ini link akses kamu lagi, sesuai permintaan."
+    : "Akses trial 3 hari kamu ke KantongKu sudah aktif — langsung bisa dipakai penuh, tanpa perlu bayar dulu.";
+
+  sendEmail(
+    email,
+    subject,
+    `<p>Halo${greetingName},</p>
+     <p>${openingLine}</p>
+     <p><a href="${loginUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;">Masuk ke KantongKu</a></p>
+     <p style="font-size:12px;color:#666;">Kalau tombolnya tidak bisa diklik, salin link ini: <a href="${loginUrl}">${loginUrl}</a></p>
+     <p><b>Penting:</b> login pakai akun Google dengan alamat email yang SAMA dengan email pendaftaran ini (<b>${email}</b>).</p>
+     <p>Kami lampirkan juga panduan penggunaan KantongKu di email ini — kalau ada yang masih bingung soal fitur mana pun, cek dulu di situ.</p>`,
+    `Halo${greetingName},\n\n${openingLine}\n\nMasuk ke KantongKu: ${loginUrl}\n\nPenting: login pakai akun Google dengan alamat email yang SAMA dengan email pendaftaran ini (${email}).\n\nPanduan penggunaan terlampir di email ini.`,
+    getGuideAttachment()
+  ).catch((err: any) => {
+    console.error(`Gagal mengirim email akses trial untuk ${email}:`, err.message);
+  });
+}
+
+// Task 8 — the one-shot "trial habis, yuk lanjut" nudge, sent by
+// runTrialPaymentReminderSweep the moment a 'trial' row's trial_ends_at has
+// passed. Same /bayar?email=... link the in-app lock-screen itself links
+// out to (see TrialExpiredLock.tsx) — one single destination for "I want to
+// pay now" regardless of whether the user is looking at the app or their inbox.
+function sendTrialPaymentReminderEmail(user: { name: string | null; email: string }) {
+  const { name, email } = user;
+  const greetingName = name ? ` ${name}` : "";
+  const payUrl = `${process.env.APP_URL || ""}/bayar?email=${encodeURIComponent(email)}`;
+
+  sendEmail(
+    email,
+    "Trial KantongKu Kamu Sudah Berakhir",
+    `<p>Halo${greetingName},</p>
+     <p>Masa coba KantongKu kamu sudah berakhir. Tenang, data yang sudah kamu catat selama ini tetap aman tersimpan —
+     lanjutkan berlangganan buat bisa akses lagi:</p>
+     <p><a href="${payUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;">Lanjutkan Berlangganan</a></p>
+     <p style="font-size:12px;color:#666;">Kalau tombolnya tidak bisa diklik, salin link ini: <a href="${payUrl}">${payUrl}</a></p>
+     <p>Begitu pembayaran berhasil, akun kamu otomatis kebuka lagi dalam hitungan detik.</p>`,
+    `Halo${greetingName},\n\nMasa coba KantongKu kamu sudah berakhir. Tenang, data yang sudah kamu catat selama ini tetap aman tersimpan — lanjutkan berlangganan buat bisa akses lagi:\n\n${payUrl}\n\nBegitu pembayaran berhasil, akun kamu otomatis kebuka lagi dalam hitungan detik.`
+  ).catch((err: any) => {
+    console.error(`Gagal mengirim email pengingat trial habis untuk ${email}:`, err.message);
+  });
+}
+
 // Fired right after a new order is created (both license and collaborator
 // orders) — the customer-facing counterpart to the admin "Order baru masuk"
 // notification above. Tells the payer exactly how much to pay and hands
@@ -2220,18 +2416,18 @@ app.get("/api/admin/users", requireAdmin, async (req, res) => {
               lo.city AS last_open_city,
               lo.region AS last_open_region,
               lo.opened_at AS last_open_at,
-              ord.whatsapp AS whatsapp
+              -- Task 7: users.whatsapp is now set directly at trial
+              -- registration (POST /api/trial/register); a user who instead
+              -- came through the old /api/payment/create -> Doku flow never
+              -- gets that column set, so this still falls back to the
+              -- newest order that captured a WhatsApp number, same as before.
+              COALESCE(u.whatsapp, ord.whatsapp) AS whatsapp
        FROM users u
        LEFT JOIN user_app_data uad ON uad.user_id = u.id
        LEFT JOIN LATERAL (
          SELECT city, region, opened_at FROM app_open_logs
          WHERE user_id = u.id ORDER BY opened_at DESC LIMIT 1
        ) lo ON true
-       -- Tidak ada kolom telepon di users sendiri — nomor WhatsApp cuma
-       -- ditangkap di form order (landing page, v7.7). Ambil dari order
-       -- TERBARU milik email ini yang benar-benar mengisi WhatsApp (order
-       -- lama sebelum kolom ini ada, atau kolaborator yang tidak mengisi,
-       -- akan dilewati oleh WHERE whatsapp IS NOT NULL).
        LEFT JOIN LATERAL (
          SELECT whatsapp FROM orders
          WHERE email = u.email AND whatsapp IS NOT NULL
@@ -2441,6 +2637,30 @@ app.get("/api/admin/dashboard-stats", requireAdmin, async (req, res) => {
 // Auth Routes (Google Identity Services + Session)
 // ==========================================
 
+// Shared trial-provisioning INSERT (Task 7) — used by BOTH resolveLoginAccess
+// right below (first-ever Google sign-in for a brand-new email) and POST
+// /api/trial/register (the landing page's manual registration form), so
+// there is exactly ONE place that decides what "start a 3-day trial" means —
+// the prompt is explicit that these must never be allowed to diverge. ONLY
+// ever call this when the caller has ALREADY confirmed (via its own SELECT)
+// that no `users` row exists yet for this email — this function itself does
+// not check. `extra` is optional purely because resolveLoginAccess's Google
+// flow doesn't collect name/whatsapp at this point (its own later UPDATE
+// fills in `name` from the Google profile regardless, see /api/auth/google).
+async function provisionTrialUser(
+  email: string,
+  extra?: { name?: string | null; whatsapp?: string | null }
+): Promise<any> {
+  const insertResult = await pool.query(
+    `INSERT INTO users (email, name, whatsapp, status, trial_started_at, trial_ends_at)
+     VALUES ($1, $2, $3, 'trial', now(), now() + interval '3 days')
+     ON CONFLICT (email) DO UPDATE SET email = users.email
+     RETURNING *`,
+    [email, extra?.name || null, extra?.whatsapp || null]
+  );
+  return insertResult.rows[0];
+}
+
 // Shared login-eligibility gate — used by BOTH the real Google login below
 // and the dev-only bypass (when it's given an explicit email), so local
 // testing exercises the exact same access rule production does.
@@ -2481,7 +2701,8 @@ async function resolveLoginAccess(
       // collaborator invite either) used to be rejected outright right here
       // with NO row ever created at all — full access always required
       // payment first. Now: provision the row with a 3-day full-access trial
-      // straight away instead, no payment gate up front.
+      // straight away instead, no payment gate up front (provisionTrialUser
+      // above — SAME helper POST /api/trial/register uses).
       //
       // This branch is ONLY reachable when the SELECT above found no row —
       // i.e. this is the FIRST TIME EVER this email hits resolveLoginAccess.
@@ -2490,18 +2711,7 @@ async function resolveLoginAccess(
       // took the `if (user)` path instead and is NEVER routed through here,
       // so it can never be retroactively granted a trial; its `allowed`
       // value below is computed exactly like it always was.
-      //
-      // ON CONFLICT is a defensive no-op (touches nothing) rather than a
-      // hard failure, in case of a double-click/double-submit race landing
-      // two near-simultaneous first logins for the same brand-new email.
-      const insertResult = await pool.query(
-        `INSERT INTO users (email, status, trial_started_at, trial_ends_at)
-         VALUES ($1, 'trial', now(), now() + interval '3 days')
-         ON CONFLICT (email) DO UPDATE SET email = users.email
-         RETURNING *`,
-        [email]
-      );
-      user = insertResult.rows[0];
+      user = await provisionTrialUser(email);
     }
   }
 
@@ -3904,6 +4114,10 @@ async function setupVite() {
   // email + 2-hour auto-cancel, same tick (see runOrderFollowUpSweep).
   setInterval(runOrderFollowUpSweep, ORDER_SWEEP_INTERVAL_MS);
   setInterval(runOrderAutoCancelSweep, ORDER_SWEEP_INTERVAL_MS);
+
+  // Task 8 — trial-expired payment-reminder email, same tick cadence as the
+  // order sweeps above (see runTrialPaymentReminderSweep).
+  setInterval(runTrialPaymentReminderSweep, ORDER_SWEEP_INTERVAL_MS);
 
   // Task 5 — app_open_logs 7-day retention, run once immediately (same
   // reasoning as the Activity Log sweep above) then every 3 hours.
