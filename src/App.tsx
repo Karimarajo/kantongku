@@ -13,6 +13,8 @@ import {
 import { getDefaultProfile, formatRupiah, setActiveCurrency } from './utils';
 import { t as tr, setActiveLanguage } from './i18n';
 import { disablePushNotifications } from './lib/pushNotifications';
+import { installTrialGate, TRIAL_EXPIRED_EVENT } from './lib/trialGate';
+import TrialExpiredLock from './components/TrialExpiredLock';
 
 // Import Views
 import Login from './components/Login';
@@ -105,6 +107,12 @@ const calculateBudgetSpent = (b: Budget, transactionsList: Transaction[]): numbe
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
+  // Trial feature (Task 4) — set the moment ANY fetch anywhere in the app
+  // (see src/lib/trialGate.ts) comes back 403 TRIAL_EXPIRED, whether that's
+  // the very first /api/data on boot or a save mid-session once the trial
+  // expires while the tab is already open. Never reset to false except by
+  // TrialExpiredLock's own onUnlocked callback after a confirmed payment.
+  const [trialExpired, setTrialExpired] = useState<boolean>(false);
   const [pockets, setPockets] = useState<Pocket[]>(INITIAL_POCKETS);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [budgets, setBudgets] = useState<Budget[]>(INITIAL_BUDGETS);
@@ -243,6 +251,11 @@ export default function App() {
   // session invalidation so no data from the previous account lingers on screen).
   const resetToDefaults = () => {
     setCurrentUser(null);
+    // Trial feature: clear a stale lock so a DIFFERENT (or the same,
+    // now-paid) account signing back in within the same tab session — no
+    // full page reload — doesn't inherit this tab's leftover trialExpired
+    // flag from whoever was logged in before.
+    setTrialExpired(false);
     setPockets(INITIAL_POCKETS);
     setTransactions(INITIAL_TRANSACTIONS);
     setAccounts(INITIAL_ACCOUNTS);
@@ -399,6 +412,18 @@ export default function App() {
   // Load session + data once on boot.
   useEffect(() => {
     loadSessionAndData();
+  }, []);
+
+  // Trial feature (Task 4) — install the global fetch patch once, and listen
+  // for its broadcast. Deliberately a DOM event (not React state passed down)
+  // because the patch lives in a plain module with zero React dependency —
+  // see src/lib/trialGate.ts for why. Covers every fetch anywhere in the app,
+  // including the very /api/data call inside loadSessionAndData() above.
+  useEffect(() => {
+    installTrialGate();
+    const handleTrialExpired = () => setTrialExpired(true);
+    window.addEventListener(TRIAL_EXPIRED_EVENT, handleTrialExpired);
+    return () => window.removeEventListener(TRIAL_EXPIRED_EVENT, handleTrialExpired);
   }, []);
 
   // Periodically re-check session validity so a device gets logged out reasonably
@@ -2513,6 +2538,27 @@ export default function App() {
 
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
+  }
+
+  // Trial feature (Task 4) — full-screen lock, EARLY RETURN (not an overlay
+  // drawn on top) so there is zero chance of any dashboard interaction
+  // leaking through underneath it. currentUser is still populated (loaded
+  // fine from /api/me, which doesn't require active status) and every slice
+  // of app state loaded during the trial is still sitting in React state
+  // untouched — this just blocks the UI that would show it until payment
+  // settles. onUnlocked() re-runs the normal boot sequence, which will now
+  // come back 'active' from the server.
+  if (trialExpired) {
+    return (
+      <TrialExpiredLock
+        email={currentUser.email}
+        name={currentUser.name}
+        onUnlocked={() => {
+          setTrialExpired(false);
+          loadSessionAndData();
+        }}
+      />
+    );
   }
 
   return (

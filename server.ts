@@ -137,6 +137,21 @@ function requireActiveStatus(req: express.Request, res: express.Response, next: 
   // req.collaboratorOwnerEmail (set by requireSession, re-checked fresh every
   // request) is what proves they're allowed through here instead.
   const isActiveCollaborator = !!(req as any).collaboratorOwnerEmail;
+
+  // Trial feature: checked BEFORE the generic reject below, and entirely
+  // separate from the `user.status === "active"` path right after it — an
+  // 'active' user (real paying customer) never touches this branch at all,
+  // not even a single extra comparison changes for them.
+  if (user && user.status === "trial") {
+    if (user.trial_ends_at && new Date(user.trial_ends_at).getTime() > Date.now()) {
+      return next(); // still within the 3-day window — treat like 'active' for this request only, never written back to the DB.
+    }
+    // Distinct error shape (not the generic "Akun belum aktif" below) so the
+    // frontend can tell "never had access" apart from "had it, now expired"
+    // and show the pay-to-unlock lock-screen instead of just bouncing to login.
+    return res.status(403).json({ error: "Masa coba gratis sudah berakhir", code: "TRIAL_EXPIRED" });
+  }
+
   if (!user || (user.status !== "active" && !isActiveCollaborator)) {
     return res.status(403).json({ error: "Akun belum aktif" });
   }
@@ -2068,7 +2083,13 @@ async function confirmOrderRecord(
     return { ok: true, order, alreadyConfirmed: false };
   }
 
-  // order_type === 'license' (default) — unchanged behavior.
+  // order_type === 'license' (default) — unchanged behavior. Verified (Task
+  // 4, trial feature): this upsert is ALREADY fully generic — `DO UPDATE SET
+  // status = 'active'` overwrites whatever the row's status was before
+  // (including 'trial', 'pending', or even 'suspended'), no special-casing
+  // needed here for a trial user completing payment. It also does NOT clear
+  // trial_started_at/trial_ends_at, which is fine — requireActiveStatus
+  // checks `status === "active"` first, before ever looking at either.
   await pool.query(
     `INSERT INTO users (email, status, activated_at)
      VALUES ($1, 'active', now())
@@ -2191,7 +2212,7 @@ app.delete("/api/admin/orders/:order_code", requireAdmin, async (req, res) => {
 app.get("/api/admin/users", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.email, u.status, u.joined_at, u.activated_at, u.last_active_at,
+      `SELECT u.id, u.email, u.status, u.joined_at, u.activated_at, u.last_active_at, u.trial_ends_at,
               COALESCE((
                 SELECT SUM((p->>'balance')::numeric)
                 FROM jsonb_array_elements(COALESCE(uad.data->'pockets', '[]'::jsonb)) p
@@ -2446,18 +2467,51 @@ async function resolveLoginAccess(
   const isActiveCollaborator = (collabCheck.rowCount ?? 0) > 0;
 
   if (!user) {
-    if (!isActiveCollaborator) return { allowed: false };
-    // First-ever login for this collaborator email — provision a
-    // login-only `users` row (status stays at the table default, 'pending')
-    // so the normal session mechanism works. Deliberately NEVER creates a
-    // `user_app_data` row for them: requireSession resolves
-    // req.effectiveUserId to the OWNER's id for every data read/write, so
-    // this row's own app data simply never gets written.
-    const insertResult = await pool.query(`INSERT INTO users (email) VALUES ($1) RETURNING *`, [email]);
-    user = insertResult.rows[0];
+    if (isActiveCollaborator) {
+      // First-ever login for this collaborator email — provision a
+      // login-only `users` row (status stays at the table default, 'pending')
+      // so the normal session mechanism works. Deliberately NEVER creates a
+      // `user_app_data` row for them: requireSession resolves
+      // req.effectiveUserId to the OWNER's id for every data read/write, so
+      // this row's own app data simply never gets written.
+      const insertResult = await pool.query(`INSERT INTO users (email) VALUES ($1) RETURNING *`, [email]);
+      user = insertResult.rows[0];
+    } else {
+      // Trial feature: a genuinely brand-new email (never seen before, not a
+      // collaborator invite either) used to be rejected outright right here
+      // with NO row ever created at all — full access always required
+      // payment first. Now: provision the row with a 3-day full-access trial
+      // straight away instead, no payment gate up front.
+      //
+      // This branch is ONLY reachable when the SELECT above found no row —
+      // i.e. this is the FIRST TIME EVER this email hits resolveLoginAccess.
+      // An email that already has ANY existing `users` row — including an
+      // old leftover 'pending' one from before this trial feature existed —
+      // took the `if (user)` path instead and is NEVER routed through here,
+      // so it can never be retroactively granted a trial; its `allowed`
+      // value below is computed exactly like it always was.
+      //
+      // ON CONFLICT is a defensive no-op (touches nothing) rather than a
+      // hard failure, in case of a double-click/double-submit race landing
+      // two near-simultaneous first logins for the same brand-new email.
+      const insertResult = await pool.query(
+        `INSERT INTO users (email, status, trial_started_at, trial_ends_at)
+         VALUES ($1, 'trial', now(), now() + interval '3 days')
+         ON CONFLICT (email) DO UPDATE SET email = users.email
+         RETURNING *`,
+        [email]
+      );
+      user = insertResult.rows[0];
+    }
   }
 
-  const allowed = user.status === "active" || isActiveCollaborator;
+  // 'trial' is allowed to complete LOGIN regardless of whether trial_ends_at
+  // has already passed — the actual 3-day cutoff is enforced per-request
+  // instead, by requireActiveStatus, which is what returns the distinct
+  // TRIAL_EXPIRED signal the frontend's lock-screen keys off. Rejecting the
+  // login itself here would leave an expired-trial user stuck at the Google
+  // Sign-In screen with no way to ever reach the pay-to-unlock flow.
+  const allowed = user.status === "active" || user.status === "trial" || isActiveCollaborator;
   return allowed ? { allowed: true, user } : { allowed: false };
 }
 

@@ -37,7 +37,11 @@ CREATE TABLE IF NOT EXISTS users (
   google_id TEXT UNIQUE,
   name TEXT,
   avatar_url TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended')),
+  -- v13: 'trial' added for the 3-day full-access trial granted to a
+  -- genuinely brand-new signup (see resolveLoginAccess in server.ts) — the
+  -- DEFAULT stays 'pending' on purpose (who actually gets 'trial' vs
+  -- 'pending' is decided in application code, not here, per the task spec).
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'trial', 'active', 'suspended')),
   settings JSONB NOT NULL DEFAULT '{}'::jsonb,
   -- v12: one active session PER DEVICE TYPE instead of a single global
   -- `current_session_id` — logging in on a phone while already logged in on
@@ -51,9 +55,33 @@ CREATE TABLE IF NOT EXISTS users (
   current_session_id_tablet UUID,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   activated_at TIMESTAMPTZ,
-  last_active_at TIMESTAMPTZ
+  last_active_at TIMESTAMPTZ,
+  -- v13: NULL for every row except one created while the trial feature is
+  -- live AND actually granted a trial (see resolveLoginAccess) — an old
+  -- 'pending' row from before this feature existed keeps both columns NULL
+  -- forever, which is exactly what keeps it OUT of the trial branch in
+  -- requireActiveStatus (that check requires trial_ends_at to be set).
+  trial_started_at TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+-- v13: widen the status CHECK to allow 'trial'. This CANNOT be a plain
+-- `ALTER TABLE ... ADD CONSTRAINT ... EXCEPTION WHEN duplicate_object` (the
+-- pattern used elsewhere in this file, e.g. orders_order_type_check below)
+-- because that pattern is for adding a constraint that doesn't already exist
+-- under any name — here, an EXISTING deployment already has the OLD,
+-- narrower check baked in as a real constraint (Postgres's default name for
+-- an unnamed column CHECK: `users_status_check`), and simply ADDING a second,
+-- differently-named constraint alongside it would do nothing — CHECK
+-- constraints are ANDed together, not replaced, so the old one would keep
+-- rejecting 'trial' regardless. This must DROP the old constraint first, then
+-- re-ADD it widened. Safe/idempotent on a fresh install too: CREATE TABLE
+-- above already names it `users_status_check` with 'trial' included, so the
+-- DROP+re-ADD below is just a no-op re-assertion of the identical constraint.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check;
+ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('pending', 'trial', 'active', 'suspended'));
 -- v12: real ALTERs for an existing deployment (see the note on `orders`
 -- below for why a comment alone here would silently never apply). The old
 -- single-slot `current_session_id` is dropped — everyone gets logged out

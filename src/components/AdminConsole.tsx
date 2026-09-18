@@ -73,6 +73,11 @@ interface AdminUser {
   joined_at: string;
   activated_at: string | null;
   last_active_at: string | null;
+  // Trial feature — only ever set for a row that was granted the 3-day
+  // full-access trial (see resolveLoginAccess in server.ts); null for every
+  // other status, including an old leftover 'pending' row from before this
+  // feature existed.
+  trial_ends_at: string | null;
   total_balance: string | number;
   last_open_city: string | null;
   last_open_region: string | null;
@@ -208,6 +213,18 @@ const formatCurrency = (amount: string | number) =>
 const formatDateTime = (iso: string | null) => {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
+// Trial feature (Task 5) — "2 hari lagi" / "5 jam lagi" style countdown for
+// the users table badge, or "Trial berakhir" once trial_ends_at has passed.
+// Display-only (no override buttons in this iteration, per the task spec).
+const formatTrialRemaining = (trialEndsAt: string | null): string => {
+  if (!trialEndsAt) return '';
+  const msRemaining = new Date(trialEndsAt).getTime() - Date.now();
+  if (msRemaining <= 0) return 'Trial berakhir';
+  const hoursRemaining = Math.ceil(msRemaining / (1000 * 60 * 60));
+  if (hoursRemaining >= 24) return `${Math.ceil(hoursRemaining / 24)} hari lagi`;
+  return `${hoursRemaining} jam lagi`;
 };
 
 // Every NEW order is 'doku' (Doku Checkout, automatic). Historical orders
@@ -1109,17 +1126,27 @@ export default function AdminConsole() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            u.status === 'active'
-                              ? 'bg-primary/10 text-primary'
-                              : u.status === 'suspended'
-                              ? 'bg-rose-500/10 text-rose-400'
-                              : 'bg-overlay/10 text-on-surface-variant'
-                          }`}
-                        >
-                          {u.status}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                              u.status === 'active'
+                                ? 'bg-primary/10 text-primary'
+                                : u.status === 'trial'
+                                ? 'bg-amber-500/10 text-amber-500'
+                                : u.status === 'suspended'
+                                ? 'bg-rose-500/10 text-rose-400'
+                                : 'bg-overlay/10 text-on-surface-variant'
+                            }`}
+                          >
+                            {u.status}
+                          </span>
+                          {/* Trial feature — sisa waktu (atau "Trial berakhir"), display-only. */}
+                          {u.status === 'trial' && (
+                            <span className="text-[10px] text-on-surface-variant/70 font-mono-data">
+                              {formatTrialRemaining(u.trial_ends_at)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-mono-data text-on-surface">{formatCurrency(u.total_balance)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-on-surface-variant">{formatDateTime(u.joined_at)}</td>
