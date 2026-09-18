@@ -3,6 +3,7 @@ import { User, Mail, Phone, ArrowRight, CheckCircle2, Loader2, Copy, Check, Shie
 import Header from './landing/Header';
 import Hero from './landing/Hero';
 import TrustBar from './landing/TrustBar';
+import LiteracyGap from './landing/LiteracyGap';
 import SocialProofStrip from './landing/SocialProofStrip';
 import BeforeAfter from './landing/BeforeAfter';
 import HowItWorks from './landing/HowItWorks';
@@ -380,6 +381,11 @@ export default function Landing() {
         </p>
       </section>
       <TrustBar />
+
+      {/* Task 6 (trial+literacy-gap) — "kenapa ini penting" (Inclusion
+          Literacy Gap) sebelum "cara kerja produk" (HowItWorks di bawah).
+          Evergreen, tampil untuk semua traffic. */}
+      <LiteracyGap />
 
       {/* Blok 3, Solution/Services: intro -> How it Works -> Kemudahan -> Features. */}
       <section className="w-full px-6 py-10 bg-landing-bg">
