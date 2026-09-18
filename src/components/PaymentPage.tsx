@@ -9,8 +9,9 @@ import { PRODUCT_PRICE_IDR } from '../../lib/constants';
 // /api/payment/status/:order_code -> success/expired/error) — moved here
 // VERBATIM, logic untouched, per the explicit constraint not to change
 // /api/payment/create or the Doku flow itself. Reachable two ways: the
-// in-app lock-screen once a trial expires (TrialExpiredLock.tsx, linking to
-// `/bayar?email=<their email>`), and the trial-expired reminder email
+// "trial habis" prompt Login.tsx shows right after a trial user gets
+// auto-logged-out (see App.tsx's trial-gate effect), linking to
+// `/bayar?email=<their email>`, and the trial-expired reminder email
 // (sendTrialPaymentReminderEmail in server.ts, same link). This is the one
 // deliberate EXCEPTION to "no prices on the main site" (Task 9) — someone
 // landing here is already past the free-trial stage and specifically here

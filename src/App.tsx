@@ -14,7 +14,6 @@ import { getDefaultProfile, formatRupiah, setActiveCurrency } from './utils';
 import { t as tr, setActiveLanguage } from './i18n';
 import { disablePushNotifications } from './lib/pushNotifications';
 import { installTrialGate, TRIAL_EXPIRED_EVENT } from './lib/trialGate';
-import TrialExpiredLock from './components/TrialExpiredLock';
 
 // Import Views
 import Login from './components/Login';
@@ -107,12 +106,18 @@ const calculateBudgetSpent = (b: Budget, transactionsList: Transaction[]): numbe
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
-  // Trial feature (Task 4) — set the moment ANY fetch anywhere in the app
-  // (see src/lib/trialGate.ts) comes back 403 TRIAL_EXPIRED, whether that's
-  // the very first /api/data on boot or a save mid-session once the trial
-  // expires while the tab is already open. Never reset to false except by
-  // TrialExpiredLock's own onUnlocked callback after a confirmed payment.
-  const [trialExpired, setTrialExpired] = useState<boolean>(false);
+  // Trial feature — set the moment ANY fetch anywhere in the app (see
+  // src/lib/trialGate.ts) comes back 403 TRIAL_EXPIRED, whether that's the
+  // very first /api/data on boot or a save mid-session once the trial
+  // expires while the tab is already open. Revised behavior (per explicit
+  // request): rather than locking the UI in place while staying "logged
+  // in", the account is auto-logged-out immediately (see the trial-gate
+  // effect below) and this holds the email across that logout purely so
+  // Login.tsx can still show "trial habis untuk <email>" + a link to
+  // /bayar?email=... on the resulting login screen. Cleared by
+  // resetToDefaults() on any OTHER (voluntary) logout so it never leaks
+  // into an unrelated future session on the same tab.
+  const [trialExpiredEmail, setTrialExpiredEmail] = useState<string | null>(null);
   const [pockets, setPockets] = useState<Pocket[]>(INITIAL_POCKETS);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [budgets, setBudgets] = useState<Budget[]>(INITIAL_BUDGETS);
@@ -251,11 +256,13 @@ export default function App() {
   // session invalidation so no data from the previous account lingers on screen).
   const resetToDefaults = () => {
     setCurrentUser(null);
-    // Trial feature: clear a stale lock so a DIFFERENT (or the same,
-    // now-paid) account signing back in within the same tab session — no
-    // full page reload — doesn't inherit this tab's leftover trialExpired
-    // flag from whoever was logged in before.
-    setTrialExpired(false);
+    // Trial feature: clear a stale "trial habis" prompt so a DIFFERENT (or
+    // the same, now-paid) account signing back in and later logging out
+    // again within the same tab session doesn't inherit this tab's leftover
+    // trialExpiredEmail from whoever was logged in before. The trial-expiry
+    // handler below sets it again AFTER calling this function, so this
+    // never fights that call.
+    setTrialExpiredEmail(null);
     setPockets(INITIAL_POCKETS);
     setTransactions(INITIAL_TRANSACTIONS);
     setAccounts(INITIAL_ACCOUNTS);
@@ -414,17 +421,32 @@ export default function App() {
     loadSessionAndData();
   }, []);
 
-  // Trial feature (Task 4) — install the global fetch patch once, and listen
-  // for its broadcast. Deliberately a DOM event (not React state passed down)
+  // Trial feature — install the global fetch patch once, and listen for its
+  // broadcast. Deliberately a DOM event (not React state passed down)
   // because the patch lives in a plain module with zero React dependency —
   // see src/lib/trialGate.ts for why. Covers every fetch anywhere in the app,
   // including the very /api/data call inside loadSessionAndData() above.
+  //
+  // Revised behavior (per explicit request) — auto-logout instead of an
+  // in-place lock screen: capture the email BEFORE clearing anything, fire
+  // the same best-effort logout steps handleLogout below uses (push
+  // unsubscribe + POST /api/auth/logout, neither awaited — this must never
+  // block the login screen from appearing), then resetToDefaults() and only
+  // AFTER that set trialExpiredEmail (resetToDefaults itself clears it, so
+  // order matters). Re-subscribes whenever currentUser changes so the
+  // handler always closes over the CURRENT user's email, never a stale one.
   useEffect(() => {
     installTrialGate();
-    const handleTrialExpired = () => setTrialExpired(true);
+    const handleTrialExpired = () => {
+      const expiredEmail = currentUser?.email || null;
+      disablePushNotifications().catch(() => {});
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+      resetToDefaults();
+      setTrialExpiredEmail(expiredEmail);
+    };
     window.addEventListener(TRIAL_EXPIRED_EVENT, handleTrialExpired);
     return () => window.removeEventListener(TRIAL_EXPIRED_EVENT, handleTrialExpired);
-  }, []);
+  }, [currentUser]);
 
   // Periodically re-check session validity so a device gets logged out reasonably
   // promptly after another device of the SAME type logs into the same account
@@ -2537,22 +2559,11 @@ export default function App() {
   }
 
   if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  // Trial feature (Task 4, simplified per Task 8) — full-screen lock, EARLY
-  // RETURN (not an overlay drawn on top) so there is zero chance of any
-  // dashboard interaction leaking through underneath it. currentUser is
-  // still populated (loaded fine from /api/me, which doesn't require active
-  // status) and every slice of app state loaded during the trial is still
-  // sitting in React state untouched — this just blocks the UI that would
-  // show it until payment settles. TrialExpiredLock links OUT to the
-  // standalone /bayar page rather than creating/polling an order itself;
-  // once payment settles there it redirects to /app on its own (a full page
-  // load), which naturally re-runs this component's boot sequence fresh and
-  // comes back unlocked — no callback needed here.
-  if (trialExpired) {
-    return <TrialExpiredLock email={currentUser.email} />;
+    // Trial feature — trialExpiredEmail is null on any normal logged-out
+    // visit and only ever populated right after the auto-logout in the
+    // trial-gate effect above; Login.tsx shows its "trial habis" prompt
+    // exactly when this is non-null, the plain sign-in screen otherwise.
+    return <Login onLogin={handleLogin} trialExpiredEmail={trialExpiredEmail} />;
   }
 
   return (

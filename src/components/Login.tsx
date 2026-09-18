@@ -1,9 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Lock, ExternalLink } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 
 interface LoginProps {
   onLogin: (email: string) => void;
   defaultEmail?: string;
+  // Trial feature — set by App.tsx the moment a 'trial' user's 3-day window
+  // is detected as expired (see trialGate.ts): App.tsx auto-logs them out
+  // FIRST (session cleared server-side, same as a voluntary logout) and
+  // THEN renders this screen with their email carried over, so "Lanjutkan
+  // Beli App" below can still build the right /bayar?email=... link even
+  // though they're no longer authenticated at this point.
+  trialExpiredEmail?: string | null;
 }
 
 interface GoogleCredentialResponse {
@@ -26,7 +34,7 @@ declare global {
   }
 }
 
-export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
+export default function Login({ onLogin, defaultEmail = '', trialExpiredEmail = null }: LoginProps) {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [devLoading, setDevLoading] = useState<boolean>(false);
@@ -181,6 +189,32 @@ export default function Login({ onLogin, defaultEmail = '' }: LoginProps) {
             </p>
           </div>
         </div>
+
+        {/* Trial feature — shown ONLY right after an auto-logout triggered by
+            a 'trial' user's 3-day window expiring (see App.tsx's
+            handleTrialExpired). Sits above the normal Google Sign-In, which
+            stays available below in case they'd rather log in again (a
+            different account, or one an admin already activated manually)
+            instead of paying immediately. */}
+        {trialExpiredEmail && (
+          <div className="w-full flex flex-col items-center gap-3 text-center bg-surface rounded-2xl p-6 border border-overlay/10">
+            <div className="w-12 h-12 rounded-full bg-danger/15 flex items-center justify-center">
+              <Lock className="w-6 h-6 text-danger" />
+            </div>
+            <p className="text-sm font-bold text-on-surface">Masa Coba Gratis Sudah Berakhir</p>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Trial untuk <span className="font-semibold text-on-surface">{trialExpiredEmail}</span> sudah habis.
+              Datamu tetap aman tersimpan — lanjutkan beli buat bisa akses lagi.
+            </p>
+            <a
+              href={`/bayar?email=${encodeURIComponent(trialExpiredEmail)}`}
+              className="w-full h-12 rounded-xl bg-primary text-on-primary font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all"
+            >
+              Lanjutkan Beli App
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        )}
 
         {/* Google Sign-In */}
         <div className="w-full flex flex-col items-center gap-4">

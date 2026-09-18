@@ -2062,9 +2062,10 @@ function sendTrialAccessEmail(params: { name: string | null; email: string; isRe
 
 // Task 8 — the one-shot "trial habis, yuk lanjut" nudge, sent by
 // runTrialPaymentReminderSweep the moment a 'trial' row's trial_ends_at has
-// passed. Same /bayar?email=... link the in-app lock-screen itself links
-// out to (see TrialExpiredLock.tsx) — one single destination for "I want to
-// pay now" regardless of whether the user is looking at the app or their inbox.
+// passed. Same /bayar?email=... link the "trial habis" prompt on Login.tsx
+// itself links out to (App.tsx auto-logs the user out first, see its
+// trial-gate effect) — one single destination for "I want to pay now"
+// regardless of whether the user is looking at the app or their inbox.
 function sendTrialPaymentReminderEmail(user: { name: string | null; email: string }) {
   const { name, email } = user;
   const greetingName = name ? ` ${name}` : "";
@@ -2075,11 +2076,11 @@ function sendTrialPaymentReminderEmail(user: { name: string | null; email: strin
     "Trial KantongKu Kamu Sudah Berakhir",
     `<p>Halo${greetingName},</p>
      <p>Masa coba KantongKu kamu sudah berakhir. Tenang, data yang sudah kamu catat selama ini tetap aman tersimpan —
-     lanjutkan berlangganan buat bisa akses lagi:</p>
-     <p><a href="${payUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;">Lanjutkan Berlangganan</a></p>
+     lanjutkan beli app buat bisa akses lagi:</p>
+     <p><a href="${payUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;">Lanjutkan Beli App</a></p>
      <p style="font-size:12px;color:#666;">Kalau tombolnya tidak bisa diklik, salin link ini: <a href="${payUrl}">${payUrl}</a></p>
      <p>Begitu pembayaran berhasil, akun kamu otomatis kebuka lagi dalam hitungan detik.</p>`,
-    `Halo${greetingName},\n\nMasa coba KantongKu kamu sudah berakhir. Tenang, data yang sudah kamu catat selama ini tetap aman tersimpan — lanjutkan berlangganan buat bisa akses lagi:\n\n${payUrl}\n\nBegitu pembayaran berhasil, akun kamu otomatis kebuka lagi dalam hitungan detik.`
+    `Halo${greetingName},\n\nMasa coba KantongKu kamu sudah berakhir. Tenang, data yang sudah kamu catat selama ini tetap aman tersimpan — lanjutkan beli app buat bisa akses lagi:\n\n${payUrl}\n\nBegitu pembayaran berhasil, akun kamu otomatis kebuka lagi dalam hitungan detik.`
   ).catch((err: any) => {
     console.error(`Gagal mengirim email pengingat trial habis untuk ${email}:`, err.message);
   });

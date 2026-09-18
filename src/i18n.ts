@@ -572,14 +572,6 @@ const EN: Record<string, string> = {
   'Mode Gelap/Terang': 'Dark/Light Mode',
   'Bantuan & Dukungan': 'Help & Support',
   'Pertanyaan yang Sering Diajukan (FAQ)': 'Frequently Asked Questions (FAQ)',
-
-  // Trial feature (Task 4, simplified per Task 8) — TrialExpiredLock.tsx.
-  // No day-count in the ID text itself (landing/app copy no longer states
-  // "3 hari" explicitly, per Task 9's constraint) — the EN side follows suit.
-  'Masa Coba Gratis Sudah Berakhir': 'Your Free Trial Has Ended',
-  'Masa coba kamu sudah habis. Datamu tetap aman tersimpan — lanjutkan berlangganan untuk bisa akses lagi.':
-    'Your trial is over. Your data is still safely saved — subscribe to get access again.',
-  'Lanjutkan Berlangganan': 'Continue Subscription',
 };
 
 // Fallback param cuma dipakai untuk teks yang mengandung interpolasi
