@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Reminder, Debt, Pocket, Account, Category } from '../types';
-import { formatRupiah } from '../utils';
+import { formatRupiah, localDateKey } from '../utils';
 import { t as tr } from '../i18n';
 import { X, Plus, Trash2, Bell, AlarmClock, CalendarDays, Clock, RefreshCw, Edit3, CheckCircle2, Save, Link2 } from 'lucide-react';
 import PaymentConfirmModal from './PaymentConfirmModal';
@@ -84,7 +84,7 @@ export default function ReminderModal({
     // atau tanggal hari ini + jam tersimpan sebagai fallback (reminder lama
     // yang berulang tidak selalu punya targetDate — hanya dipakai buat
     // tampilan awal form, bukan sumber kebenaran repeatType).
-    const dateForInput = reminder.targetDate || new Date().toISOString().slice(0, 10);
+    const dateForInput = reminder.targetDate || localDateKey();
     setTargetDateTime(`${dateForInput}T${reminder.time}`);
     setRepeatType(reminder.repeatType);
     setAmount(reminder.amount || 0);

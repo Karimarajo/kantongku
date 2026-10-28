@@ -648,6 +648,30 @@ function classifyRatiosLocally(debtRatioPercent: number, savingsRatioPercent: nu
   return 'Perlu Perhatian';
 }
 
+// Awal/akhir hari (YYYY-MM-DD) di zona waktu IANA tertentu, sebagai instan UTC.
+// `new Date("2026-10-28")` dibaca UTC dan menggeser batas hari di zona non-UTC.
+function zonedDayBoundary(dateKey: string, timeZone: string, end: boolean): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateKey || "");
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const wall = end ? Date.UTC(y, mo - 1, d, 23, 59, 59, 999) : Date.UTC(y, mo - 1, d, 0, 0, 0, 0);
+  const offsetAt = (ts: number): number => {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+      }).formatToParts(new Date(ts));
+      const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+      return Date.UTC(g("year"), g("month") - 1, g("day"), g("hour"), g("minute"), g("second")) - Math.floor(ts / 1000) * 1000;
+    } catch {
+      return 7 * 3600 * 1000; // zona tidak valid -> WIB
+    }
+  };
+  let ts = wall - offsetAt(wall);
+  ts = wall - offsetAt(ts); // koreksi kedua untuk batas DST
+  return new Date(ts);
+}
+
 app.post("/api/analysis/financial-health", requireSession, requireActiveStatus, async (req, res) => {
   try {
     const effectiveUserId = (req as any).effectiveUserId;
@@ -660,8 +684,9 @@ app.post("/api/analysis/financial-health", requireSession, requireActiveStatus, 
     const debts: any[] = Array.isArray(appData.debts) ? appData.debts : [];
 
     // Default range: last 1 month, per the prompt's own spec.
-    const rangeEnd = endDate ? new Date(endDate) : new Date();
-    const rangeStart = startDate ? new Date(startDate) : new Date(rangeEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const userTz: string = appData.settings?.timezone || DEFAULT_REMINDER_TIMEZONE;
+    const rangeEnd = (endDate && zonedDayBoundary(endDate, userTz, true)) || new Date();
+    const rangeStart = (startDate && zonedDayBoundary(startDate, userTz, false)) || new Date(rangeEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
     if (isNaN(rangeStart.getTime()) || isNaN(rangeEnd.getTime()) || rangeStart > rangeEnd) {
       return res.status(400).json({ error: "Rentang tanggal tidak valid" });
     }
@@ -713,7 +738,7 @@ app.post("/api/analysis/financial-health", requireSession, requireActiveStatus, 
     const localCategory = classifyRatiosLocally(debtRatioPercent, savingsRatioPercent, liquidityRatioX);
 
     const summaryForAi = {
-      periode: { dari: rangeStart.toISOString().slice(0, 10), sampai: rangeEnd.toISOString().slice(0, 10) },
+      periode: { dari: startDate || rangeStart.toISOString().slice(0, 10), sampai: endDate || rangeEnd.toISOString().slice(0, 10) },
       rasio_cicilan_utang_persen: ratios.debt.percent,
       rasio_menabung_persen: ratios.savings.percent,
       rasio_likuiditas_kali_pengeluaran: ratios.liquidity.multiplier,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Debt, DebtPayment, Transaction, Pocket, Account, Category } from '../types';
-import { formatRupiah, formatDate } from '../utils';
+import { formatRupiah, formatDate, localDateKey } from '../utils';
 import { t as tr } from '../i18n';
 import {
   ChevronLeft, Plus, X, CreditCard, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Trash2, PartyPopper, Edit3, Save
@@ -43,7 +43,7 @@ export default function DebtManagerView({
   const [monthlyInstallment, setMonthlyInstallment] = useState<number>(0);
   const [tenorMonths, setTenorMonths] = useState<number>(12);
   const [dueDay, setDueDay] = useState<number>(5);
-  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState<string>(() => localDateKey());
 
   // Revisi: id debt yang sedang dalam proses konfirmasi bayar — begitu
   // diisi, PaymentConfirmModal dirender menanyakan kantong/wallet/kategori
@@ -57,7 +57,7 @@ export default function DebtManagerView({
     setMonthlyInstallment(0);
     setTenorMonths(12);
     setDueDay(5);
-    setStartDate(new Date().toISOString().slice(0, 10));
+    setStartDate(localDateKey());
   };
 
   const handleOpenEdit = (debt: Debt) => {

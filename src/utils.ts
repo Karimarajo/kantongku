@@ -92,6 +92,31 @@ export function formatRupiahCompact(amount: number, withPrefix = false): string 
   return `${isNegative ? '-' : ''}${prefix}${Math.round(abs)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Tanggal LOKAL perangkat. `new Date("2026-10-28")` (string tanggal saja)
+// dibaca sebagai tengah malam UTC, dan `toISOString().slice(0,10)` selalu
+// mengembalikan tanggal UTC — keduanya bergeser sehari di perangkat non-UTC
+// (mis. WIB/GMT+7: 00:00-06:59 dianggap hari sebelumnya). Pakai helper di
+// bawah untuk semua nilai <input type="date"> dan pembandingan rentang.
+// ---------------------------------------------------------------------------
+
+/** YYYY-MM-DD di zona waktu perangkat. */
+export function localDateKey(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 00:00:00.000 lokal pada tanggal YYYY-MM-DD. */
+export function startOfLocalDay(dateKey: string): Date {
+  const [y, m, d] = dateKey.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+}
+
+/** 23:59:59.999 lokal pada tanggal YYYY-MM-DD. */
+export function endOfLocalDay(dateKey: string): Date {
+  const [y, m, d] = dateKey.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
+}
+
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();

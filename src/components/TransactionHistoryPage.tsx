@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Pocket, Account, Category, WalletTransferLog } from '../types';
-import { formatRupiah, formatDate, getCategoryColorHex, getWeeklyExpenseTrend } from '../utils';
+import { formatRupiah, formatDate, getCategoryColorHex, getWeeklyExpenseTrend, startOfLocalDay, endOfLocalDay } from '../utils';
 import { t as tr } from '../i18n';
 import { buildExportRows, exportTransactionsToCsv, exportTransactionsToPdf } from '../lib/exportTransactions';
 import CategoryIcon from './CategoryIcon';
@@ -73,8 +73,8 @@ export default function TransactionHistoryPage({
   const preDonutFilteredTransactions = useMemo(() => {
     return transactions.filter(t => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.notes?.toLowerCase().includes(search.toLowerCase())) return false;
-      if (dateFrom && new Date(t.date) < new Date(dateFrom)) return false;
-      if (dateTo && new Date(t.date) > new Date(dateTo)) return false;
+      if (dateFrom && new Date(t.date) < startOfLocalDay(dateFrom)) return false;
+      if (dateTo && new Date(t.date) > endOfLocalDay(dateTo)) return false;
       if (selectedCategories.length > 0 && !selectedCategories.includes(t.category)) return false;
       if (selectedPockets.length > 0 && !selectedPockets.includes(t.pocketId)) return false;
       if (selectedAccounts.length > 0 && !selectedAccounts.includes(t.accountId)) return false;
@@ -113,8 +113,8 @@ export default function TransactionHistoryPage({
   const filteredTransferLogs = useMemo(() => {
     if (selectedCategories.length > 0 || selectedPockets.length > 0 || typeFilter !== 'all') return [];
     return walletTransferLogs.filter(log => {
-      if (dateFrom && new Date(log.date) < new Date(dateFrom)) return false;
-      if (dateTo && new Date(log.date) > new Date(dateTo)) return false;
+      if (dateFrom && new Date(log.date) < startOfLocalDay(dateFrom)) return false;
+      if (dateTo && new Date(log.date) > endOfLocalDay(dateTo)) return false;
       if (selectedAccounts.length > 0 && !selectedAccounts.includes(log.fromAccountId) && !selectedAccounts.includes(log.toAccountId)) return false;
       if (search) {
         const haystack = `${getAccountName(log.fromAccountId)} ${getAccountName(log.toAccountId)} ${log.note || ''}`.toLowerCase();
@@ -153,7 +153,7 @@ export default function TransactionHistoryPage({
   // filteredTransactions below.
   const exportTitle = useMemo(() => {
     const rangeLabel = dateFrom || dateTo
-      ? `${dateFrom ? new Date(dateFrom).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '...'} – ${dateTo ? new Date(dateTo).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '...'}`
+      ? `${dateFrom ? startOfLocalDay(dateFrom).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '...'} – ${dateTo ? startOfLocalDay(dateTo).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '...'}`
       : tr('Semua Data');
     return `${tr('Riwayat Transaksi')} — ${rangeLabel}`;
   }, [dateFrom, dateTo]);

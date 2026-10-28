@@ -36,8 +36,8 @@ import {
   Brain
 } from 'lucide-react';
 import { PocketType, CategoryType, Transaction, Pocket, Account, Category, SharedPocketBundle } from '../types';
-import { formatRupiah, getCategoryColorHex } from '../utils';
-import { t as tr } from '../i18n';
+import { formatRupiah, getCategoryColorHex, localDateKey, startOfLocalDay } from '../utils';
+import { t as tr, getActiveLanguage } from '../i18n';
 import CategoryIcon from './CategoryIcon';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
 
@@ -109,13 +109,7 @@ export default function AddTransactionModal({
   const [type, setType] = useState<'incoming' | 'outgoing'>('outgoing');
   const [notes, setNotes] = useState('');
   const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'lusa' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState<string>(() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  });
+  const [customDate, setCustomDate] = useState<string>(() => localDateKey());
 
   // Pocket Sharing (v11): pockets shared to me appear in the SAME picker as
   // my own, right below. `activeShare` tells the rest of this form (account/
@@ -202,11 +196,7 @@ export default function AddTransactionModal({
         setDatePreset('custom');
         
         // Parse date to YYYY-MM-DD
-        const dateObj = new Date(editingTransaction.date);
-        const year = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        setCustomDate(`${year}-${month}-${day}`);
+        setCustomDate(localDateKey(new Date(editingTransaction.date)));
         
         setCurrentView('manual');
       } else {
@@ -405,8 +395,8 @@ export default function AddTransactionModal({
     // default ke hari ini seperti input manual biasa.
     const waktuFromAi = parsedData.waktu ? new Date(parsedData.waktu) : null;
     if (waktuFromAi && !isNaN(waktuFromAi.getTime())) {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const resolvedDateStr = waktuFromAi.toISOString().slice(0, 10);
+      const todayStr = localDateKey();
+      const resolvedDateStr = localDateKey(waktuFromAi);
       if (resolvedDateStr === todayStr) {
         setDatePreset('today');
       } else {
@@ -555,21 +545,33 @@ export default function AddTransactionModal({
     { text: '"Ada omset grosiran masuk dua juta ke kas bisnis"', catatan: 'Omset Grosir', nominal: 2000000, kategori: 'pendapatan', tipe: 'pemasukan', sumber_dana: 'Bank_BCA', kepemilikan: 'Uang Bisnis' },
   ];
 
+  // Tanggal (YYYY-MM-DD, kalender lokal perangkat) yang dimaksud preset Waktu
+  // Catatan. Dihitung dari kalender, bukan dari "sekarang - 24 jam".
+  const resolvePickedDateKey = (): string => {
+    if (datePreset === 'custom') return customDate || localDateKey();
+    const d = new Date();
+    d.setDate(d.getDate() - (datePreset === 'yesterday' ? 1 : datePreset === 'lusa' ? 2 : 0));
+    return localDateKey(d);
+  };
+  const pickedDateLabel = startOfLocalDay(resolvePickedDateKey()).toLocaleDateString(
+    getActiveLanguage() === 'en' ? 'en-US' : 'id-ID',
+    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+  );
+
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) return alert(tr('Mohon isi judul transaksi'));
     if (amount <= 0) return alert(tr('Nominal harus lebih besar dari 0'));
     
-    let finalDate = new Date();
-    if (datePreset === 'yesterday') {
-      finalDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    } else if (datePreset === 'lusa') {
-      finalDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-    } else if (datePreset === 'custom') {
-      const parsedDate = new Date(customDate);
+    // Tanggal terpilih (kalender lokal perangkat) + jam saat ini. Kalau sedang
+    // mengedit dan tanggalnya tidak diubah, jam aslinya dipertahankan.
+    const pickedKey = resolvePickedDateKey();
+    let finalDate = startOfLocalDay(pickedKey);
+    if (editingTransaction && localDateKey(new Date(editingTransaction.date)) === pickedKey) {
+      finalDate = new Date(editingTransaction.date);
+    } else {
       const now = new Date();
-      parsedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-      finalDate = parsedDate;
+      finalDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
     }
 
     if (editingTransaction && onEditTransaction) {
@@ -922,6 +924,7 @@ export default function AddTransactionModal({
                     );
                   })}
                 </div>
+                <p className="text-[11px] text-on-surface-variant font-mono-data">{pickedDateLabel}</p>
                 {datePreset === 'custom' && <input type="date" required value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="mt-2 h-11 bg-surface-variant/40 border border-overlay/10 rounded-lg px-3 text-sm text-on-surface focus:outline-none focus:border-primary/60" />}
               </div>
 

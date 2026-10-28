@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Budget, Category, Transaction, CategoryType } from '../types';
-import { formatRupiah, getCategoryColorHex } from '../utils';
+import { formatRupiah, getCategoryColorHex, localDateKey, startOfLocalDay, endOfLocalDay } from '../utils';
 import { t as tr } from '../i18n';
 import CategoryIcon from './CategoryIcon';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
@@ -75,11 +75,8 @@ export default function BudgetModal({
   const calculateRealSpent = (catId: string | string[], startStr: string, endStr: string) => {
     if (!startStr || !endStr) return 0;
     
-    const sDate = new Date(startStr);
-    sDate.setHours(0, 0, 0, 0); // Kunci di awal hari semenjak aturan aktif
-    
-    const eDate = new Date(endStr);
-    eDate.setHours(23, 59, 59, 999); // Kunci di mili-detik terakhir hari penutupan
+    const sDate = startOfLocalDay(startStr); // Kunci di awal hari (lokal) semenjak aturan aktif
+    const eDate = endOfLocalDay(endStr); // Kunci di mili-detik terakhir hari penutupan (lokal)
 
     const categoriesList = Array.isArray(catId) ? catId : [catId];
 
@@ -158,23 +155,23 @@ export default function BudgetModal({
     if (selectedCategories.length === 0) return alert(tr('Mohon pilih minimal satu kategori untuk target & limit ini'));
 
     const kini = new Date();
-    let computedStartDate = new Date().toISOString().split('T')[0]; // Hari ini (YYYY-MM-DD)
+    let computedStartDate = localDateKey(kini); // Hari ini (YYYY-MM-DD)
     let computedEndDate = '';
 
     // LOGIKA ABSOLUT MAJU KE DEPAN
     if (timeframe === '1_minggu') {
       const targetDate = new Date(kini);
       targetDate.setDate(kini.getDate() + 7); // +7 Hari penuh ke depan
-      computedEndDate = targetDate.toISOString().split('T')[0];
+      computedEndDate = localDateKey(targetDate);
     } else if (timeframe === '1_bulan') {
       const targetDate = new Date(kini);
       targetDate.setMonth(kini.getMonth() + 1); // Mengikuti angka tanggal yang sama di bulan berikutnya
-      computedEndDate = targetDate.toISOString().split('T')[0];
+      computedEndDate = localDateKey(targetDate);
     } else if (timeframe === 'tanggal_kustom') {
       if (!startDate || !endDate) return alert(tr('Mohon isi rentang tanggal kustom secara lengkap'));
 
-      const checkStart = new Date(startDate);
-      const checkEnd = new Date(endDate);
+      const checkStart = startOfLocalDay(startDate);
+      const checkEnd = startOfLocalDay(endDate);
 
       // VALIDASI: Waktu akhir harus lebih besar dari waktu sekarang/mulai
       if (checkEnd <= checkStart) {

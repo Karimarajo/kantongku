@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Pocket, Account, Category } from '../types';
-import { formatRupiah, formatDate, getCategoryColorHex } from '../utils';
+import { formatRupiah, formatDate, getCategoryColorHex, startOfLocalDay, endOfLocalDay } from '../utils';
 import CategoryIcon from './CategoryIcon';
 import {
   X, Search, Filter, Calendar, Wallet, Tag, ArrowDownLeft, ArrowUpRight,
@@ -56,14 +56,12 @@ export default function TransactionHistoryView({
       }
       // Date from
       if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        fromDate.setHours(0, 0, 0, 0);
+        const fromDate = startOfLocalDay(dateFrom);
         if (new Date(t.date) < fromDate) return false;
       }
       // Date to
       if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
+        const toDate = endOfLocalDay(dateTo);
         if (new Date(t.date) > toDate) return false;
       }
       // Category filter

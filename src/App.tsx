@@ -10,7 +10,7 @@ import {
   INITIAL_WALLET_TRANSFER_LOGS,
   INITIAL_ACTIVITY_LOG
 } from './mockData';
-import { getDefaultProfile, formatRupiah, setActiveCurrency } from './utils';
+import { getDefaultProfile, formatRupiah, setActiveCurrency, startOfLocalDay, endOfLocalDay } from './utils';
 import { t as tr, setActiveLanguage } from './i18n';
 import { disablePushNotifications } from './lib/pushNotifications';
 import { installTrialGate, TRIAL_EXPIRED_EVENT } from './lib/trialGate';
@@ -86,11 +86,8 @@ function applyTheme(theme: 'dark' | 'light') {
 const calculateBudgetSpent = (b: Budget, transactionsList: Transaction[]): number => {
   if (!b.startDate || !b.endDate) return 0;
   
-  const sDate = new Date(b.startDate);
-  sDate.setHours(0, 0, 0, 0);
-  
-  const eDate = new Date(b.endDate);
-  eDate.setHours(23, 59, 59, 999);
+  const sDate = startOfLocalDay(b.startDate);
+  const eDate = endOfLocalDay(b.endDate);
 
   const categoriesList = getBudgetCategories(b);
 
