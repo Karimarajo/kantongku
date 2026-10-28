@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useHorizontalDragScroll } from '../hooks/useHorizontalDragScroll';
 import { 
   Camera, 
   Mic, 
@@ -128,11 +127,6 @@ export default function AddTransactionModal({
     () => [...pockets, ...sharedPockets.map(sp => ({ ...sp.pocket, id: sp.shareId }))],
     [pockets, sharedPockets]
   );
-  // Task: klik-geser + roda-mouse-ke-horizontal untuk baris kategori di
-  // bawah (lihat useHorizontalDragScroll) — sebelumnya cuma bisa digeser
-  // lewat swipe layar sentuh, mouse biasa di desktop tidak bisa sama sekali.
-  const categoryScrollHandlers = useHorizontalDragScroll<HTMLDivElement>();
-
   const activeShare = useMemo(() => sharedPockets.find(sp => sp.shareId === pocketId), [sharedPockets, pocketId]);
   const effectiveAccounts = activeShare ? activeShare.accounts : accounts;
   const effectiveCategories = activeShare ? activeShare.categories : categories;
@@ -992,15 +986,12 @@ export default function AddTransactionModal({
                   <label className="text-xs font-label-caps text-on-surface-variant uppercase">{tr('Kategori')}</label>
                   <button type="button" onClick={onOpenCategoryManager} className="text-[10px] text-primary hover:underline flex items-center gap-1.5 font-semibold"><Settings className="w-3.5 h-3.5" /> {tr('Kelola Kategori')}</button>
                 </div>
-                <div
-                  {...categoryScrollHandlers}
-                  className="flex gap-2 overflow-x-auto pb-1 no-scrollbar whitespace-nowrap cursor-grab active:cursor-grabbing"
-                >
+                <div className="flex flex-wrap gap-2">
                   {effectiveCategories.map((cat) => {
                     const isSelected = category === cat.id;
                     const catHex = getCategoryColorHex(cat.color);
                     return (
-                      <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={`flex-shrink-0 px-3.5 py-1.5 rounded-full border text-xs flex items-center gap-1.5 transition-all ${isSelected ? 'font-bold' : 'bg-surface-variant/40 border-overlay/5 text-on-surface-variant/70'}`} style={isSelected ? { backgroundColor: catHex + '20', borderColor: catHex, color: catHex } : {}}><CategoryIcon name={cat.icon} className="w-4 h-4" />{cat.name}</button>
+                      <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={`px-3.5 py-1.5 rounded-full border text-xs flex items-center gap-1.5 transition-all ${isSelected ? 'font-bold' : 'bg-surface-variant/40 border-overlay/5 text-on-surface-variant/70'}`} style={isSelected ? { backgroundColor: catHex + '20', borderColor: catHex, color: catHex } : {}}><CategoryIcon name={cat.icon} className="w-4 h-4" />{cat.name}</button>
                     );
                   })}
                 </div>
