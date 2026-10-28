@@ -32,12 +32,14 @@ import {
   Gift,
   Smartphone,
   Settings,
-  Brain
+  Brain,
+  ListPlus
 } from 'lucide-react';
 import { PocketType, CategoryType, Transaction, Pocket, Account, Category, SharedPocketBundle } from '../types';
 import { formatRupiah, getCategoryColorHex, localDateKey, startOfLocalDay } from '../utils';
 import { t as tr, getActiveLanguage } from '../i18n';
 import CategoryIcon from './CategoryIcon';
+import BulkTransactionView from './BulkTransactionView';
 import CalcKeyboard, { formatEquation, evaluateEquation } from './CalcKeyboard';
 
 interface AddTransactionModalProps {
@@ -49,6 +51,10 @@ interface AddTransactionModalProps {
   // hasil ini supaya modal TIDAK ikut ditutup/direset saat ditolak, biar
   // user bisa langsung perbaiki nominal/akunnya tanpa mengetik ulang.
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => Transaction | null;
+  // Simpan banyak transaksi sekaligus (all-or-nothing) — dipakai view 'bulk'.
+  onAddTransactionsBulk?: (
+    items: Array<Omit<Transaction, 'id' | 'date'> & { date: string }>
+  ) => { ok: true; count: number } | { ok: false; errors: string[] };
   editingTransaction?: Transaction | null;
   onEditTransaction?: (transaction: Transaction) => boolean;
   pockets: Pocket[];
@@ -68,12 +74,13 @@ interface AddTransactionModalProps {
   onEditSharedTransaction?: (shareId: string, transaction: Transaction) => Promise<boolean>;
 }
 
-type ModalViewType = 'options' | 'camera' | 'voice' | 'manual' | 'parser';
+type ModalViewType = 'options' | 'camera' | 'voice' | 'manual' | 'parser' | 'bulk';
 
 export default function AddTransactionModal({
   isOpen,
   onClose,
   onAddTransaction,
+  onAddTransactionsBulk,
   editingTransaction,
   onEditTransaction,
   pockets,
@@ -666,6 +673,7 @@ export default function AddTransactionModal({
                 {currentView === 'voice' && tr('Mendikte lewat Suara')}
                 {currentView === 'manual' && tr('Input Manual')}
                 {currentView === 'parser' && tr('Ketik Apapun')}
+                {currentView === 'bulk' && tr('Banyak Sekaligus')}
               </>
             )}
           </span>
@@ -690,6 +698,19 @@ export default function AddTransactionModal({
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0" />
               </button>
+
+              {onAddTransactionsBulk && !editingTransaction && (
+                <button onClick={() => setCurrentView('bulk')} className="flex items-center gap-4 p-4 rounded-2xl card-elevated bg-surface-variant border border-outline-variant hover:bg-outline-variant/60 transition-all text-left group active:scale-[0.98]">
+                  <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shrink-0">
+                    <ListPlus className="w-6 h-6" />
+                  </div>
+                  <div className="flex-grow">
+                    <p className="font-body-lg text-on-surface font-bold">{tr('Banyak Sekaligus')}</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">{tr('Ketik beberapa belanjaan sekaligus, tinjau, lalu simpan')}</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 ml-auto text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0" />
+                </button>
+              )}
 
               {/* Task: "Foto Struk Belanja" & "Input Manual" pakai bg-overlay/X
                   (highlight semi-transparan hitam di light theme) yang di
@@ -859,6 +880,17 @@ export default function AddTransactionModal({
 
               {apiError && <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300">{apiError}</div>}
             </div>
+          )}
+
+          {/* VIEW: Input banyak transaksi sekaligus */}
+          {currentView === 'bulk' && onAddTransactionsBulk && (
+            <BulkTransactionView
+              pockets={pockets}
+              accounts={accounts}
+              categories={categories}
+              onSave={onAddTransactionsBulk}
+              onSaved={() => { setCurrentView('options'); onClose(); }}
+            />
           )}
 
           {/* VIEW: Manual Form Input */}

@@ -1097,6 +1097,101 @@ export default function App() {
     return newTransaction;
   };
 
+  // Input banyak transaksi sekaligus (modal "Banyak Sekaligus"). Tidak bisa
+  // dibuat dengan memanggil handleAddTransaction berulang: tiap panggilan
+  // membaca state closure yang sama, jadi hasil panggilan sebelumnya akan
+  // tertimpa. Di sini seluruh batch divalidasi terhadap salinan saldo yang
+  // terus diperbarui, lalu disimpan SEKALI — semua berhasil atau tidak ada
+  // yang tersimpan (dengan daftar alasan per baris).
+  const handleAddTransactionsBulk = (
+    items: Array<Omit<Transaction, 'id' | 'date'> & { date: string }>
+  ): { ok: true; count: number } | { ok: false; errors: string[] } => {
+    if (items.length === 0) return { ok: false, errors: ['Tidak ada transaksi untuk disimpan.'] };
+
+    const errors: string[] = [];
+    let workAccounts = accounts;
+    const created: Transaction[] = [];
+    const stamp = Date.now();
+
+    items.forEach((item, i) => {
+      const label = `Baris ${i + 1} ("${item.title}")`;
+      const src = workAccounts.find(a => a.id === item.accountId);
+      if (!src) { errors.push(`${label}: wallet tidak ditemukan.`); return; }
+      if (!(item.amount > 0)) { errors.push(`${label}: nominal harus lebih dari 0.`); return; }
+      if (!pockets.some(p => p.id === item.pocketId)) { errors.push(`${label}: kantong tidak ditemukan.`); return; }
+
+      const isPaylater = src.type === 'paylater';
+      const tx: Transaction = {
+        ...item,
+        id: `t-${stamp}-${i}`,
+        inputBy: currentUser?.email,
+      };
+
+      if (isPaylater) {
+        if (item.type !== 'outgoing') { errors.push(`${label}: wallet Paylater "${src.name}" hanya untuk pengeluaran.`); return; }
+        const available = (src.limit || 0) - src.balance;
+        if (item.amount > available) { errors.push(`${label}: limit kredit "${src.name}" tidak cukup (tersedia ${formatRupiah(available)}).`); return; }
+        tx.paylaterStatus = 'unpaid';
+      } else if (item.type === 'outgoing') {
+        if (item.amount > src.balance) { errors.push(`${label}: saldo "${src.name}" tidak cukup (tersedia ${formatRupiah(src.balance)}).`); return; }
+        const allocated = (src.allocations || {})[item.pocketId] || 0;
+        if (item.amount > allocated) {
+          const pocketLabel = pockets.find(p => p.id === item.pocketId)?.name || item.pocketId;
+          errors.push(`${label}: alokasi "${src.name}" ke kantong "${pocketLabel}" tidak cukup (tersedia ${formatRupiah(allocated)}).`);
+          return;
+        }
+      }
+
+      const delta = item.type === 'incoming' ? item.amount : -item.amount;
+      workAccounts = workAccounts.map(a => {
+        if (a.id !== item.accountId) return a;
+        if (isPaylater) return { ...a, balance: a.balance + item.amount };
+        const alloc = a.allocations || {};
+        return {
+          ...a,
+          balance: Math.max(0, a.balance + delta),
+          allocations: { ...alloc, [item.pocketId]: Math.max(0, (alloc[item.pocketId] || 0) + delta) },
+        };
+      });
+      created.push(tx);
+    });
+
+    if (errors.length > 0) return { ok: false, errors };
+
+    const nextTransactions = [...created, ...transactions].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const nextPockets = pockets.map(p => ({
+      ...p,
+      balance: workAccounts.reduce((sum, a) => sum + (a.allocations?.[p.id] || 0), 0),
+    }));
+    const touchedCategories = new Set(created.map(t => t.category));
+    const nextBudgets = budgets.map(b => {
+      if (!getBudgetCategories(b).some(c => touchedCategories.has(c))) return b;
+      const nextSpent = calculateBudgetSpent(b, nextTransactions);
+      return { ...b, spent: nextSpent, sisaPercent: Math.max(0, Math.round(((b.limit - nextSpent) / b.limit) * 100)) };
+    });
+
+    const total = created.reduce((sum, t) => sum + (t.type === 'incoming' ? t.amount : -t.amount), 0);
+    const successNotif: Notification = {
+      id: `n-success-${stamp}`,
+      title: 'Pencatatan Berhasil',
+      message: `${created.length} transaksi sekaligus telah disimpan (total ${total < 0 ? '-' : '+'}${formatRupiah(Math.abs(total))}).`,
+      time: new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }),
+      isRead: false,
+      type: 'success',
+      link: { type: 'transaction', transactionId: created[0].id },
+    };
+    const nextLog = logActivity(
+      `Menambahkan ${created.length} transaksi sekaligus (${total < 0 ? '-' : '+'}${formatRupiah(Math.abs(total))})`,
+      'transaction',
+      'receipt'
+    );
+
+    updateStateAndStorage(nextTransactions, nextPockets, workAccounts, nextBudgets, [successNotif, ...notifications], undefined, undefined, nextLog);
+    return { ok: true, count: created.length };
+  };
+
   // Delete transaction operation
   const handleDeleteTransaction = (id: string) => {
     const target = transactions.find(t => t.id === id);
@@ -3036,6 +3131,7 @@ export default function App() {
           setEditingTransaction(null);
         }}
         onAddTransaction={handleAddTransaction}
+        onAddTransactionsBulk={handleAddTransactionsBulk}
         editingTransaction={editingTransaction}
         onEditTransaction={handleEditTransaction}
         pockets={pockets}

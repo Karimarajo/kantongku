@@ -313,6 +313,82 @@ app.post("/api/parse", async (req, res) => {
   }
 });
 
+// Bulk text parser: satu kalimat bebas ("beli a, b, c tanggal 25, masing-masing
+// 20rb, pakai BCA, kategori makan") -> BANYAK transaksi. Hasilnya hanya usulan;
+// klien menampilkan layar tinjau dan user yang menyimpan.
+function buildBulkSystemInstruction(context: { categories?: any[]; pockets?: any[]; accounts?: any[]; today?: string }): string {
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(context.today || "") ? context.today : new Date().toISOString().slice(0, 10);
+  return `Kamu adalah mesin parser transaksi keuangan untuk aplikasi KantongKu. Pengguna menulis SATU kalimat/paragraf bebas yang berisi BANYAK transaksi sekaligus. Pecah menjadi daftar transaksi terstruktur dalam JSON.
+
+ATURAN WAJIB:
+1. Satu barang/pos yang disebut = satu item. Contoh "beli nasi, kopi, bensin" = 3 item.
+2. Atribut yang disebut SEKALI untuk semua (tanggal, rekening, kategori, kantong, tipe) berlaku untuk SEMUA item, kecuali item tertentu disebut punya atribut sendiri.
+3. Nominal: "masing-masing 20rb" = 20000 per item; kalau tiap item punya harga sendiri, pakai harga itu; kalau hanya satu TOTAL disebut tanpa rincian, bagi rata ke semua item (pembulatan ke bilangan bulat, sisa ke item pertama). Kalau tidak bisa dipastikan: nominal=0. Angka: "rb/ribu"=x1000, "jt/juta"=x1.000.000, "k"=x1000.
+4. JANGAN mengarang. category_id, pocket_id, account_id HANYA diisi jika disebut/tersirat kuat; kalau tidak, string kosong "". Kalau diisi WAJIB id PERSIS dari daftar milik pengguna:
+   - Kategori: ${JSON.stringify(context.categories || [])}
+   - Kantong: ${JSON.stringify(context.pockets || [])}
+   - Rekening/dompet: ${JSON.stringify(context.accounts || [])}
+   Kategori boleh berbeda per item bila masuk akal (mis. bensin -> transportasi) HANYA jika pengguna tidak menyebut satu kategori untuk semua.
+5. "tanggal": format YYYY-MM-DD, hasil resolusi RELATIF terhadap hari ini = ${today} ("kemarin", "lusa", "tanggal 25" tanpa bulan = tanggal 25 pada bulan/tahun terdekat yang tidak melewati hari ini). Kalau tidak disebut: string kosong "".
+6. "tipe": 'pengeluaran' kecuali jelas pemasukan (gaji, terima, dapat, jual).
+7. "catatan": nama singkat item, huruf awal kapital, tanpa angka/harga. Output hanya JSON valid sesuai skema.`;
+}
+
+const BULK_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          catatan: { type: "STRING" },
+          nominal: { type: "INTEGER" },
+          tipe: { type: "STRING", description: "'pemasukan' atau 'pengeluaran'" },
+          tanggal: { type: "STRING", description: "YYYY-MM-DD atau string kosong" },
+          category_id: { type: "STRING" },
+          pocket_id: { type: "STRING" },
+          account_id: { type: "STRING" },
+        },
+        required: ["catatan", "nominal", "tipe"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+app.post("/api/parse-bulk", requireSession, requireActiveStatus, async (req, res) => {
+  try {
+    const { prompt, context } = req.body || {};
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      return res.status(400).json({ error: "Input teks tidak boleh kosong" });
+    }
+    if (prompt.length > 4000) {
+      return res.status(400).json({ error: "Teks terlalu panjang (maks 4000 karakter). Pecah jadi beberapa kali input." });
+    }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Layanan AI belum dikonfigurasi di server. Hubungi admin." });
+    }
+    const aiInstance = new GoogleGenAI({ apiKey: apiKey as string, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+    const response = await generateContentWithRetry(aiInstance, {
+      model: "gemini-3.5-flash-lite",
+      contents: [{ role: "user", parts: [{ text: `Parse input berikut menjadi banyak transaksi: "${prompt}"` }] }],
+      config: {
+        systemInstruction: buildBulkSystemInstruction(context || {}),
+        responseMimeType: "application/json",
+        responseSchema: BULK_RESPONSE_SCHEMA,
+      },
+    });
+    const parsed = JSON.parse(response.text || "{}");
+    const items = Array.isArray(parsed.items) ? parsed.items.slice(0, 50) : [];
+    res.json({ items });
+  } catch (error: any) {
+    console.error("Gagal melakukan parse-bulk:", error);
+    res.status(500).json({ error: error.message || "Gagal memproses input dengan AI" });
+  }
+});
+
 // Parse Media (Image/Audio Base64) Secure Proxy Route
 app.post("/api/parse-media", async (req, res) => {
   try {
