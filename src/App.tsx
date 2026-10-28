@@ -1104,7 +1104,8 @@ export default function App() {
   // terus diperbarui, lalu disimpan SEKALI — semua berhasil atau tidak ada
   // yang tersimpan (dengan daftar alasan per baris).
   const handleAddTransactionsBulk = (
-    items: Array<Omit<Transaction, 'id' | 'date'> & { date: string }>
+    items: Array<Omit<Transaction, 'id' | 'date'> & { date: string }>,
+    dryRun = false
   ): { ok: true; count: number } | { ok: false; errors: string[] } => {
     if (items.length === 0) return { ok: false, errors: ['Tidak ada transaksi untuk disimpan.'] };
 
@@ -1157,6 +1158,7 @@ export default function App() {
     });
 
     if (errors.length > 0) return { ok: false, errors };
+    if (dryRun) return { ok: true, count: created.length };
 
     const nextTransactions = [...created, ...transactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()

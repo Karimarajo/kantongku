@@ -53,7 +53,8 @@ interface AddTransactionModalProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => Transaction | null;
   // Simpan banyak transaksi sekaligus (all-or-nothing) — dipakai view 'bulk'.
   onAddTransactionsBulk?: (
-    items: Array<Omit<Transaction, 'id' | 'date'> & { date: string }>
+    items: Array<Omit<Transaction, 'id' | 'date'> & { date: string }>,
+    dryRun?: boolean
   ) => { ok: true; count: number } | { ok: false; errors: string[] };
   editingTransaction?: Transaction | null;
   onEditTransaction?: (transaction: Transaction) => boolean;
@@ -564,12 +565,15 @@ export default function AddTransactionModal({
     if (!title) return alert(tr('Mohon isi judul transaksi'));
     if (amount <= 0) return alert(tr('Nominal harus lebih besar dari 0'));
     
-    // Tanggal terpilih (kalender lokal perangkat) + jam saat ini. Kalau sedang
-    // mengedit dan tanggalnya tidak diubah, jam aslinya dipertahankan.
+    // Tanggal terpilih (kalender lokal perangkat). Transaksi baru: jam saat
+    // ini. Mengedit: jam ASLI transaksi selalu dipertahankan — kalau tanggal
+    // diganti, hanya tanggalnya yang berpindah, jamnya tidak ikut berubah.
     const pickedKey = resolvePickedDateKey();
     let finalDate = startOfLocalDay(pickedKey);
-    if (editingTransaction && localDateKey(new Date(editingTransaction.date)) === pickedKey) {
-      finalDate = new Date(editingTransaction.date);
+    if (editingTransaction) {
+      const orig = new Date(editingTransaction.date);
+      if (localDateKey(orig) === pickedKey) finalDate = orig;
+      else finalDate.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds());
     } else {
       const now = new Date();
       finalDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
@@ -888,6 +892,8 @@ export default function AddTransactionModal({
               pockets={pockets}
               accounts={accounts}
               categories={categories}
+              sharedPockets={sharedPockets}
+              onAddSharedTransaction={onAddSharedTransaction}
               onSave={onAddTransactionsBulk}
               onSaved={() => { setCurrentView('options'); onClose(); }}
             />
